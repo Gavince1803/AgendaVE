@@ -1,18 +1,58 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('⚠️  Supabase credentials not configured. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file');
+  console.warn('📝 Create a .env file with your Supabase credentials:');
+  console.warn('   EXPO_PUBLIC_SUPABASE_URL=https://ldgxxrgdcerftlmeyrmi.supabase.co');
+  console.warn('   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ3h4cmdkY2VyZnRsbWV5cm1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNzYxNzAsImV4cCI6MjA3Mjk1MjE3MH0.gSzE3LCbrHzpG3mcJPWaENy0zJdRa9PtOGL8ZQVJHhA');
+}
+
+// Configurar storage según la plataforma
+const getStorage = () => {
+  if (Platform.OS === 'web') {
+    // Para web, usar localStorage
+    return {
+      getItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          return Promise.resolve(window.localStorage.getItem(key));
+        }
+        return Promise.resolve(null);
+      },
+      setItem: (key: string, value: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(key, value);
+        }
+        return Promise.resolve();
+      },
+      removeItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(key);
+        }
+        return Promise.resolve();
+      },
+    };
+  }
+  // Para móvil, usar AsyncStorage
+  return AsyncStorage;
+};
+
+// Crear cliente de Supabase solo si las credenciales están configuradas
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: getStorage(),
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    })
+  : null;
 
 // Tipos para TypeScript
 export type Database = {

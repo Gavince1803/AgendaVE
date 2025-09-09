@@ -1,0 +1,405 @@
+import { Button } from '@/components/ui/Button';
+import { Calendar } from '@/components/ui/Calendar';
+import { Card } from '@/components/ui/Card';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import { TimeSlots } from '@/components/ui/TimeSlots';
+import { Colors } from '@/constants/Colors';
+import { BookingService } from '@/lib/booking';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
+
+export default function TimeSelectionScreen() {
+  const { 
+    providerId, 
+    providerName, 
+    serviceId, 
+    serviceName, 
+    servicePrice, 
+    serviceDuration 
+  } = useLocalSearchParams();
+  
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [loadingTimes, setLoadingTimes] = useState(false);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [bookedDates, setBookedDates] = useState<string[]>([]);
+
+  // Generar fechas disponibles (próximos 7 días)
+  const generateAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      
+      const isToday = i === 0;
+      const isTomorrow = i === 1;
+      
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        displayDate: date.toLocaleDateString('es-ES', { 
+          weekday: 'long', 
+          day: 'numeric', 
+          month: 'long' 
+        }),
+        shortDate: date.toLocaleDateString('es-ES', { 
+          day: 'numeric', 
+          month: 'short' 
+        }),
+        isToday,
+        isTomorrow,
+        isAvailable: true, // En una app real, esto vendría del backend
+      });
+    }
+    
+    return dates;
+  };
+
+  // Generar horarios disponibles
+  const generateAvailableTimes = (date: string) => {
+    const times = [];
+    const startHour = 9;
+    const endHour = 18;
+    const interval = 30; // 30 minutos
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minutes = 0; minutes < 60; minutes += interval) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        const isAvailable = Math.random() > 0.3; // Simular disponibilidad
+        
+        times.push({
+          time: timeString,
+          displayTime: `${hour}:${minutes.toString().padStart(2, '0')}`,
+          isAvailable,
+        });
+      }
+    }
+    
+    return times.filter(t => t.isAvailable);
+  };
+
+  // Cargar fechas disponibles al inicio
+  useEffect(() => {
+    loadAvailableDates();
+  }, []);
+
+  // Cargar horarios disponibles cuando se selecciona una fecha
+  useEffect(() => {
+    if (selectedDate && providerId) {
+      loadAvailableTimes(selectedDate);
+    } else {
+      setAvailableTimes([]);
+    }
+  }, [selectedDate, providerId]);
+
+  const loadAvailableTimes = async (date: string) => {
+    setLoadingTimes(true);
+    try {
+      const times = await BookingService.getAvailableTimeSlots(providerId as string, date);
+      setAvailableTimes(times);
+    } catch (error) {
+      console.error('Error loading available times:', error);
+      // Fallback a horarios mock si hay error
+      const mockTimes = generateAvailableTimes(date);
+      setAvailableTimes(mockTimes);
+    } finally {
+      setLoadingTimes(false);
+    }
+  };
+
+  const loadAvailableDates = async () => {
+    try {
+      // Generar fechas disponibles para los próximos 30 días
+      const dates = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      
+      setAvailableDates(dates);
+      
+      // En una implementación real, aquí se cargarían las fechas ocupadas desde Supabase
+      // const bookedDates = await BookingService.getBookedDates(providerId as string);
+      // setBookedDates(bookedDates);
+    } catch (error) {
+      console.error('Error loading available dates:', error);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime(''); // Reset time when date changes
+  };
+
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+  };
+
+  const handleContinue = () => {
+    if (!selectedDate || !selectedTime) {
+      return;
+    }
+
+    router.push({
+      pathname: '/(booking)/booking-confirmation',
+      params: {
+        providerId,
+        providerName,
+        serviceId,
+        serviceName,
+        servicePrice,
+        serviceDuration,
+        selectedDate,
+        selectedTime,
+      },
+    });
+  };
+
+  const selectedDateData = selectedDate ? {
+    date: selectedDate,
+    displayDate: new Date(selectedDate).toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long' 
+    })
+  } : null;
+  const selectedTimeData = availableTimes.find(t => t.time === selectedTime);
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.providerName}>{providerName}</Text>
+          <Text style={styles.stepText}>Paso 2 de 3</Text>
+        </View>
+
+        {/* Resumen del servicio */}
+        <View style={styles.serviceSummary}>
+          <Card variant="elevated" padding="medium">
+            <View style={styles.summaryHeader}>
+              <IconSymbol name="scissors" size={20} color={Colors.light.primary} />
+              <Text style={styles.summaryTitle}>Servicio Seleccionado</Text>
+            </View>
+            <Text style={styles.serviceName}>{serviceName}</Text>
+            <View style={styles.summaryDetails}>
+              <Text style={styles.summaryText}>Duración: {serviceDuration} min</Text>
+              <Text style={styles.summaryPrice}>${servicePrice}</Text>
+            </View>
+          </Card>
+        </View>
+
+        {/* Calendario */}
+        <Calendar
+          selectedDate={selectedDate}
+          onDateSelect={handleDateSelect}
+          availableDates={availableDates}
+          bookedDates={bookedDates}
+        />
+
+        {/* Franjas horarias */}
+        {selectedDate && (
+          <View style={styles.timeSlotsSection}>
+            <TimeSlots
+              slots={availableTimes.map(time => ({
+                time,
+                isAvailable: true,
+                isSelected: selectedTime === time,
+                duration: parseInt(serviceDuration as string),
+              }))}
+              selectedTime={selectedTime}
+              onTimeSelect={handleTimeSelect}
+              slotDuration={parseInt(serviceDuration as string)}
+            />
+          </View>
+        )}
+
+        {/* Resumen de la selección */}
+        {selectedDate && selectedTime && (
+          <View style={styles.selectionSummary}>
+            <Text style={styles.sectionTitle}>Resumen de la Cita</Text>
+            <Card variant="elevated" padding="medium">
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Fecha:</Text>
+                <Text style={styles.summaryValue}>{selectedDateData?.displayDate}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Hora:</Text>
+                <Text style={styles.summaryValue}>{selectedTimeData?.displayTime}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Servicio:</Text>
+                <Text style={styles.summaryValue}>{serviceName}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Duración:</Text>
+                <Text style={styles.summaryValue}>{serviceDuration} minutos</Text>
+              </View>
+              <View style={[styles.summaryRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Total:</Text>
+                <Text style={styles.totalValue}>${servicePrice}</Text>
+              </View>
+            </Card>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Botón de continuar */}
+      <View style={styles.bottomSection}>
+        <Button
+          title="Continuar"
+          onPress={handleContinue}
+          variant="primary"
+          size="large"
+          fullWidth
+          disabled={!selectedDate || !selectedTime}
+          icon={<IconSymbol name="arrow.right" size={16} color="#ffffff" />}
+        />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.surface,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: Colors.light.background,
+  },
+  providerName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.light.text,
+  },
+  stepText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  serviceSummary: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginLeft: 8,
+  },
+  serviceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  summaryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  summaryText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  summaryPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.light.success,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  timeSlotsSection: {
+    flex: 1,
+    marginHorizontal: 16,
+  },
+  selectionSummary: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.text,
+  },
+  totalRow: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borderLight,
+    paddingTop: 8,
+    marginTop: 8,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.light.success,
+  },
+  bottomSection: {
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    backgroundColor: Colors.light.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borderLight,
+  },
+});

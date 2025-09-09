@@ -1,8 +1,10 @@
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Input } from '@/components/ui/Input';
+import { Colors } from '@/constants/Colors';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function ServicesScreen() {
   const [services, setServices] = useState([
@@ -36,6 +38,7 @@ export default function ServicesScreen() {
   ]);
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [newService, setNewService] = useState({
     name: '',
     description: '',
@@ -43,6 +46,14 @@ export default function ServicesScreen() {
     price: '',
     currency: 'USD',
   });
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    // Simular carga de datos
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
 
   const handleAddService = () => {
     if (!newService.name || !newService.duration || !newService.price) {
@@ -90,132 +101,134 @@ export default function ServicesScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Mis Servicios
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Gestiona los servicios que ofreces
-        </ThemedText>
-      </ThemedView>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View style={styles.header}>
+        <IconSymbol name="scissors" size={32} color={Colors.light.primary} />
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Mis Servicios</Text>
+          <Text style={styles.subtitle}>Gestiona los servicios que ofreces</Text>
+        </View>
+      </View>
 
-      <ThemedView style={styles.section}>
-        <TouchableOpacity
-          style={styles.addButton}
+      <View style={styles.section}>
+        <Button
+          title={showAddForm ? 'Cancelar' : 'Agregar Servicio'}
           onPress={() => setShowAddForm(!showAddForm)}
-        >
-          <IconSymbol name="plus" size={20} color="#ffffff" />
-          <ThemedText style={styles.addButtonText}>
-            {showAddForm ? 'Cancelar' : 'Agregar Servicio'}
-          </ThemedText>
-        </TouchableOpacity>
+          variant="primary"
+          size="medium"
+          icon="plus"
+        />
 
         {showAddForm && (
-          <View style={styles.addForm}>
-            <ThemedText style={styles.formTitle}>Nuevo Servicio</ThemedText>
+          <Card variant="elevated" padding="medium" style={styles.addForm}>
+            <Text style={styles.formTitle}>Nuevo Servicio</Text>
             
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Nombre del Servicio *</ThemedText>
-              <TextInput
-                style={styles.input}
-                value={newService.name}
-                onChangeText={(text) => setNewService({ ...newService, name: text })}
-                placeholder="Ej: Corte de Cabello"
-              />
-            </View>
+            <Input
+              label="Nombre del Servicio"
+              placeholder="Ej: Corte de Cabello"
+              value={newService.name}
+              onChangeText={(text) => setNewService({ ...newService, name: text })}
+              required
+            />
 
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Descripción</ThemedText>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={newService.description}
-                onChangeText={(text) => setNewService({ ...newService, description: text })}
-                placeholder="Descripción del servicio"
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+            <Input
+              label="Descripción"
+              placeholder="Descripción del servicio"
+              value={newService.description}
+              onChangeText={(text) => setNewService({ ...newService, description: text })}
+              multiline
+              numberOfLines={3}
+            />
 
             <View style={styles.row}>
-              <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                <ThemedText style={styles.label}>Duración (min) *</ThemedText>
-                <TextInput
-                  style={styles.input}
+              <View style={styles.halfWidth}>
+                <Input
+                  label="Duración (min)"
+                  placeholder="30"
                   value={newService.duration}
                   onChangeText={(text) => setNewService({ ...newService, duration: text })}
-                  placeholder="30"
                   keyboardType="numeric"
+                  required
                 />
               </View>
-              <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                <ThemedText style={styles.label}>Precio *</ThemedText>
-                <TextInput
-                  style={styles.input}
+              <View style={styles.halfWidth}>
+                <Input
+                  label="Precio"
+                  placeholder="15.00"
                   value={newService.price}
                   onChangeText={(text) => setNewService({ ...newService, price: text })}
-                  placeholder="15.00"
                   keyboardType="numeric"
+                  required
                 />
               </View>
             </View>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleAddService}>
-              <ThemedText style={styles.saveButtonText}>Guardar Servicio</ThemedText>
-            </TouchableOpacity>
-          </View>
+            <Button
+              title="Guardar Servicio"
+              onPress={handleAddService}
+              variant="success"
+              size="medium"
+              style={styles.saveButton}
+            />
+          </Card>
         )}
-      </ThemedView>
+      </View>
 
-      <ThemedView style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Servicios Activos ({services.filter(s => s.isActive).length})
-        </ThemedText>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Servicios Activos ({services.filter(s => s.isActive).length})
+          </Text>
+        </View>
         
         <View style={styles.servicesList}>
           {services.map((service) => (
-            <View key={service.id} style={styles.serviceCard}>
+            <Card key={service.id} variant="elevated" padding="medium" style={styles.serviceCard}>
               <View style={styles.serviceHeader}>
                 <View style={styles.serviceInfo}>
-                  <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                  <Text style={styles.serviceName}>{service.name}</Text>
                   {service.description && (
-                    <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                    <Text style={styles.serviceDescription}>{service.description}</Text>
                   )}
                 </View>
                 <View style={styles.serviceActions}>
-                  <TouchableOpacity
-                    style={[styles.statusButton, service.isActive ? styles.activeButton : styles.inactiveButton]}
+                  <Button
+                    title={service.isActive ? 'Activo' : 'Inactivo'}
                     onPress={() => toggleServiceStatus(service.id)}
-                  >
-                    <ThemedText style={[styles.statusText, service.isActive ? styles.activeText : styles.inactiveText]}>
-                      {service.isActive ? 'Activo' : 'Inactivo'}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
+                    variant={service.isActive ? 'success' : 'destructive'}
+                    size="small"
+                  />
+                  <Button
                     onPress={() => deleteService(service.id)}
-                  >
-                    <IconSymbol name="trash" size={16} color="#ef4444" />
-                  </TouchableOpacity>
+                    variant="ghost"
+                    size="small"
+                    icon="trash"
+                    iconColor={Colors.light.error}
+                  />
                 </View>
               </View>
 
               <View style={styles.serviceDetails}>
                 <View style={styles.detailItem}>
-                  <IconSymbol name="clock" size={16} color="#6b7280" />
-                  <ThemedText style={styles.detailText}>{service.duration} min</ThemedText>
+                  <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.detailText}>{service.duration} min</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <IconSymbol name="dollarsign.circle" size={16} color="#6b7280" />
-                  <ThemedText style={styles.detailText}>
+                  <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.detailText}>
                     ${service.price} {service.currency}
-                  </ThemedText>
+                  </Text>
                 </View>
               </View>
-            </View>
+            </Card>
           ))}
         </View>
-      </ThemedView>
+      </View>
     </ScrollView>
   );
 }
@@ -223,113 +236,67 @@ export default function ServicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: 24,
-    paddingTop: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 16,
+    backgroundColor: Colors.light.surface,
+  },
+  headerText: {
+    marginLeft: 12,
+    flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: Colors.light.primary,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: Colors.light.textSecondary,
+    lineHeight: 22,
   },
   section: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   addForm: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
     marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   formTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.light.text,
     marginBottom: 20,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111827',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
   },
   row: {
     flexDirection: 'row',
+    gap: 12,
+  },
+  halfWidth: {
+    flex: 1,
   },
   saveButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
     marginTop: 8,
   },
-  saveButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  sectionHeader: {
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    marginBottom: 16,
-    color: '#374151',
+    color: Colors.light.text,
   },
   servicesList: {
     gap: 16,
   },
   serviceCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 0,
   },
   serviceHeader: {
     flexDirection: 'row',
@@ -339,45 +306,23 @@ const styles = StyleSheet.create({
   },
   serviceInfo: {
     flex: 1,
+    marginRight: 12,
   },
   serviceName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: Colors.light.text,
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
   },
   serviceActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  statusButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  activeButton: {
-    backgroundColor: '#d1fae5',
-  },
-  inactiveButton: {
-    backgroundColor: '#fee2e2',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  activeText: {
-    color: '#059669',
-  },
-  inactiveText: {
-    color: '#dc2626',
-  },
-  deleteButton: {
-    padding: 8,
+    gap: 8,
   },
   serviceDetails: {
     flexDirection: 'row',
@@ -390,7 +335,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    color: '#374151',
+    color: Colors.light.textSecondary,
   },
 });
 

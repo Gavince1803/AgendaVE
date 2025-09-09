@@ -16,18 +16,31 @@ import {
     View,
 } from 'react-native';
 
-export default function RegisterScreen() {
+export default function RegisterOwnerScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const role = 'client'; // Solo clientes se registran aquí
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
 
+  const businessTypes = [
+    'Peluquería',
+    'Barbería',
+    'Spa',
+    'Estética',
+    'Masajes',
+    'Uñas',
+    'Otro'
+  ];
+
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    if (!fullName || !email || !password || !confirmPassword || !businessName || !businessType || !phone) {
+      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
       return;
     }
 
@@ -43,7 +56,8 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, fullName, role);
+      await signUp(email, password, fullName, 'provider');
+      // Aquí podrías agregar lógica adicional para guardar la información del negocio
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al registrarse');
@@ -70,64 +84,110 @@ export default function RegisterScreen() {
               </View>
             </View>
             <ThemedText type="title" style={styles.title}>
-              Crear Cuenta
+              Registra tu Negocio
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Únete como cliente y reserva tus servicios favoritos
+              Únete como proveedor y comienza a recibir clientes
             </ThemedText>
           </View>
 
           {/* Formulario en card */}
           <Card variant="elevated" style={styles.formCard}>
             <ThemedText style={styles.formTitle}>
-              Información Personal
+              Información del Negocio
             </ThemedText>
             
-            <View style={styles.clientBadge}>
-              <ThemedText style={styles.clientBadgeText}>
-                👤 Cuenta de Cliente
+            <View style={styles.ownerBadge}>
+              <ThemedText style={styles.ownerBadgeText}>
+                🏪 Cuenta de Propietario
               </ThemedText>
             </View>
-            
-            <Input
-              label="Nombre Completo"
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Tu nombre completo"
-              autoCapitalize="words"
-            />
 
-            <Input
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            {/* Información personal */}
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Información Personal</ThemedText>
+              
+              <Input
+                label="Nombre Completo *"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Tu nombre completo"
+                autoCapitalize="words"
+              />
 
-            <Input
-              label="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Mínimo 6 caracteres"
-              secureTextEntry
-              autoCapitalize="none"
-            />
+              <Input
+                label="Email *"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="tu@email.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
-            <Input
-              label="Confirmar Contraseña"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Repite tu contraseña"
-              secureTextEntry
-              autoCapitalize="none"
-            />
+              <Input
+                label="Teléfono *"
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+58 412 123 4567"
+                keyboardType="phone-pad"
+              />
+            </View>
 
+            {/* Información del negocio */}
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Información del Negocio</ThemedText>
+              
+              <Input
+                label="Nombre del Negocio *"
+                value={businessName}
+                onChangeText={setBusinessName}
+                placeholder="Mi Peluquería"
+                autoCapitalize="words"
+              />
+
+              <Input
+                label="Tipo de Negocio *"
+                value={businessType}
+                onChangeText={setBusinessType}
+                placeholder="Peluquería, Barbería, Spa..."
+                autoCapitalize="words"
+              />
+
+              <Input
+                label="Dirección"
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Av. Principal, Caracas"
+                autoCapitalize="words"
+              />
+            </View>
+
+            {/* Contraseña */}
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Seguridad</ThemedText>
+              
+              <Input
+                label="Contraseña *"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Mínimo 6 caracteres"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+
+              <Input
+                label="Confirmar Contraseña *"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Repite tu contraseña"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
 
             <Button
-              title={loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+              title={loading ? 'Registrando negocio...' : 'Registrar Negocio'}
               onPress={handleRegister}
               loading={loading}
               disabled={loading}
@@ -151,6 +211,20 @@ export default function RegisterScreen() {
                   title="Inicia sesión"
                   variant="ghost"
                   size="small"
+                />
+              </Link>
+            </View>
+
+            <View style={styles.clientSection}>
+              <ThemedText style={styles.clientText}>
+                ¿Solo quieres reservar servicios?
+              </ThemedText>
+              <Link href="/(auth)/register" asChild>
+                <Button
+                  title="Regístrate como cliente"
+                  variant="outline"
+                  size="small"
+                  style={styles.clientButton}
                 />
               </Link>
             </View>
@@ -225,18 +299,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  clientBadge: {
-    backgroundColor: Colors.light.primary + '20',
+  ownerBadge: {
+    backgroundColor: Colors.light.success + '20',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     alignSelf: 'center',
     marginBottom: 20,
   },
-  clientBadgeText: {
+  ownerBadgeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: Colors.light.success,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
   },
   registerButton: {
     marginTop: 8,
@@ -262,11 +348,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexWrap: 'wrap',
+    marginBottom: 16,
   },
   footerText: {
     fontSize: 16,
     color: Colors.light.textSecondary,
     marginRight: 4,
   },
+  clientSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borderLight,
+    alignItems: 'center',
+  },
+  clientText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  clientButton: {
+    borderColor: Colors.light.primary,
+    borderWidth: 1,
+  },
 });
-

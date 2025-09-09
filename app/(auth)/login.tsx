@@ -1,5 +1,9 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
@@ -9,9 +13,6 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
 
@@ -43,64 +44,94 @@ export default function LoginScreen() {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <ThemedView style={styles.content}>
+          {/* Header con logo */}
           <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logo}>
+                <ThemedText style={styles.logoText}>A</ThemedText>
+              </View>
+            </View>
             <ThemedText type="title" style={styles.title}>
               AgendaVE
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Reserva tus servicios favoritos
+              Reserva tus servicios favoritos en Venezuela
             </ThemedText>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Email</ThemedText>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="tu@email.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+          {/* Formulario en card */}
+          <Card variant="elevated" style={styles.formCard}>
+            <ThemedText style={styles.formTitle}>
+              Iniciar Sesión
+            </ThemedText>
+            
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="tu@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-            <View style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Contraseña</ThemedText>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Tu contraseña"
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
+            <Input
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Tu contraseña"
+              secureTextEntry
+              autoCapitalize="none"
+            />
 
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+            <Button
+              title={loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               onPress={handleLogin}
+              loading={loading}
               disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-              </Text>
-            </TouchableOpacity>
+              fullWidth
+              size="large"
+              style={styles.loginButton}
+            />
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <ThemedText style={styles.dividerText}>o</ThemedText>
+              <View style={styles.dividerLine} />
+            </View>
 
             <View style={styles.footer}>
               <ThemedText style={styles.footerText}>
                 ¿No tienes cuenta?{' '}
               </ThemedText>
               <Link href="/(auth)/register" asChild>
-                <TouchableOpacity>
-                  <Text style={styles.linkText}>Regístrate</Text>
-                </TouchableOpacity>
+                <Button
+                  title="Regístrate"
+                  variant="ghost"
+                  size="small"
+                />
               </Link>
             </View>
-          </View>
+
+            <View style={styles.ownerSection}>
+              <ThemedText style={styles.ownerText}>
+                ¿Eres propietario de un negocio?
+              </ThemedText>
+              <Link href="/(auth)/register-owner" asChild>
+                <Button
+                  title="Registra tu negocio"
+                  variant="outline"
+                  size="medium"
+                  style={styles.ownerButton}
+                />
+              </Link>
+            </View>
+          </Card>
         </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -110,83 +141,113 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.light.surface,
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingBottom: 20,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
+    paddingTop: 20,
+  },
+  logoContainer: {
+    marginBottom: 16,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.light.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logoText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: Colors.light.primary,
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: Colors.light.textSecondary,
     textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
-  form: {
-    flex: 1,
-  },
-  inputContainer: {
+  formCard: {
     marginBottom: 20,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#374151',
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 20,
+  formTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.light.text,
     marginBottom: 24,
+    textAlign: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: '#9ca3af',
+  loginButton: {
+    marginTop: 8,
+    marginBottom: 16,
   },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.light.border,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: Colors.light.textSecondary,
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: Colors.light.textSecondary,
+    marginRight: 4,
   },
-  linkText: {
+  ownerSection: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borderLight,
+    alignItems: 'center',
+  },
+  ownerText: {
     fontSize: 16,
-    color: '#2563eb',
-    fontWeight: '600',
+    color: Colors.light.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  ownerButton: {
+    borderColor: Colors.light.primary,
+    borderWidth: 2,
   },
 });
 

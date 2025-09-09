@@ -13,6 +13,10 @@ export interface AuthUser {
 
 export class AuthService {
   static async signUp(email: string, password: string, fullName: string, role: 'client' | 'provider') {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -44,6 +48,10 @@ export class AuthService {
   }
 
   static async signIn(email: string, password: string) {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -54,11 +62,20 @@ export class AuthService {
   }
 
   static async signOut() {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }
 
   static async getCurrentUser(): Promise<AuthUser | null> {
+    if (!supabase) {
+      console.warn('Supabase no está configurado');
+      return null;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) return null;
@@ -77,6 +94,10 @@ export class AuthService {
   }
 
   static async updateProfile(updates: Partial<Profile>) {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('No user found');
 

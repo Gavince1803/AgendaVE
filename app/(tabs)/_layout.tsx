@@ -77,7 +77,16 @@ export default function TabLayout() {
           name="services"
           options={{
             title: 'Servicios',
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver" color={color} />,
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="scissors" color={color} />,
+          }}
+        />
+      )}
+      {isProvider && (
+        <Tabs.Screen
+          name="provider-calendar"
+          options={{
+            title: 'Calendario',
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
           }}
         />
       )}
