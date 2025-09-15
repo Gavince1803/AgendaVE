@@ -1,19 +1,21 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { Appointment, BookingService, Provider } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 
 export default function HomeScreen() {
@@ -55,12 +57,42 @@ export default function HomeScreen() {
 
 function ClientHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
+  const [featuredProviders, setFeaturedProviders] = React.useState<Provider[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const { user } = useAuth();
+  const log = useLogger(user?.id);
 
-  const onRefresh = () => {
+  React.useEffect(() => {
+    loadFeaturedProviders();
+  }, []);
+
+  const loadFeaturedProviders = async () => {
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATABASE, 'Loading featured providers', { screen: 'ClientHome' });
+      
+      const providers = await BookingService.getAllProviders();
+      // Tomar los primeros 3 proveedores como destacados
+      setFeaturedProviders(providers.slice(0, 3));
+      
+      log.info(LogCategory.DATABASE, 'Featured providers loaded', { 
+        count: providers.slice(0, 3).length,
+        screen: 'ClientHome' 
+      });
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error loading featured providers', error);
+      setFeaturedProviders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    log.userAction('Refresh dashboard', { screen: 'ClientHome' });
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await loadFeaturedProviders();
+    setRefreshing(false);
+    log.info(LogCategory.UI, 'Dashboard refresh completed', { screen: 'ClientHome' });
   };
 
   const categories = [
@@ -70,51 +102,24 @@ function ClientHomeScreen() {
     { name: 'Bienestar', icon: 'heart', color: Colors.light.accent },
   ];
 
-  const featuredProviders = [
-    {
-      id: 1,
-      name: 'Salón Bella Vista',
-      category: 'Peluquería',
-      rating: 4.8,
-      distance: '0.5 km',
-      price: 'Desde $15',
-      isOpen: true,
-    },
-    {
-      id: 2,
-      name: 'Spa Relax',
-      category: 'Estética',
-      rating: 4.9,
-      distance: '1.2 km',
-      price: 'Desde $25',
-      isOpen: true,
-    },
-    {
-      id: 3,
-      name: 'Clínica Dental Smile',
-      category: 'Salud',
-      rating: 4.7,
-      distance: '0.8 km',
-      price: 'Desde $30',
-      isOpen: false,
-    },
-  ];
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[Colors.light.primary]}
-          tintColor={Colors.light.primary}
-        />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header con saludo personalizado */}
-      <ThemedView style={styles.header}>
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header con saludo personalizado */}
+        <View style={styles.header}>
         <View style={styles.welcomeSection}>
           <ThemedText type="title" style={styles.welcomeText}>
             ¡Hola! 👋
@@ -131,15 +136,16 @@ function ClientHomeScreen() {
           size="medium"
           icon={<IconSymbol name="magnifyingglass" size={18} color={Colors.light.primary} />}
           onPress={() => {
-            // Navegar a explorar
-            console.log('Navegar a explorar');
+            log.userAction('Navigate to explore', { screen: 'ClientHome' });
+            log.navigation('ClientHome', 'Explore');
+            router.push('/(tabs)/explore');
           }}
           style={styles.searchButton}
         />
-      </ThemedView>
+      </View>
 
       {/* Categorías populares */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Categorías Populares
@@ -149,34 +155,40 @@ function ClientHomeScreen() {
             variant="ghost"
             size="small"
             onPress={() => {
-              // Navegar a explorar con filtro
-              console.log('Ver todas las categorías');
+              log.userAction('Navigate to explore', { screen: 'ClientHome' });
+              log.navigation('ClientHome', 'Explore');
+              router.push('/(tabs)/explore');
             }}
           />
         </View>
         
-        <View style={styles.categoriesGrid}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesScrollContent}
+        >
           {categories.map((category, index) => (
             <Card
               key={index}
               variant="elevated"
               style={styles.categoryCard}
               onPress={() => {
-                // Navegar a categoría específica
-                console.log('Categoría:', category.name);
+                log.userAction('Select category', { category: category.name, screen: 'ClientHome' });
+                log.navigation('ClientHome', 'Explore');
+                router.push('/(tabs)/explore');
               }}
             >
               <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
-                <IconSymbol name={category.icon as any} size={24} color="white" />
+                <IconSymbol name={category.icon as any} size={20} color="white" />
               </View>
               <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
             </Card>
           ))}
-        </View>
-      </ThemedView>
+        </ScrollView>
+      </View>
 
       {/* Proveedores destacados */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Proveedores Destacados
@@ -186,160 +198,262 @@ function ClientHomeScreen() {
             variant="ghost"
             size="small"
             onPress={() => {
-              // Navegar a explorar
-              console.log('Ver todos los proveedores');
+              log.userAction('Navigate to explore', { screen: 'ClientHome' });
+              log.navigation('ClientHome', 'Explore');
+              router.push('/(tabs)/explore');
             }}
           />
         </View>
         
         <View style={styles.providersList}>
-          {featuredProviders.map((provider) => (
-            <Card
-              key={provider.id}
-              variant="elevated"
-              style={styles.providerCard}
-              onPress={() => {
-                // Navegar a detalles del proveedor
-                console.log('Proveedor:', provider.name);
-              }}
-            >
-              <View style={styles.providerHeader}>
-                <View style={styles.providerImage}>
-                  <IconSymbol name="building.2" size={24} color={Colors.light.primary} />
-                </View>
-                <View style={styles.providerInfo}>
-                  <ThemedText style={styles.providerName}>{provider.name}</ThemedText>
-                  <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
-                  <View style={styles.providerStatus}>
-                    <View style={[
-                      styles.statusIndicator, 
-                      { backgroundColor: provider.isOpen ? Colors.light.success : Colors.light.error }
-                    ]} />
-                    <ThemedText style={styles.statusText}>
-                      {provider.isOpen ? 'Abierto' : 'Cerrado'}
-                    </ThemedText>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ThemedText style={styles.loadingText}>Cargando proveedores...</ThemedText>
+            </View>
+          ) : featuredProviders.length > 0 ? (
+            featuredProviders.map((provider) => (
+              <Card
+                key={provider.id}
+                variant="elevated"
+                style={styles.providerCard}
+                onPress={() => {
+                  log.userAction('Select provider', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
+                  log.navigation('ClientHome', 'ProviderDetail');
+                  router.push({
+                    pathname: '/(booking)/provider-detail',
+                    params: { providerId: provider.id }
+                  });
+                }}
+              >
+                <View style={styles.providerHeader}>
+                  <View style={styles.providerImage}>
+                    <IconSymbol name="building.2" size={24} color={Colors.light.primary} />
+                  </View>
+                  <View style={styles.providerInfo}>
+                    <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
+                    <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
+                    <View style={styles.providerStatus}>
+                      <View style={[
+                        styles.statusIndicator, 
+                        { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
+                      ]} />
+                      <ThemedText style={styles.statusText}>
+                        {provider.is_active ? 'Abierto' : 'Cerrado'}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.providerRating}>
+                    <View style={styles.ratingContainer}>
+                      <IconSymbol name="star.fill" size={14} color={Colors.light.secondary} />
+                      <ThemedText style={styles.ratingText}>{provider.rating.toFixed(1)}</ThemedText>
+                    </View>
                   </View>
                 </View>
-                <View style={styles.providerRating}>
-                  <View style={styles.ratingContainer}>
-                    <IconSymbol name="star.fill" size={14} color={Colors.light.secondary} />
-                    <ThemedText style={styles.ratingText}>{provider.rating}</ThemedText>
+                
+                <View style={styles.providerFooter}>
+                  <View style={styles.providerDetails}>
+                    <ThemedText style={styles.distance}>{provider.address || 'Ubicación no disponible'}</ThemedText>
+                    <ThemedText style={styles.price}>Desde $25</ThemedText>
                   </View>
+                  <Button
+                    title="Reservar"
+                    size="small"
+                    onPress={() => {
+                      log.userAction('Start booking flow', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
+                      log.navigation('ClientHome', 'ProviderDetail');
+                      router.push({
+                        pathname: '/(booking)/provider-detail',
+                        params: { providerId: provider.id }
+                      });
+                    }}
+                  />
                 </View>
-              </View>
-              
-              <View style={styles.providerFooter}>
-                <View style={styles.providerDetails}>
-                  <ThemedText style={styles.distance}>{provider.distance}</ThemedText>
-                  <ThemedText style={styles.price}>{provider.price}</ThemedText>
-                </View>
-                <Button
-                  title="Reservar"
-                  size="small"
-                  onPress={() => {
-                    // Navegar al flujo de booking
-                    router.push({
-                      pathname: '/(booking)/provider-detail',
-                      params: { providerId: provider.id.toString() }
-                    });
-                  }}
-                />
-              </View>
-            </Card>
-          ))}
+              </Card>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>
+                No hay proveedores disponibles
+              </ThemedText>
+            </View>
+          )}
         </View>
-      </ThemedView>
+      </View>
 
       {/* Acciones rápidas */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           Acciones Rápidas
         </ThemedText>
         
-        <View style={styles.quickActions}>
-          <Button
-            title="Mis Citas"
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="calendar" size={18} color={Colors.light.primary} />}
+        <View style={styles.quickActionsGrid}>
+          <Card
+            variant="elevated"
+            style={styles.quickActionCard}
             onPress={() => {
-              // Navegar a citas
-              console.log('Ver mis citas');
+              log.userAction('Navigate to bookings', { screen: 'ClientHome' });
+              log.navigation('ClientHome', 'Bookings');
+              router.push('/(tabs)/bookings');
             }}
-            style={styles.quickActionButton}
-          />
-          <Button
-            title="Favoritos"
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="heart" size={18} color={Colors.light.primary} />}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.primary + '20' }]}>
+              <IconSymbol name="calendar" size={24} color={Colors.light.primary} />
+            </View>
+            <ThemedText style={styles.quickActionTitle}>Mis Citas</ThemedText>
+            <ThemedText style={styles.quickActionSubtitle}>Gestiona tus reservas</ThemedText>
+          </Card>
+          
+          <Card
+            variant="elevated"
+            style={styles.quickActionCard}
             onPress={() => {
-              // Navegar a favoritos
-              console.log('Ver favoritos');
+              log.userAction('Navigate to favorites', { screen: 'ClientHome' });
+              // TODO: Implementar navegación a favoritos
             }}
-            style={styles.quickActionButton}
-          />
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.accent + '20' }]}>
+              <IconSymbol name="heart" size={24} color={Colors.light.accent} />
+            </View>
+            <ThemedText style={styles.quickActionTitle}>Favoritos</ThemedText>
+            <ThemedText style={styles.quickActionSubtitle}>Servicios guardados</ThemedText>
+          </Card>
         </View>
-      </ThemedView>
-    </ScrollView>
+      </View>
+      </ScrollView>
+    </TabSafeAreaView>
   );
 }
 
 function ProviderHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
+  const [appointments, setAppointments] = React.useState<Appointment[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const { user } = useAuth();
+  const log = useLogger(user?.id);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+  React.useEffect(() => {
+    loadAppointments();
+  }, []);
+
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATABASE, 'Loading provider appointments', { screen: 'ProviderHome' });
+      
+      const appointmentsData = await BookingService.getProviderAppointments();
+      setAppointments(appointmentsData);
+      
+      log.info(LogCategory.DATABASE, 'Provider appointments loaded', { 
+        count: appointmentsData.length,
+        screen: 'ProviderHome' 
+      });
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error loading provider appointments', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const onRefresh = async () => {
+    log.userAction('Refresh dashboard', { screen: 'ProviderHome' });
+    setRefreshing(true);
+    await loadAppointments();
+    setRefreshing(false);
+    log.info(LogCategory.UI, 'Dashboard refresh completed', { screen: 'ProviderHome' });
+  };
+
+  // Calcular estadísticas reales
+  const today = new Date().toISOString().split('T')[0];
+  const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
+  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
+  const confirmedAppointments = appointments.filter(apt => apt.status === 'confirmed');
+
   const stats = [
-    { number: '12', label: 'Citas Hoy', icon: 'calendar', color: Colors.light.primary },
-    { number: '48', label: 'Esta Semana', icon: 'calendar', color: Colors.light.secondary },
-    { number: '4.8', label: 'Calificación', icon: 'star.fill', color: Colors.light.success },
+    { 
+      number: todayAppointments.length.toString(), 
+      label: 'Citas Hoy', 
+      icon: 'calendar', 
+      color: Colors.light.primary 
+    },
+    { 
+      number: pendingAppointments.length.toString(), 
+      label: 'Pendientes', 
+      icon: 'clock', 
+      color: Colors.light.warning 
+    },
+    { 
+      number: confirmedAppointments.length.toString(), 
+      label: 'Confirmadas', 
+      icon: 'checkmark.circle', 
+      color: Colors.light.success 
+    },
   ];
 
-  const upcomingAppointments = [
-    {
-      id: 1,
-      clientName: 'María González',
-      serviceName: 'Corte de Cabello',
-      time: '10:30 AM',
-      status: 'confirmed',
-    },
-    {
-      id: 2,
-      clientName: 'Carlos Pérez',
-      serviceName: 'Peinado',
-      time: '2:00 PM',
-      status: 'pending',
-    },
-    {
-      id: 3,
-      clientName: 'Laura Martínez',
-      serviceName: 'Manicure',
-      time: '4:00 PM',
-      status: 'confirmed',
-    },
-  ];
+  // Obtener próximas citas (máximo 3)
+  const upcomingAppointments = appointments
+    .filter(apt => apt.status === 'pending' || apt.status === 'confirmed')
+    .sort((a, b) => {
+      const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+      const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+      return dateA.getTime() - dateB.getTime();
+    })
+    .slice(0, 3);
+
+  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
+    try {
+      log.userAction('Appointment action', { 
+        appointmentId: appointment.id, 
+        action,
+        status: appointment.status,
+        screen: 'ProviderHome' 
+      });
+
+      let newStatus: 'confirmed' | 'cancelled' | 'done';
+      switch (action) {
+        case 'confirm':
+          newStatus = 'confirmed';
+          break;
+        case 'cancel':
+          newStatus = 'cancelled';
+          break;
+        case 'complete':
+          newStatus = 'done';
+          break;
+      }
+
+      await BookingService.updateAppointmentStatus(appointment.id, newStatus);
+      
+      // Recargar citas
+      await loadAppointments();
+      
+      Alert.alert(
+        'Éxito',
+        `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
+      );
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error updating appointment status', error);
+      Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
+    }
+  };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[Colors.light.primary]}
-          tintColor={Colors.light.primary}
-        />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <ThemedView style={styles.header}>
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
         <View style={styles.welcomeSection}>
           <ThemedText type="title" style={styles.welcomeText}>
             Dashboard 📊
@@ -349,22 +463,22 @@ function ProviderHomeScreen() {
           </ThemedText>
         </View>
         
-        {/* Botón de configuración rápida */}
+        {/* Botón de Mi Negocio */}
         <Button
-          title="Configurar"
+          title="Mi Negocio"
           variant="outline"
           size="medium"
-          icon={<IconSymbol name="gearshape" size={18} color={Colors.light.primary} />}
+          icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
           onPress={() => {
-            // Navegar a configuración
-            console.log('Configurar perfil');
+            log.userAction('Navigate to my business', { screen: 'ProviderHome' });
+            router.push('/(provider)/my-business');
           }}
           style={styles.searchButton}
         />
-      </ThemedView>
+      </View>
 
       {/* Estadísticas */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           Estadísticas
         </ThemedText>
@@ -384,10 +498,10 @@ function ProviderHomeScreen() {
             </Card>
           ))}
         </View>
-      </ThemedView>
+      </View>
 
       {/* Próximas citas */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Próximas Citas
@@ -397,79 +511,123 @@ function ProviderHomeScreen() {
             variant="ghost"
             size="small"
             onPress={() => {
-              // Navegar a citas
-              console.log('Ver todas las citas');
+              log.userAction('Navigate to all appointments', { screen: 'ProviderHome' });
+              log.navigation('ProviderHome', 'Appointments');
+              // TODO: Implementar navegación a todas las citas
             }}
           />
         </View>
         
         <View style={styles.appointmentsList}>
-          {upcomingAppointments.map((appointment) => (
-            <Card
-              key={appointment.id}
-              variant="elevated"
-              style={styles.appointmentCard}
-            >
-              <View style={styles.appointmentHeader}>
-                <View style={styles.appointmentTime}>
-                  <ThemedText style={styles.timeText}>{appointment.time}</ThemedText>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+            </View>
+          ) : upcomingAppointments.length > 0 ? (
+            upcomingAppointments.map((appointment) => (
+              <Card
+                key={appointment.id}
+                variant="elevated"
+                style={styles.appointmentCard}
+              >
+                <View style={styles.appointmentHeader}>
+                  <View style={styles.appointmentTime}>
+                    <ThemedText style={styles.timeText}>{appointment.appointment_time}</ThemedText>
+                    <ThemedText style={styles.dateText}>
+                      {new Date(appointment.appointment_date).toLocaleDateString('es-VE', {
+                        day: 'numeric',
+                        month: 'short'
+                      })}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.appointmentInfo}>
+                    <ThemedText style={styles.clientName}>
+                      {appointment.client?.display_name || 'Cliente'}
+                    </ThemedText>
+                    <ThemedText style={styles.serviceName}>
+                      {appointment.service?.name || 'Servicio'}
+                    </ThemedText>
+                    {appointment.client?.phone && (
+                      <ThemedText style={styles.clientPhone}>
+                        📞 {appointment.client.phone}
+                      </ThemedText>
+                    )}
+                  </View>
+                  <View style={[
+                    styles.statusBadge,
+                    { 
+                      backgroundColor: appointment.status === 'confirmed' 
+                        ? Colors.light.success 
+                        : appointment.status === 'pending'
+                        ? Colors.light.warning
+                        : Colors.light.error
+                    }
+                  ]}>
+                    <ThemedText style={styles.statusText}>
+                      {appointment.status === 'confirmed' ? 'Confirmada' : 
+                       appointment.status === 'pending' ? 'Pendiente' : 
+                       appointment.status === 'cancelled' ? 'Cancelada' : 'Completada'}
+                    </ThemedText>
+                  </View>
                 </View>
-                <View style={styles.appointmentInfo}>
-                  <ThemedText style={styles.clientName}>{appointment.clientName}</ThemedText>
-                  <ThemedText style={styles.serviceName}>{appointment.serviceName}</ThemedText>
+                
+                <View style={styles.appointmentActions}>
+                  {appointment.status === 'pending' && (
+                    <>
+                      <Button
+                        title="Confirmar"
+                        variant="primary"
+                        size="small"
+                        onPress={() => handleAppointmentAction(appointment, 'confirm')}
+                        style={styles.actionButton}
+                      />
+                      <Button
+                        title="Rechazar"
+                        variant="outline"
+                        size="small"
+                        onPress={() => handleAppointmentAction(appointment, 'cancel')}
+                        style={styles.actionButton}
+                      />
+                    </>
+                  )}
+                  {appointment.status === 'confirmed' && (
+                    <Button
+                      title="Completar"
+                      variant="primary"
+                      size="small"
+                      onPress={() => handleAppointmentAction(appointment, 'complete')}
+                      style={styles.actionButton}
+                    />
+                  )}
                 </View>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: appointment.status === 'confirmed' ? Colors.light.success : Colors.light.warning }
-                ]}>
-                  <ThemedText style={styles.statusText}>
-                    {appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
-                  </ThemedText>
-                </View>
-              </View>
-              
-              <View style={styles.appointmentActions}>
-                <Button
-                  title={appointment.status === 'confirmed' ? 'Completar' : 'Confirmar'}
-                  variant="primary"
-                  size="small"
-                  onPress={() => {
-                    // Acción según estado
-                    console.log('Acción:', appointment.status);
-                  }}
-                  style={styles.actionButton}
-                />
-                <Button
-                  title="Reprogramar"
-                  variant="outline"
-                  size="small"
-                  onPress={() => {
-                    // Reprogramar cita
-                    console.log('Reprogramar cita:', appointment.id);
-                  }}
-                  style={styles.actionButton}
-                />
-              </View>
-            </Card>
-          ))}
+              </Card>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>
+                No tienes citas próximas
+              </ThemedText>
+            </View>
+          )}
         </View>
-      </ThemedView>
+      </View>
 
       {/* Acciones rápidas */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           Acciones Rápidas
         </ThemedText>
         
-        <View style={styles.quickActions}>
+        <View style={styles.quickActionsGrid}>
           <Button
             title="Mis Servicios"
             variant="outline"
             size="medium"
             icon={<IconSymbol name="wrench.and.screwdriver" size={18} color={Colors.light.primary} />}
             onPress={() => {
-              // Navegar a servicios
-              console.log('Gestionar servicios');
+              log.userAction('Navigate to services', { screen: 'ProviderHome' });
+              log.navigation('ProviderHome', 'Services');
+              // TODO: Implementar navegación a servicios
             }}
             style={styles.quickActionButton}
           />
@@ -479,14 +637,16 @@ function ProviderHomeScreen() {
             size="medium"
             icon={<IconSymbol name="clock" size={18} color={Colors.light.primary} />}
             onPress={() => {
-              // Navegar a horarios
-              console.log('Gestionar horarios');
+              log.userAction('Navigate to schedule', { screen: 'ProviderHome' });
+              log.navigation('ProviderHome', 'Calendar');
+              // TODO: Implementar navegación a horarios
             }}
             style={styles.quickActionButton}
           />
         </View>
-      </ThemedView>
-    </ScrollView>
+      </View>
+      </ScrollView>
+    </TabSafeAreaView>
   );
 }
 
@@ -495,73 +655,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.surface,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
+  },
   header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    padding: DesignTokens.spacing.xl,
+    paddingTop: DesignTokens.spacing.lg, // Safe Area ya maneja el padding superior
+    paddingBottom: DesignTokens.spacing.lg,
   },
   welcomeSection: {
-    marginBottom: 20,
+    marginBottom: DesignTokens.spacing.xl,
   },
   welcomeText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: DesignTokens.typography.fontSizes['3xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.primary,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
-    lineHeight: 22,
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
   },
   searchButton: {
-    marginTop: 8,
+    marginTop: DesignTokens.spacing.sm,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing['2xl'],
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.xl,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
+    letterSpacing: -0.2,
   },
   
   // Categorías
-  categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  categoriesScrollContent: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    gap: DesignTokens.spacing.md,
   },
   categoryCard: {
-    width: '47%',
+    width: 100,
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: DesignTokens.spacing.lg,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    marginRight: DesignTokens.spacing.md,
   },
   categoryIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: DesignTokens.radius['2xl'],
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.sm,
+    ...DesignTokens.elevation.sm,
   },
   categoryName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     textAlign: 'center',
+    letterSpacing: 0.1,
+    lineHeight: 14,
   },
   
   // Proveedores
   providersList: {
-    gap: 16,
+    gap: DesignTokens.spacing.lg,
   },
   providerCard: {
     marginBottom: 0,
@@ -569,30 +741,32 @@ const styles = StyleSheet.create({
   providerHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   providerImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: DesignTokens.radius.lg,
     backgroundColor: Colors.light.surfaceVariant,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: DesignTokens.spacing.md,
+    ...DesignTokens.elevation.sm,
   },
   providerInfo: {
     flex: 1,
   },
   providerName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.1,
   },
   providerCategory: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   providerStatus: {
     flexDirection: 'row',
@@ -601,12 +775,12 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    borderRadius: DesignTokens.radius.xs,
+    marginRight: DesignTokens.spacing.xs,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.textSecondary,
   },
   providerRating: {
@@ -615,13 +789,13 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: DesignTokens.spacing.xs,
   },
   ratingText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginLeft: 4,
+    marginLeft: DesignTokens.spacing.xs,
   },
   providerFooter: {
     flexDirection: 'row',
@@ -631,60 +805,87 @@ const styles = StyleSheet.create({
   providerDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   distance: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
   },
   price: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.success,
   },
   
   // Acciones rápidas
-  quickActions: {
+  quickActionsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
-  quickActionButton: {
+  quickActionCard: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.xl,
+    paddingHorizontal: DesignTokens.spacing.md,
+  },
+  quickActionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: DesignTokens.radius['2xl'],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.md,
+  },
+  quickActionTitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  quickActionSubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   
   // Estadísticas del proveedor
   statsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: DesignTokens.spacing.xl,
   },
   statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: DesignTokens.radius['2xl'],
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
+    ...DesignTokens.elevation.sm,
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.primary,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
     textAlign: 'center',
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   
   // Citas del proveedor
   appointmentsList: {
-    gap: 16,
+    gap: DesignTokens.spacing.lg,
   },
   appointmentCard: {
     marginBottom: 0,
@@ -692,58 +893,88 @@ const styles = StyleSheet.create({
   appointmentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   appointmentTime: {
-    width: 60,
+    width: 64,
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: DesignTokens.spacing.lg,
   },
   timeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.primary,
   },
   appointmentInfo: {
     flex: 1,
   },
   clientName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.1,
   },
   serviceName: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.md,
   },
   appointmentStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: '#ffffff',
   },
   appointmentActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   actionButton: {
     flex: 1,
   },
   loadingText: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     color: Colors.light.textSecondary,
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: DesignTokens.spacing['5xl'],
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   errorText: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     color: Colors.light.error,
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: DesignTokens.spacing['5xl'],
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  loadingContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+  },
+  dateText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  clientPhone: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  quickActionButton: {
+    flex: 1,
+    marginHorizontal: DesignTokens.spacing.xs,
   },
 });

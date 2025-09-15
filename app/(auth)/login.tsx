@@ -2,18 +2,17 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Colors } from '@/constants/Colors';
+import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
+import { SimpleInput } from '@/components/ui/SimpleInput';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
-    KeyboardAvoidingView,
     Platform,
-    ScrollView,
     StyleSheet,
-    View,
+    View
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -33,20 +32,26 @@ export default function LoginScreen() {
       await signIn(email, password);
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al iniciar sesión');
+      // Mejorar el mensaje de error para casos específicos
+      let errorMessage = error.message || 'Error al iniciar sesión';
+      
+      if (error.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.\n\nSi acabas de registrarte, asegúrate de confirmar tu email haciendo clic en el enlace que te enviamos.';
+      } else if (error.message?.includes('Email not confirmed')) {
+        errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación.';
+      }
+      
+      Alert.alert('Error al iniciar sesión', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+    <ThemedView style={styles.container}>
+      <ScrollableInputView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
       >
         <ThemedView style={styles.content}>
           {/* Header con logo */}
@@ -70,7 +75,7 @@ export default function LoginScreen() {
               Iniciar Sesión
             </ThemedText>
             
-            <Input
+            <SimpleInput
               label="Email"
               value={email}
               onChangeText={setEmail}
@@ -80,7 +85,7 @@ export default function LoginScreen() {
               autoCorrect={false}
             />
 
-            <Input
+            <SimpleInput
               label="Contraseña"
               value={password}
               onChangeText={setPassword}
@@ -98,6 +103,13 @@ export default function LoginScreen() {
               size="large"
               style={styles.loginButton}
             />
+
+            {/* Nota sobre confirmación de email */}
+            <View style={styles.emailNote}>
+              <ThemedText style={styles.emailNoteText}>
+                💡 Si acabas de registrarte, revisa tu email para confirmar tu cuenta antes de iniciar sesión.
+              </ThemedText>
+            </View>
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -133,8 +145,8 @@ export default function LoginScreen() {
             </View>
           </Card>
         </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </ScrollableInputView>
+    </ThemedView>
   );
 }
 
@@ -144,72 +156,90 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: DesignTokens.spacing.xl,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-    paddingTop: 20,
+    marginBottom: DesignTokens.spacing['3xl'],
+    paddingTop: DesignTokens.spacing.xl,
   },
   logoContainer: {
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 96,
+    height: 96,
+    borderRadius: DesignTokens.radius['3xl'],
     backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    ...DesignTokens.elevation.lg,
   },
   logoText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontSize: DesignTokens.typography.fontSizes['4xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.textOnPrimary,
+    letterSpacing: -1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: DesignTokens.typography.fontSizes['3xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.primary,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 20,
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
+    paddingHorizontal: DesignTokens.spacing.xl,
   },
   formCard: {
-    marginBottom: 20,
+    marginBottom: DesignTokens.spacing.xl,
   },
   formTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginBottom: 24,
+    marginBottom: DesignTokens.spacing['2xl'],
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   loginButton: {
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.md,
+  },
+  emailNote: {
+    backgroundColor: Colors.light.primary + '10',
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.md,
+    marginBottom: DesignTokens.spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.primary,
+  },
+  emailNoteText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.sm,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: DesignTokens.spacing.xl,
   },
   dividerLine: {
     flex: 1,
@@ -217,9 +247,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.border,
   },
   dividerText: {
-    marginHorizontal: 16,
+    marginHorizontal: DesignTokens.spacing.lg,
     color: Colors.light.textSecondary,
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   footer: {
     flexDirection: 'row',
@@ -228,22 +259,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   footerText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
-    marginRight: 4,
+    marginRight: DesignTokens.spacing.xs,
   },
   ownerSection: {
-    marginTop: 24,
-    paddingTop: 20,
+    marginTop: DesignTokens.spacing['2xl'],
+    paddingTop: DesignTokens.spacing.xl,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
     alignItems: 'center',
   },
   ownerText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
     textAlign: 'center',
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
   },
   ownerButton: {
     borderColor: Colors.light.primary,

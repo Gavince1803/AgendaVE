@@ -1,6 +1,8 @@
-import { ComponentColors } from '@/constants/Colors';
-import React from 'react';
+import { ComponentColors, DesignTokens } from '@/constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import React, { useState } from 'react';
 import {
+    Animated,
     StyleSheet,
     TouchableOpacity,
     TouchableOpacityProps,
@@ -10,10 +12,12 @@ import {
 
 interface CardProps extends TouchableOpacityProps {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'outlined';
-  padding?: 'none' | 'small' | 'medium' | 'large';
+  variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient';
+  padding?: 'none' | 'small' | 'medium' | 'large' | 'xl';
   onPress?: () => void;
   style?: ViewStyle;
+  rounded?: boolean;
+  shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function Card({
@@ -22,25 +26,66 @@ export function Card({
   padding = 'medium',
   onPress,
   style,
+  rounded = false,
+  shadow = 'md',
   ...props
 }: CardProps) {
+  const [scaleValue] = useState(new Animated.Value(1));
+  
+  // Colores dinámicos para modo oscuro
+  const backgroundColor = useThemeColor({}, 'surface');
+  const borderColor = useThemeColor({}, 'border');
+
+  const handlePressIn = () => {
+    if (onPress) {
+      Animated.spring(scaleValue, {
+        toValue: 0.98,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }).start();
+    }
+  };
+
+  const handlePressOut = () => {
+    if (onPress) {
+      Animated.spring(scaleValue, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }).start();
+    }
+  };
+
   const cardStyle = [
     styles.base,
+    { backgroundColor, borderColor },
     styles[variant],
     styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}`],
+    styles[`shadow${shadow.charAt(0).toUpperCase() + shadow.slice(1)}`],
+    rounded && styles.rounded,
     style,
   ];
 
+  const animatedStyle = {
+    transform: [{ scale: scaleValue }],
+  };
+
   if (onPress) {
     return (
-      <TouchableOpacity
-        style={cardStyle}
-        onPress={onPress}
-        activeOpacity={0.95}
-        {...props}
-      >
-        {children}
-      </TouchableOpacity>
+      <Animated.View style={animatedStyle}>
+        <TouchableOpacity
+          style={cardStyle}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.95}
+          {...props}
+        >
+          {children}
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 
@@ -53,25 +98,28 @@ export function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 16,
-    backgroundColor: ComponentColors.card.background,
+    borderRadius: DesignTokens.radius.xl,
+    overflow: 'hidden',
   },
   
   // Variantes
   default: {
     borderWidth: 1,
-    borderColor: ComponentColors.card.border,
   },
   elevated: {
-    shadowColor: ComponentColors.card.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    // backgroundColor se maneja dinámicamente
   },
   outlined: {
-    borderWidth: 2,
-    borderColor: ComponentColors.card.border,
+    borderWidth: 1.5,
+  },
+  glass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
+  },
+  gradient: {
+    backgroundColor: 'transparent',
   },
   
   // Padding
@@ -79,12 +127,41 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   paddingSmall: {
-    padding: 16,
+    padding: DesignTokens.spacing.lg,
   },
   paddingMedium: {
-    padding: 20,
+    padding: DesignTokens.spacing.xl,
   },
   paddingLarge: {
-    padding: 24,
+    padding: DesignTokens.spacing['2xl'],
+  },
+  paddingXl: {
+    padding: DesignTokens.spacing['3xl'],
+  },
+  
+  // Sombras
+  shadowNone: {
+    ...DesignTokens.elevation.none,
+  },
+  shadowSm: {
+    shadowColor: ComponentColors.card.shadow,
+    ...DesignTokens.elevation.sm,
+  },
+  shadowMd: {
+    shadowColor: ComponentColors.card.shadow,
+    ...DesignTokens.elevation.md,
+  },
+  shadowLg: {
+    shadowColor: ComponentColors.card.shadow,
+    ...DesignTokens.elevation.lg,
+  },
+  shadowXl: {
+    shadowColor: ComponentColors.card.shadow,
+    ...DesignTokens.elevation.xl,
+  },
+  
+  // Bordes redondeados
+  rounded: {
+    borderRadius: DesignTokens.radius['3xl'],
   },
 });

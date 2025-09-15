@@ -2,23 +2,23 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Colors } from '@/constants/Colors';
+import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
+import { SimpleInput } from '@/components/ui/SimpleInput';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Platform,
+  StyleSheet,
+  View
 } from 'react-native';
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const role = 'client'; // Solo clientes se registran aquí
@@ -26,7 +26,7 @@ export default function RegisterScreen() {
   const { signUp } = useAuth();
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
+    if (!fullName || !email || !phone || !password || !confirmPassword) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
@@ -43,8 +43,22 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, fullName, role);
-      router.replace('/(tabs)');
+      await signUp(email, password, fullName, role, phone);
+      
+      // Mostrar mensaje de éxito con información sobre confirmación de email
+      Alert.alert(
+        '¡Cuenta creada exitosamente! 🎉',
+        'Te hemos enviado un email de confirmación a ' + email + '. Por favor revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.\n\nUna vez confirmado, podrás iniciar sesión.',
+        [
+          {
+            text: 'Entendido',
+            onPress: () => {
+              // Redirigir al login en lugar de a las tabs
+              router.replace('/(auth)/login');
+            }
+          }
+        ]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al registrarse');
     } finally {
@@ -53,13 +67,10 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+    <ThemedView style={styles.container}>
+      <ScrollableInputView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
       >
         <ThemedView style={styles.content}>
           {/* Header */}
@@ -89,7 +100,7 @@ export default function RegisterScreen() {
               </ThemedText>
             </View>
             
-            <Input
+            <SimpleInput
               label="Nombre Completo"
               value={fullName}
               onChangeText={setFullName}
@@ -97,7 +108,7 @@ export default function RegisterScreen() {
               autoCapitalize="words"
             />
 
-            <Input
+            <SimpleInput
               label="Email"
               value={email}
               onChangeText={setEmail}
@@ -107,7 +118,17 @@ export default function RegisterScreen() {
               autoCorrect={false}
             />
 
-            <Input
+            <SimpleInput
+              label="Teléfono"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+58 412 123 4567"
+              keyboardType="numeric"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <SimpleInput
               label="Contraseña"
               value={password}
               onChangeText={setPassword}
@@ -116,7 +137,7 @@ export default function RegisterScreen() {
               autoCapitalize="none"
             />
 
-            <Input
+            <SimpleInput
               label="Confirmar Contraseña"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -156,8 +177,8 @@ export default function RegisterScreen() {
             </View>
           </Card>
         </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </ScrollableInputView>
+    </ThemedView>
   );
 }
 
@@ -167,12 +188,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: DesignTokens.spacing.xl,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   header: {

@@ -21,7 +21,7 @@ export default function AuthLayout() {
     <Stack>
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
-      <Stack.Screen name="role-selection" options={{ headerShown: false }} />
+      <Stack.Screen name="register-owner" options={{ headerShown: false }} />
     </Stack>
   );
 }

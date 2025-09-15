@@ -1,6 +1,7 @@
-import { Colors, ComponentColors } from '@/constants/Colors';
+import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import React, { useState } from 'react';
 import {
+    Animated,
     StyleSheet,
     Text,
     TextInput,
@@ -17,6 +18,8 @@ interface InputProps extends TextInputProps {
   rightIcon?: React.ReactNode;
   onRightIconPress?: () => void;
   containerStyle?: any;
+  variant?: 'default' | 'filled' | 'outlined';
+  size?: 'small' | 'medium' | 'large';
 }
 
 export function Input({
@@ -28,12 +31,37 @@ export function Input({
   onRightIconPress,
   containerStyle,
   style,
+  variant = 'default',
+  size = 'medium',
   ...props
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const [labelAnimation] = useState(new Animated.Value(props.value ? 1 : 0));
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    Animated.timing(labelAnimation, {
+      toValue: 1,
+      duration: DesignTokens.transitions.fast,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (!props.value) {
+      Animated.timing(labelAnimation, {
+        toValue: 0,
+        duration: DesignTokens.transitions.fast,
+        useNativeDriver: false,
+      }).start();
+    }
+  };
 
   const inputContainerStyle = [
     styles.inputContainer,
+    styles[variant],
+    styles[size],
     isFocused && styles.inputContainerFocused,
     error && styles.inputContainerError,
     leftIcon && styles.inputContainerWithLeftIcon,
@@ -42,14 +70,21 @@ export function Input({
 
   const inputStyle = [
     styles.input,
+    styles[`${size}Input`],
     leftIcon && styles.inputWithLeftIcon,
     rightIcon && styles.inputWithRightIcon,
     style,
   ];
 
+  const labelStyle = [
+    styles.label,
+    styles[`${size}Label`],
+    error && styles.errorLabel,
+  ];
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={labelStyle}>{label}</Text>}
       
       <View style={inputContainerStyle}>
         {leftIcon && (
@@ -60,8 +95,8 @@ export function Input({
         
         <TextInput
           style={inputStyle}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholderTextColor={ComponentColors.input.placeholder}
           {...props}
         />
@@ -88,64 +123,133 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: DesignTokens.spacing.xl,
   },
+  
+  // Labels
   label: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold,
     color: Colors.light.text,
-    marginBottom: 10,
+    marginBottom: DesignTokens.spacing.sm,
+    letterSpacing: 0.2,
   },
+  smallLabel: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+  },
+  mediumLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+  },
+  largeLabel: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+  },
+  errorLabel: {
+    color: ComponentColors.button.error,
+  },
+  
+  // Input container
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: ComponentColors.input.background,
     borderWidth: 1,
     borderColor: ComponentColors.input.border,
-    borderRadius: 14,
-    minHeight: 52,
+    borderRadius: DesignTokens.radius.lg,
+    transition: `border-color ${DesignTokens.transitions.fast}ms ease`,
   },
+  
+  // Variantes
+  default: {
+    backgroundColor: ComponentColors.input.background,
+  },
+  filled: {
+    backgroundColor: Colors.light.surfaceVariant,
+    borderColor: 'transparent',
+  },
+  outlined: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+  },
+  
+  // Tamaños
+  small: {
+    minHeight: 40,
+    borderRadius: DesignTokens.radius.md,
+  },
+  medium: {
+    minHeight: 48,
+    borderRadius: DesignTokens.radius.lg,
+  },
+  large: {
+    minHeight: 56,
+    borderRadius: DesignTokens.radius.xl,
+  },
+  
+  // Estados
   inputContainerFocused: {
     borderColor: ComponentColors.input.borderFocused,
     shadowColor: ComponentColors.input.borderFocused,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...DesignTokens.elevation.sm,
   },
   inputContainerError: {
     borderColor: ComponentColors.button.error,
+    shadowColor: ComponentColors.button.error,
+    ...DesignTokens.elevation.sm,
   },
   inputContainerWithLeftIcon: {
-    paddingLeft: 12,
+    paddingLeft: DesignTokens.spacing.md,
   },
   inputContainerWithRightIcon: {
-    paddingRight: 12,
+    paddingRight: DesignTokens.spacing.md,
   },
+  
+  // Input text
   input: {
     flex: 1,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.normal,
+  },
+  smallInput: {
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+  },
+  mediumInput: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    fontSize: DesignTokens.typography.fontSizes.base,
+  },
+  largeInput: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.lg,
+    fontSize: DesignTokens.typography.fontSizes.lg,
   },
   inputWithLeftIcon: {
-    paddingLeft: 8,
+    paddingLeft: DesignTokens.spacing.sm,
   },
   inputWithRightIcon: {
-    paddingRight: 8,
+    paddingRight: DesignTokens.spacing.sm,
   },
+  
+  // Iconos
   leftIconContainer: {
-    marginRight: 8,
+    marginRight: DesignTokens.spacing.sm,
   },
   rightIconContainer: {
-    marginLeft: 8,
-    padding: 4,
+    marginLeft: DesignTokens.spacing.sm,
+    padding: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.sm,
   },
+  
+  // Texto de ayuda
   helperText: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
-    marginTop: 4,
+    marginTop: DesignTokens.spacing.xs,
+    fontWeight: DesignTokens.typography.fontWeights.normal,
   },
   errorText: {
     color: ComponentColors.button.error,

@@ -1,22 +1,25 @@
-import { Colors, ComponentColors } from '@/constants/Colors';
-import React from 'react';
+import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import React, { useState } from 'react';
 import {
-    ActivityIndicator,
+    Animated,
     StyleSheet,
     Text,
     TouchableOpacity,
     TouchableOpacityProps
 } from 'react-native';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  size?: 'small' | 'medium' | 'large';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'warning' | 'error';
+  size?: 'small' | 'medium' | 'large' | 'xl';
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
+  gradient?: boolean;
+  rounded?: boolean;
 }
 
 export function Button({
@@ -28,14 +31,40 @@ export function Button({
   fullWidth = false,
   icon,
   iconPosition = 'left',
+  gradient = false,
+  rounded = false,
   style,
   ...props
 }: ButtonProps) {
+  const [scaleValue] = useState(new Animated.Value(1));
+  const [isPressed, setIsPressed] = useState(false);
+
+  const handlePressIn = () => {
+    setIsPressed(true);
+    Animated.spring(scaleValue, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    setIsPressed(false);
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
   const buttonStyle = [
     styles.base,
     styles[variant],
     styles[size],
     fullWidth && styles.fullWidth,
+    rounded && styles.rounded,
     (disabled || loading) && styles.disabled,
     style,
   ];
@@ -47,31 +76,56 @@ export function Button({
     (disabled || loading) && styles.disabledText,
   ];
 
+  const animatedStyle = {
+    transform: [{ scale: scaleValue }],
+  };
+
   return (
-    <TouchableOpacity
-      style={buttonStyle}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-      {...props}
-    >
-      {loading ? (
-        <ActivityIndicator 
-          color={variant === 'primary' ? '#ffffff' : Colors.light.primary} 
-          size="small" 
-        />
-      ) : (
-        <>
-          {icon && iconPosition === 'left' && (
-            <>{icon}</>
-          )}
-          <Text style={textStyle}>{title}</Text>
-          {icon && iconPosition === 'right' && (
-            <>{icon}</>
-          )}
-        </>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={[animatedStyle, fullWidth && styles.fullWidthContainer]}>
+      <TouchableOpacity
+        style={buttonStyle}
+        disabled={disabled || loading}
+        activeOpacity={0.9}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={props.onPress}
+        {...props}
+      >
+        {loading ? (
+          <LoadingSpinner 
+            color={getLoadingColor(variant)} 
+            size="small" 
+          />
+        ) : (
+          <>
+            {icon && iconPosition === 'left' && (
+              <>{icon}</>
+            )}
+            <Text style={textStyle}>{title}</Text>
+            {icon && iconPosition === 'right' && (
+              <>{icon}</>
+            )}
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
+}
+
+// Función helper para obtener el color del loading indicator
+function getLoadingColor(variant: string): string {
+  switch (variant) {
+    case 'primary':
+    case 'success':
+    case 'warning':
+    case 'error':
+      return '#ffffff';
+    case 'secondary':
+    case 'outline':
+    case 'ghost':
+    default:
+      return Colors.light.primary;
+  }
 }
 
 const styles = StyleSheet.create({
@@ -79,63 +133,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: 'transparent',
+    ...DesignTokens.elevation.sm,
   },
   
   // Variantes
   primary: {
     backgroundColor: ComponentColors.button.primary,
     shadowColor: ComponentColors.button.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...DesignTokens.elevation.md,
   },
   secondary: {
     backgroundColor: ComponentColors.button.secondary,
+    borderColor: Colors.light.borderMedium,
   },
   outline: {
     backgroundColor: 'transparent',
     borderColor: ComponentColors.button.primary,
+    borderWidth: 1.5,
   },
   ghost: {
     backgroundColor: 'transparent',
   },
+  success: {
+    backgroundColor: ComponentColors.button.success,
+    shadowColor: ComponentColors.button.success,
+    ...DesignTokens.elevation.md,
+  },
+  warning: {
+    backgroundColor: ComponentColors.button.warning,
+    shadowColor: ComponentColors.button.warning,
+    ...DesignTokens.elevation.md,
+  },
+  error: {
+    backgroundColor: ComponentColors.button.error,
+    shadowColor: ComponentColors.button.error,
+    ...DesignTokens.elevation.md,
+  },
   
   // Tamaños
   small: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 40,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.sm,
+    minHeight: 36,
+    borderRadius: DesignTokens.radius.md,
   },
   medium: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    minHeight: 48,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.md,
+    minHeight: 44,
+    borderRadius: DesignTokens.radius.lg,
   },
   large: {
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    minHeight: 56,
+    paddingHorizontal: DesignTokens.spacing['2xl'],
+    paddingVertical: DesignTokens.spacing.lg,
+    minHeight: 52,
+    borderRadius: DesignTokens.radius.xl,
+  },
+  xl: {
+    paddingHorizontal: DesignTokens.spacing['3xl'],
+    paddingVertical: DesignTokens.spacing.xl,
+    minHeight: 60,
+    borderRadius: DesignTokens.radius['2xl'],
   },
   
   // Estados
   disabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   fullWidth: {
     width: '100%',
   },
+  fullWidthContainer: {
+    width: '100%',
+  },
+  rounded: {
+    borderRadius: DesignTokens.radius.full,
+  },
   
   // Texto
   text: {
-    fontWeight: '600',
+    fontWeight: DesignTokens.typography.fontWeights.semibold,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   primaryText: {
-    color: '#ffffff',
+    color: Colors.light.textOnPrimary,
   },
   secondaryText: {
     color: Colors.light.text,
@@ -146,19 +231,31 @@ const styles = StyleSheet.create({
   ghostText: {
     color: ComponentColors.button.primary,
   },
+  successText: {
+    color: Colors.light.textOnPrimary,
+  },
+  warningText: {
+    color: Colors.light.textOnPrimary,
+  },
+  errorText: {
+    color: Colors.light.textOnPrimary,
+  },
   
   // Tamaños de texto
   smallText: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
   },
   mediumText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
   },
   largeText: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
+  },
+  xlText: {
+    fontSize: DesignTokens.typography.fontSizes.xl,
   },
   
   disabledText: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
 });

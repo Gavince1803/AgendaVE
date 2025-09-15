@@ -1,3 +1,4 @@
+// 📱 Layout para pantallas de reservas
 import { Stack } from 'expo-router';
 import React from 'react';
 
@@ -7,36 +8,26 @@ export default function BookingLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: '#2563eb',
+          backgroundColor: '#fff',
         },
-        headerTintColor: '#ffffff',
+        headerTintColor: '#000',
         headerTitleStyle: {
-          fontWeight: '600',
+          fontWeight: 'bold',
         },
       }}
     >
       <Stack.Screen
         name="provider-detail"
         options={{
-          title: 'Detalle del Proveedor',
+          title: 'Detalles del Proveedor',
+          headerBackTitle: 'Atrás',
         }}
       />
       <Stack.Screen
-        name="service-selection"
+        name="book-service"
         options={{
-          title: 'Seleccionar Servicio',
-        }}
-      />
-      <Stack.Screen
-        name="time-selection"
-        options={{
-          title: 'Seleccionar Horario',
-        }}
-      />
-      <Stack.Screen
-        name="booking-confirmation"
-        options={{
-          title: 'Confirmar Reserva',
+          title: 'Reservar Servicio',
+          headerBackTitle: 'Atrás',
         }}
       />
     </Stack>

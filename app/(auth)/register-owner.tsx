@@ -2,18 +2,17 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Colors } from '@/constants/Colors';
+import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
+import { SimpleInput } from '@/components/ui/SimpleInput';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Alert,
-    KeyboardAvoidingView,
     Platform,
-    ScrollView,
     StyleSheet,
-    View,
+    View
 } from 'react-native';
 
 export default function RegisterOwnerScreen() {
@@ -56,9 +55,27 @@ export default function RegisterOwnerScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, fullName, 'provider');
-      // Aquí podrías agregar lógica adicional para guardar la información del negocio
-      router.replace('/(tabs)');
+      // Crear el usuario con rol provider y información del negocio
+      await signUp(email, password, fullName, 'provider', phone, {
+        businessName: businessName,
+        businessType: businessType,
+        address: address
+      });
+      
+      // Mostrar mensaje de éxito con información sobre confirmación de email
+      Alert.alert(
+        '¡Negocio registrado exitosamente! 🎉',
+        'Te hemos enviado un email de confirmación a ' + email + '. Por favor revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.\n\nUna vez confirmado, podrás iniciar sesión y comenzar a recibir clientes.',
+        [
+          {
+            text: 'Entendido',
+            onPress: () => {
+              // Redirigir al login en lugar de a las tabs
+              router.replace('/(auth)/login');
+            }
+          }
+        ]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al registrarse');
     } finally {
@@ -67,13 +84,10 @@ export default function RegisterOwnerScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+    <ThemedView style={styles.container}>
+      <ScrollableInputView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
       >
         <ThemedView style={styles.content}>
           {/* Header */}
@@ -107,7 +121,7 @@ export default function RegisterOwnerScreen() {
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Información Personal</ThemedText>
               
-              <Input
+              <SimpleInput
                 label="Nombre Completo *"
                 value={fullName}
                 onChangeText={setFullName}
@@ -115,7 +129,7 @@ export default function RegisterOwnerScreen() {
                 autoCapitalize="words"
               />
 
-              <Input
+              <SimpleInput
                 label="Email *"
                 value={email}
                 onChangeText={setEmail}
@@ -125,12 +139,14 @@ export default function RegisterOwnerScreen() {
                 autoCorrect={false}
               />
 
-              <Input
+              <SimpleInput
                 label="Teléfono *"
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="+58 412 123 4567"
-                keyboardType="phone-pad"
+                keyboardType="numeric"
+                autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
@@ -138,15 +154,16 @@ export default function RegisterOwnerScreen() {
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Información del Negocio</ThemedText>
               
-              <Input
+              <SimpleInput
                 label="Nombre del Negocio *"
                 value={businessName}
                 onChangeText={setBusinessName}
                 placeholder="Mi Peluquería"
                 autoCapitalize="words"
+                autoCorrect={false}
               />
 
-              <Input
+              <SimpleInput
                 label="Tipo de Negocio *"
                 value={businessType}
                 onChangeText={setBusinessType}
@@ -154,7 +171,7 @@ export default function RegisterOwnerScreen() {
                 autoCapitalize="words"
               />
 
-              <Input
+              <SimpleInput
                 label="Dirección"
                 value={address}
                 onChangeText={setAddress}
@@ -167,7 +184,7 @@ export default function RegisterOwnerScreen() {
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Seguridad</ThemedText>
               
-              <Input
+              <SimpleInput
                 label="Contraseña *"
                 value={password}
                 onChangeText={setPassword}
@@ -176,7 +193,7 @@ export default function RegisterOwnerScreen() {
                 autoCapitalize="none"
               />
 
-              <Input
+              <SimpleInput
                 label="Confirmar Contraseña *"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -230,8 +247,8 @@ export default function RegisterOwnerScreen() {
             </View>
           </Card>
         </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </ScrollableInputView>
+    </ThemedView>
   );
 }
 
@@ -241,12 +258,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: DesignTokens.spacing.xl,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
   header: {

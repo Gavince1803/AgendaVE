@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
-import { BookingService } from '@/lib/booking';
+import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -142,7 +142,7 @@ export default function ServiceSelectionScreen() {
                 padding="medium"
                 style={[
                   styles.serviceCard,
-                  selectedService === service.id && styles.selectedServiceCard,
+                  selectedService === service.id ? styles.selectedServiceCard : null,
                 ]}
                 onPress={() => handleServiceSelect(service.id)}
               >

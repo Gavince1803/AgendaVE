@@ -4,24 +4,37 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
-import { Colors } from '@/constants/Colors';
+import { Colors, DesignTokens } from '@/constants/Colors';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { BookingService, Provider } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-    FlatList,
     Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 
 export default function ExploreScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const log = useLogger();
+  
+  // Colores dinámicos para modo oscuro
+  const backgroundColor = useThemeColor({}, 'background');
+  const surfaceColor = useThemeColor({}, 'surface');
+  const textColor = useThemeColor({}, 'text');
+  const textSecondaryColor = useThemeColor({}, 'textSecondary');
+  const borderColor = useThemeColor({}, 'border');
+  const primaryColor = useThemeColor({}, 'primary');
 
   const categories = [
     { id: 'all', name: 'Todos', icon: 'grid' },
@@ -31,141 +44,112 @@ export default function ExploreScreen() {
     { id: 'wellness', name: 'Bienestar', icon: 'leaf' },
   ];
 
-  const providers = [
-    {
-      id: 1,
-      name: 'Salón Bella Vista',
-      category: 'Peluquería',
-      rating: 4.8,
-      reviews: 124,
-      distance: '0.5 km',
-      price: 'Desde $15',
-      image: null,
-      services: ['Corte', 'Peinado', 'Tinte'],
-      isOpen: true,
-      nextAvailable: 'Hoy 2:00 PM',
-    },
-    {
-      id: 2,
-      name: 'Spa Relax',
-      category: 'Estética',
-      rating: 4.9,
-      reviews: 89,
-      distance: '1.2 km',
-      price: 'Desde $25',
-      image: null,
-      services: ['Facial', 'Masaje', 'Manicure'],
-      isOpen: true,
-      nextAvailable: 'Hoy 3:30 PM',
-    },
-    {
-      id: 3,
-      name: 'Clínica Dental Smile',
-      category: 'Salud',
-      rating: 4.7,
-      reviews: 156,
-      distance: '0.8 km',
-      price: 'Desde $30',
-      image: null,
-      services: ['Limpieza', 'Blanqueamiento', 'Ortodoncia'],
-      isOpen: false,
-      nextAvailable: 'Mañana 9:00 AM',
-    },
-    {
-      id: 4,
-      name: 'Barbería Moderna',
-      category: 'Peluquería',
-      rating: 4.6,
-      reviews: 67,
-      distance: '1.5 km',
-      price: 'Desde $12',
-      image: null,
-      services: ['Corte', 'Barba', 'Afeitado'],
-      isOpen: true,
-      nextAvailable: 'Hoy 1:15 PM',
-    },
-    {
-      id: 5,
-      name: 'Centro de Masajes Zen',
-      category: 'Bienestar',
-      rating: 4.9,
-      reviews: 203,
-      distance: '2.1 km',
-      price: 'Desde $35',
-      image: null,
-      services: ['Masaje Relajante', 'Masaje Deportivo', 'Reflexología'],
-      isOpen: true,
-      nextAvailable: 'Hoy 4:00 PM',
-    },
-  ];
+  useEffect(() => {
+    loadProviders();
+  }, [selectedCategory]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simular carga de datos
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+  const loadProviders = async () => {
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATA, 'Loading providers', { category: selectedCategory });
+
+      let providersData: Provider[];
+      if (selectedCategory === 'all') {
+        providersData = await BookingService.getAllProviders();
+      } else {
+        providersData = await BookingService.getProvidersByCategory(selectedCategory);
+      }
+
+      setProviders(providersData);
+      log.info(LogCategory.DATA, 'Providers loaded successfully', { count: providersData.length });
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error loading providers', error);
+      // Mantener datos de ejemplo en caso de error
+      setProviders([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const renderProviderCard = ({ item: provider }) => (
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProviders();
+    setRefreshing(false);
+  };
+
+  const renderProviderCard = (provider: Provider) => (
     <Card variant="elevated" style={styles.providerCard}>
-      <View style={styles.providerHeader}>
-        <View style={styles.providerImage}>
-          <IconSymbol name="building.2" size={32} color={Colors.light.primary} />
-        </View>
-        <View style={styles.providerMainInfo}>
-          <ThemedText style={styles.providerName}>{provider.name}</ThemedText>
-          <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
-          <View style={styles.providerStatus}>
-            <View style={[
-              styles.statusIndicator, 
-              { backgroundColor: provider.isOpen ? Colors.light.success : Colors.light.error }
-            ]} />
-            <ThemedText style={styles.statusText}>
-              {provider.isOpen ? 'Abierto' : 'Cerrado'}
+      <TouchableOpacity
+        key={provider.id}
+        onPress={() => {
+          log.userAction('View provider details', { providerId: provider.id, providerName: provider.business_name });
+          router.push({
+            pathname: '/(booking)/provider-detail',
+            params: { providerId: provider.id }
+          });
+        }}
+        style={styles.providerCardContent}
+      >
+        <View style={styles.providerHeader}>
+          <View style={[styles.providerImage, { backgroundColor: surfaceColor }]}>
+            <IconSymbol name="building.2" size={32} color={primaryColor} />
+          </View>
+          <View style={styles.providerMainInfo}>
+            <ThemedText style={styles.providerName} numberOfLines={1}>
+              {provider.business_name}
             </ThemedText>
-            <ThemedText style={styles.nextAvailable}>
-              • {provider.nextAvailable}
+            <ThemedText style={styles.providerCategory} numberOfLines={1}>
+              {provider.category}
             </ThemedText>
+            <View style={styles.providerStatus}>
+              <View style={[
+                styles.statusIndicator, 
+                { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
+              ]} />
+              <ThemedText style={styles.statusText}>
+                {provider.is_active ? 'Disponible' : 'No disponible'}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.providerRating}>
+            <View style={styles.ratingContainer}>
+              <IconSymbol name="star.fill" size={16} color={Colors.light.secondary} />
+              <ThemedText style={styles.ratingText}>{provider.rating.toFixed(1)}</ThemedText>
+            </View>
+            <ThemedText style={styles.reviewsText}>({provider.total_reviews})</ThemedText>
           </View>
         </View>
-        <View style={styles.providerRating}>
-          <View style={styles.ratingContainer}>
-            <IconSymbol name="star.fill" size={16} color={Colors.light.secondary} />
-            <ThemedText style={styles.ratingText}>{provider.rating}</ThemedText>
-          </View>
-          <ThemedText style={styles.reviewsText}>({provider.reviews})</ThemedText>
-        </View>
-      </View>
 
-      <View style={styles.servicesContainer}>
-        {provider.services.slice(0, 3).map((service, index) => (
-          <View key={index} style={styles.serviceTag}>
-            <ThemedText style={styles.serviceTagText}>{service}</ThemedText>
-          </View>
-        ))}
-        {provider.services.length > 3 && (
-          <View style={styles.serviceTag}>
-            <ThemedText style={styles.serviceTagText}>
-              +{provider.services.length - 3} más
-            </ThemedText>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.providerFooter}>
-        <View style={styles.providerDetails}>
-          <ThemedText style={styles.distance}>{provider.distance}</ThemedText>
-          <ThemedText style={styles.price}>{provider.price}</ThemedText>
+        <View style={styles.providerInfo}>
+          {provider.address && (
+            <View style={styles.infoRow}>
+              <IconSymbol name="location" size={14} color={textColor} />
+              <ThemedText style={styles.infoText} numberOfLines={1}>
+                {provider.address}
+              </ThemedText>
+            </View>
+          )}
+          {provider.phone && (
+            <View style={styles.infoRow}>
+              <IconSymbol name="phone" size={14} color={textColor} />
+              <ThemedText style={styles.infoText} numberOfLines={1}>
+                {provider.phone}
+              </ThemedText>
+            </View>
+          )}
         </View>
+      </TouchableOpacity>
+      
+      <View style={styles.providerActions}>
         <Button
-          title="Reservar"
+          title="Ver Detalles"
           size="small"
+          variant="primary"
           onPress={() => {
-            // Navegar al flujo de booking
+            log.userAction('View provider details', { providerId: provider.id, providerName: provider.business_name });
             router.push({
               pathname: '/(booking)/provider-detail',
-              params: { providerId: provider.id.toString() }
+              params: { providerId: provider.id }
             });
           }}
         />
@@ -174,10 +158,10 @@ export default function ExploreScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
+    <View style={[styles.container, { backgroundColor }]}>
+      {/* Header fijo */}
+      <ThemedView style={[styles.header, { backgroundColor: surfaceColor, borderBottomColor: borderColor }]}>
+        <ThemedText type="title" style={[styles.title, { color: primaryColor }]}>
           Explorar Servicios
         </ThemedText>
         
@@ -185,81 +169,104 @@ export default function ExploreScreen() {
           placeholder="Buscar servicios, proveedores..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          leftIcon={<IconSymbol name="magnifyingglass" size={20} color={Colors.light.textSecondary} />}
+          leftIcon={<IconSymbol name="magnifyingglass" size={20} color={textSecondaryColor} />}
         />
       </ThemedView>
 
-      {/* Categorías */}
-      <ThemedView style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Categorías
-        </ThemedText>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.categoriesScroll}
-          contentContainerStyle={styles.categoriesContent}
-        >
-          {categories.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryChip,
-                selectedCategory === category.id && styles.categoryChipSelected,
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
-            >
-              <IconSymbol
-                name={category.icon}
-                size={20}
-                color={selectedCategory === category.id ? '#ffffff' : Colors.light.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  selectedCategory === category.id && styles.categoryChipTextSelected,
-                ]}
-              >
-                {category.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </ThemedView>
-
-      {/* Lista de proveedores */}
-      <ThemedView style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Proveedores Cercanos
-          </ThemedText>
-          <Button
-            title="Filtros"
-            variant="ghost"
-            size="small"
-            onPress={() => {
-              // Abrir filtros
-              console.log('Abrir filtros');
-            }}
+      {/* Contenido scrolleable */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
           />
-        </View>
-        
-        <FlatList
-          data={providers}
-          renderItem={renderProviderCard}
-          keyExtractor={(item) => item.id.toString()}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[Colors.light.primary]}
-              tintColor={Colors.light.primary}
+        }
+      >
+        {/* Categorías */}
+        <ThemedView style={styles.section}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+            Categorías
+          </ThemedText>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.categoriesScroll}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryChip,
+                  { 
+                    backgroundColor: selectedCategory === category.id ? primaryColor : surfaceColor,
+                    borderColor: selectedCategory === category.id ? primaryColor : borderColor,
+                    borderWidth: 1,
+                  },
+                  selectedCategory === category.id && styles.categoryChipSelected,
+                ]}
+                onPress={() => setSelectedCategory(category.id)}
+              >
+                <IconSymbol
+                  name={category.icon}
+                  size={20}
+                  color={selectedCategory === category.id ? '#ffffff' : textColor}
+                />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    { color: selectedCategory === category.id ? '#ffffff' : textColor },
+                    selectedCategory === category.id && styles.categoryChipTextSelected,
+                  ]}
+                >
+                  {category.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </ThemedView>
+
+        {/* Lista de proveedores */}
+        <ThemedView style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+              Proveedores Cercanos
+            </ThemedText>
+            <Button
+              title="Filtros"
+              variant="ghost"
+              size="small"
+              icon={<IconSymbol name="line.3.horizontal.decrease" size={16} color={primaryColor} />}
+              onPress={() => {
+                // Abrir filtros
+                console.log('Abrir filtros');
+              }}
             />
-          }
-          contentContainerStyle={styles.providersList}
-        />
-      </ThemedView>
+          </View>
+          
+          {loading ? (
+            <ThemedView style={styles.loadingContainer}>
+              <ThemedText style={[styles.loadingText, { color: textSecondaryColor }]}>Cargando proveedores...</ThemedText>
+            </ThemedView>
+          ) : providers.length > 0 ? (
+            providers.map((provider) => renderProviderCard(provider))
+          ) : (
+            <ThemedView style={styles.emptyContainer}>
+              <ThemedText style={[styles.emptyText, { color: textSecondaryColor }]}>
+                No se encontraron proveedores en esta categoría
+              </ThemedText>
+            </ThemedView>
+          )}
+        </ThemedView>
+
+        {/* Espacio adicional al final */}
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
     </View>
   );
 }
@@ -267,96 +274,117 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: 20,
+    padding: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingBottom: DesignTokens.spacing.md,
+    borderBottomWidth: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.light.primary,
-    marginBottom: 20,
+    fontSize: DesignTokens.typography.fontSizes['3xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    marginBottom: DesignTokens.spacing.lg,
+    letterSpacing: -0.5,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.light.text,
+    fontSize: DesignTokens.typography.fontSizes.xl,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    letterSpacing: -0.2,
   },
   categoriesScroll: {
-    marginHorizontal: -20,
+    marginHorizontal: -DesignTokens.spacing.xl,
   },
   categoriesContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.background,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 12,
+    borderRadius: DesignTokens.radius['2xl'],
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.sm,
+    marginRight: DesignTokens.spacing.md,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    ...DesignTokens.elevation.sm,
   },
   categoryChipSelected: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primary,
+    ...DesignTokens.elevation.md,
   },
   categoryChipText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.light.textSecondary,
+    marginLeft: DesignTokens.spacing.sm,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   categoryChipTextSelected: {
-    color: '#ffffff',
+    color: Colors.light.textOnPrimary,
   },
-  providersList: {
-    paddingBottom: 20,
+  bottomSpacer: {
+    height: DesignTokens.spacing['4xl'],
+  },
+  loadingContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+  },
+  emptyContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    textAlign: 'center',
   },
   providerCard: {
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing.lg,
+  },
+  providerCardContent: {
+    marginBottom: DesignTokens.spacing.md,
   },
   providerHeader: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.md,
   },
   providerImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: Colors.light.surfaceVariant,
+    width: 56,
+    height: 56,
+    borderRadius: DesignTokens.radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: DesignTokens.spacing.md,
+    ...DesignTokens.elevation.sm,
   },
   providerMainInfo: {
     flex: 1,
   },
   providerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 4,
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.1,
   },
   providerCategory: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    marginBottom: 8,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    marginBottom: DesignTokens.spacing.sm,
   },
   providerStatus: {
     flexDirection: 'row',
@@ -365,16 +393,15 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    borderRadius: DesignTokens.radius.xs,
+    marginRight: DesignTokens.spacing.xs,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   nextAvailable: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textTertiary,
   },
   providerRating: {
@@ -383,52 +410,47 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: DesignTokens.spacing.xs,
   },
   ratingText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginLeft: 4,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    marginLeft: DesignTokens.spacing.xs,
   },
   reviewsText: {
-    fontSize: 12,
-    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.xs,
   },
   servicesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.lg,
   },
   serviceTag: {
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: DesignTokens.radius.sm,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
   },
   serviceTagText: {
-    fontSize: 12,
-    color: Colors.light.textSecondary,
-    fontWeight: '500',
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
-  providerFooter: {
+  providerInfo: {
+    gap: DesignTokens.spacing.sm,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: DesignTokens.spacing.sm,
   },
-  providerDetails: {
-    flexDirection: 'row',
+  infoText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    flex: 1,
+  },
+  providerActions: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    paddingTop: DesignTokens.spacing.md,
     alignItems: 'center',
-    gap: 12,
-  },
-  distance: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.success,
   },
 });

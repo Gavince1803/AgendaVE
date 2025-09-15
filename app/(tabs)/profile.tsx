@@ -1,34 +1,67 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Toast } from '@/components/ui/Toast';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
-import React from 'react';
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-              router.replace('/(auth)/login');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo cerrar sesión');
-            }
-          },
-        },
-      ]
-    );
+    console.log('🔴 [PROFILE] handleSignOut llamado');
+    console.log('🔴 [PROFILE] isSigningOut:', isSigningOut);
+    
+    if (isSigningOut) {
+      console.log('🔴 [PROFILE] Ya se está cerrando sesión, ignorando...');
+      return;
+    }
+    
+    console.log('🔴 [PROFILE] Mostrando confirmación...');
+    
+    // Usar confirm() en lugar de Alert.alert para mejor compatibilidad con web
+    const confirmed = window.confirm('¿Estás seguro de que quieres cerrar sesión?');
+    
+    if (confirmed) {
+      console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
+      setIsSigningOut(true);
+      
+      try {
+        console.log('🔴 [PROFILE] Llamando a signOut()...');
+        await signOut();
+        console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
+        
+        setToastMessage('Sesión cerrada exitosamente');
+        setToastType('success');
+        setShowToast(true);
+        
+        setTimeout(() => {
+          console.log('🔴 [PROFILE] Navegando a login...');
+          router.replace('/(auth)/login');
+        }, 1000);
+        
+      } catch (error) {
+        console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
+        setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
+        setToastType('error');
+        setShowToast(true);
+        setIsSigningOut(false);
+      }
+    } else {
+      console.log('🔴 [PROFILE] Usuario canceló cerrar sesión');
+    }
   };
 
   const menuItems = [
@@ -76,178 +109,185 @@ export default function ProfileScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Perfil
-        </ThemedText>
-      </ThemedView>
-
-      <ThemedView style={styles.profileSection}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <IconSymbol name="person.fill" size={40} color="#6b7280" />
-          </View>
-        </View>
-        
-        <View style={styles.userInfo}>
-          <ThemedText style={styles.userName}>
-            {user?.profile?.full_name || 'Usuario'}
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ThemedView style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            Perfil
           </ThemedText>
-          <ThemedText style={styles.userEmail}>
-            {user?.email}
-          </ThemedText>
-          <View style={styles.roleBadge}>
-            <ThemedText style={styles.roleText}>
-              {user?.profile?.role === 'client' ? 'Cliente' : 
-               user?.profile?.role === 'provider' ? 'Proveedor' : 'Admin'}
-            </ThemedText>
-          </View>
-        </View>
-      </ThemedView>
+        </ThemedView>
 
-      <ThemedView style={styles.menuSection}>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.menuItem}
-            onPress={item.onPress}
-          >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name={item.icon} size={24} color="#6b7280" />
-              <ThemedText style={styles.menuItemText}>{item.title}</ThemedText>
+        <Card variant="elevated" style={styles.profileCard}>
+          <View style={styles.profileContent}>
+            <Avatar 
+              name={user?.profile?.display_name || 'Usuario'}
+              size="xl"
+              style={styles.avatar}
+            />
+            
+            <View style={styles.userInfo}>
+              <ThemedText style={styles.userName}>
+                {user?.profile?.display_name || 'Usuario'}
+              </ThemedText>
+              <ThemedText style={styles.userEmail}>
+                {user?.email}
+              </ThemedText>
+              {user?.profile?.phone && (
+                <ThemedText style={styles.userPhone}>
+                  {user.profile.phone}
+                </ThemedText>
+              )}
+              <Badge 
+                variant={user?.profile?.role === 'provider' ? 'success' : 'primary'}
+                size="medium"
+                style={styles.roleBadge}
+              >
+                {user?.profile?.role === 'client' ? 'Cliente' : 
+                 user?.profile?.role === 'provider' ? 'Proveedor' : 'Usuario'}
+              </Badge>
             </View>
-            <IconSymbol name="chevron.right" size={16} color="#9ca3af" />
-          </TouchableOpacity>
-        ))}
-      </ThemedView>
+          </View>
+        </Card>
 
-      <ThemedView style={styles.section}>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#ef4444" />
-          <ThemedText style={styles.signOutText}>Cerrar Sesión</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-    </ScrollView>
+        <Card variant="elevated" style={styles.menuCard}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.menuItem,
+                index === menuItems.length - 1 && styles.lastMenuItem
+              ]}
+              onPress={item.onPress}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name={item.icon} size={24} color={Colors.light.icon} />
+                <ThemedText style={styles.menuItemText}>{item.title}</ThemedText>
+              </View>
+              <IconSymbol name="chevron.right" size={16} color={Colors.light.iconSecondary} />
+            </TouchableOpacity>
+          ))}
+        </Card>
+
+        <View style={styles.signOutSection}>
+          <Button
+            title={isSigningOut ? "Cerrando Sesión..." : "Cerrar Sesión"}
+            variant="outline"
+            size="large"
+            loading={isSigningOut}
+            disabled={isSigningOut}
+            icon={!isSigningOut ? <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={Colors.light.error} /> : undefined}
+            onPress={() => {
+              console.log('🔴 [PROFILE] Botón Cerrar Sesión presionado');
+              handleSignOut();
+            }}
+            style={styles.signOutButton}
+          />
+        </View>
+      </ScrollView>
+
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        visible={showToast}
+        onHide={() => setShowToast(false)}
+      />
+    </TabSafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.light.surface,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para scroll
   },
   header: {
-    padding: 24,
-    paddingTop: 60,
+    padding: DesignTokens.spacing['2xl'],
+    paddingTop: DesignTokens.spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2563eb',
+    fontSize: DesignTokens.typography.fontSizes['3xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.primary,
+    letterSpacing: -0.5,
   },
-  profileSection: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 16,
-    padding: 24,
+  profileCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+  },
+  profileContent: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  avatarContainer: {
-    marginBottom: 16,
+    paddingVertical: DesignTokens.spacing['2xl'],
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.lg,
   },
   userInfo: {
     alignItems: 'center',
   },
   userName: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.3,
   },
   userEmail: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginBottom: 12,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.textSecondary,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  userPhone: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    marginBottom: DesignTokens.spacing.md,
   },
   roleBadge: {
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    marginTop: DesignTokens.spacing.sm,
   },
-  roleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2563eb',
-  },
-  menuSection: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  menuCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+    paddingVertical: DesignTokens.spacing.sm,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: Colors.light.borderLight,
+  },
+  lastMenuItem: {
+    borderBottomWidth: 0,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   menuItemText: {
-    fontSize: 16,
-    color: '#374151',
-    marginLeft: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.text,
+    marginLeft: DesignTokens.spacing.lg,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 40,
+  signOutSection: {
+    paddingHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
   },
   signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  signOutText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ef4444',
-    marginLeft: 8,
+    borderColor: Colors.light.error,
+    borderWidth: 2,
   },
 });
 

@@ -3,9 +3,13 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors, ComponentColors } from '@/constants/Colors';
-import React, { useState } from 'react';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { Appointment, BookingService } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
+import { useEffect, useState } from 'react';
 import {
+    Alert,
     Platform,
     RefreshControl,
     ScrollView,
@@ -17,76 +21,87 @@ import {
 export default function AppointmentsScreen() {
   const [selectedTab, setSelectedTab] = useState('today');
   const [refreshing, setRefreshing] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const log = useLogger();
 
-  const todayAppointments = [
-    {
-      id: 1,
-      clientName: 'María González',
-      serviceName: 'Corte de Cabello',
-      time: '10:30 AM',
-      status: 'confirmed',
-      phone: '+58 412-123-4567',
-      notes: 'Corte corto, estilo moderno',
-      duration: '45 min',
-      price: '$15',
-    },
-    {
-      id: 2,
-      clientName: 'Carlos Pérez',
-      serviceName: 'Peinado',
-      time: '2:00 PM',
-      status: 'pending',
-      phone: '+58 414-987-6543',
-      notes: null,
-      duration: '30 min',
-      price: '$12',
-    },
-    {
-      id: 3,
-      clientName: 'Laura Martínez',
-      serviceName: 'Manicure',
-      time: '4:00 PM',
-      status: 'confirmed',
-      phone: '+58 424-111-2222',
-      notes: 'Manicure francesa',
-      duration: '60 min',
-      price: '$20',
-    },
-  ];
+  useEffect(() => {
+    loadAppointments();
+  }, []);
 
-  const upcomingAppointments = [
-    {
-      id: 4,
-      clientName: 'Ana Rodríguez',
-      serviceName: 'Tinte',
-      date: '2024-01-16',
-      time: '11:00 AM',
-      status: 'confirmed',
-      phone: '+58 416-555-1234',
-      notes: 'Tinte rubio, raíces',
-      duration: '90 min',
-      price: '$35',
-    },
-    {
-      id: 5,
-      clientName: 'Pedro Silva',
-      serviceName: 'Corte + Barba',
-      date: '2024-01-17',
-      time: '3:00 PM',
-      status: 'pending',
-      phone: '+58 426-777-8888',
-      notes: null,
-      duration: '45 min',
-      price: '$18',
-    },
-  ];
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATA, 'Loading provider appointments', { screen: 'Appointments' });
+      
+      const appointmentsData = await BookingService.getProviderAppointments();
+      setAppointments(appointmentsData);
+      
+      log.info(LogCategory.DATA, 'Provider appointments loaded', { 
+        count: appointmentsData.length,
+        screen: 'Appointments' 
+      });
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error loading provider appointments', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    // Simular carga de datos
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await loadAppointments();
+    setRefreshing(false);
+  };
+
+  // Filtrar citas por fecha
+  const today = new Date().toISOString().split('T')[0];
+  const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
+  
+  const upcomingAppointments = appointments.filter(apt => 
+    apt.appointment_date > today && (apt.status === 'pending' || apt.status === 'confirmed')
+  );
+  
+  const pastAppointments = appointments.filter(apt => 
+    apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
+  );
+
+  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
+    try {
+      log.userAction('Appointment action', { 
+        appointmentId: appointment.id, 
+        action,
+        status: appointment.status,
+        screen: 'Appointments' 
+      });
+
+      let newStatus: 'confirmed' | 'cancelled' | 'done';
+      switch (action) {
+        case 'confirm':
+          newStatus = 'confirmed';
+          break;
+        case 'cancel':
+          newStatus = 'cancelled';
+          break;
+        case 'complete':
+          newStatus = 'done';
+          break;
+      }
+
+      await BookingService.updateAppointmentStatus(appointment.id, newStatus);
+      
+      // Recargar citas
+      await loadAppointments();
+      
+      Alert.alert(
+        'Éxito',
+        `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
+      );
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error updating appointment status', error);
+      Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -97,7 +112,7 @@ export default function AppointmentsScreen() {
         return ComponentColors.appointment.pending;
       case 'cancelled':
         return ComponentColors.appointment.cancelled;
-      case 'completed':
+      case 'done':
         return ComponentColors.appointment.completed;
       default:
         return Colors.light.textSecondary;
@@ -112,25 +127,29 @@ export default function AppointmentsScreen() {
         return 'Pendiente';
       case 'cancelled':
         return 'Cancelada';
-      case 'completed':
+      case 'done':
         return 'Completada';
       default:
         return status;
     }
   };
 
-  const renderAppointmentCard = (appointment: any) => (
-    <Card variant="elevated" style={styles.appointmentCard}>
+  const renderAppointmentCard = (appointment: Appointment) => (
+    <Card key={appointment.id} variant="elevated" style={styles.appointmentCard}>
       <View style={styles.appointmentHeader}>
         <View style={styles.clientAvatar}>
           <IconSymbol name="person.circle" size={24} color={Colors.light.primary} />
         </View>
         <View style={styles.clientInfo}>
-          <ThemedText style={styles.clientName}>{appointment.clientName}</ThemedText>
-          <ThemedText style={styles.serviceName}>{appointment.serviceName}</ThemedText>
-          {appointment.date && (
-            <ThemedText style={styles.appointmentDate}>{appointment.date}</ThemedText>
-          )}
+          <ThemedText style={styles.clientName}>
+            {appointment.client?.display_name || 'Cliente'}
+          </ThemedText>
+          <ThemedText style={styles.serviceName}>
+            {appointment.service?.name || 'Servicio'}
+          </ThemedText>
+          <ThemedText style={styles.appointmentDate}>
+            {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
+          </ThemedText>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
           <ThemedText style={styles.statusText}>
@@ -142,22 +161,28 @@ export default function AppointmentsScreen() {
       <View style={styles.appointmentDetails}>
         <View style={styles.detailItem}>
           <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{appointment.time}</ThemedText>
+          <ThemedText style={styles.detailText}>{appointment.appointment_time}</ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="timer" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{appointment.duration}</ThemedText>
+          <ThemedText style={styles.detailText}>
+            {appointment.service?.duration_minutes ? `${appointment.service.duration_minutes} min` : 'N/A'}
+          </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{appointment.price}</ThemedText>
+          <ThemedText style={styles.detailText}>
+            {appointment.service?.price_amount ? `$${appointment.service.price_amount} ${appointment.service.price_currency}` : 'N/A'}
+          </ThemedText>
         </View>
       </View>
 
-      <View style={styles.contactInfo}>
-        <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-        <ThemedText style={styles.phoneText}>{appointment.phone}</ThemedText>
-      </View>
+      {appointment.client?.phone && (
+        <View style={styles.contactInfo}>
+          <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
+          <ThemedText style={styles.phoneText}>{appointment.client.phone}</ThemedText>
+        </View>
+      )}
 
       {appointment.notes && (
         <View style={styles.notesContainer}>
@@ -172,20 +197,14 @@ export default function AppointmentsScreen() {
             title="Confirmar"
             variant="primary"
             size="small"
-            onPress={() => {
-              // Lógica para confirmar cita
-              console.log('Confirmar cita:', appointment.id);
-            }}
+            onPress={() => handleAppointmentAction(appointment, 'confirm')}
             style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
           />
           <Button
-            title="Cancelar"
+            title="Rechazar"
             variant="outline"
             size="small"
-            onPress={() => {
-              // Lógica para cancelar cita
-              console.log('Cancelar cita:', appointment.id);
-            }}
+            onPress={() => handleAppointmentAction(appointment, 'cancel')}
             style={[styles.actionButton, { borderColor: Colors.light.error }]}
           />
         </View>
@@ -197,21 +216,8 @@ export default function AppointmentsScreen() {
             title="Completar"
             variant="primary"
             size="small"
-            onPress={() => {
-              // Lógica para completar cita
-              console.log('Completar cita:', appointment.id);
-            }}
+            onPress={() => handleAppointmentAction(appointment, 'complete')}
             style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-          />
-          <Button
-            title="Reprogramar"
-            variant="outline"
-            size="small"
-            onPress={() => {
-              // Lógica para reprogramar cita
-              console.log('Reprogramar cita:', appointment.id);
-            }}
-            style={styles.actionButton}
           />
         </View>
       )}
@@ -221,7 +227,7 @@ export default function AppointmentsScreen() {
   const currentAppointments = selectedTab === 'today' ? todayAppointments : upcomingAppointments;
 
   return (
-    <View style={styles.container}>
+    <TabSafeAreaView style={styles.container}>
       {/* Header */}
       <ThemedView style={styles.header}>
         <ThemedText type="title" style={styles.title}>
@@ -255,6 +261,7 @@ export default function AppointmentsScreen() {
       {/* Appointments List */}
       <ScrollView 
         style={styles.appointmentsSection}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -265,7 +272,11 @@ export default function AppointmentsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {currentAppointments.length === 0 ? (
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+          </View>
+        ) : currentAppointments.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="calendar" size={64} color={Colors.light.textTertiary} />
             <ThemedText style={styles.emptyStateText}>
@@ -285,7 +296,7 @@ export default function AppointmentsScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </TabSafeAreaView>
   );
 }
 
@@ -341,7 +352,10 @@ const styles = StyleSheet.create({
   },
   appointmentsSection: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
   },
   emptyState: {
     alignItems: 'center',
@@ -461,6 +475,17 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
 });
 

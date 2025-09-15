@@ -2,9 +2,10 @@ import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookingService } from '@/lib/booking';
+import { BookingService } from '@/lib/booking-service';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -95,7 +96,7 @@ export default function ProviderCalendarScreen() {
         return Colors.light.warning;
       case 'cancelled':
         return Colors.light.error;
-      case 'completed':
+      case 'done':
         return Colors.light.textSecondary;
       default:
         return Colors.light.textSecondary;
@@ -110,7 +111,7 @@ export default function ProviderCalendarScreen() {
         return 'Pendiente';
       case 'cancelled':
         return 'Cancelada';
-      case 'completed':
+      case 'done':
         return 'Completada';
       default:
         return status;
@@ -141,12 +142,14 @@ export default function ProviderCalendarScreen() {
   const selectedDateAppointments = selectedDate ? getAppointmentsForDate(selectedDate) : [];
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       {/* Header */}
       <View style={styles.header}>
         <IconSymbol name="calendar" size={32} color={Colors.light.primary} />
@@ -209,7 +212,7 @@ export default function ProviderCalendarScreen() {
                       Duración: {appointment.services?.duration || 30} min
                     </Text>
                     <Text style={styles.servicePrice}>
-                      Precio: ${appointment.services?.price || 0}
+                      Precio: ${appointment.service?.price_amount || 0}
                     </Text>
                   </View>
 
@@ -275,13 +278,14 @@ export default function ProviderCalendarScreen() {
           </Card>
           <Card variant="elevated" padding="medium" style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {appointments.filter(apt => apt.status === 'completed').length}
+              {appointments.filter(apt => apt.status === 'done').length}
             </Text>
             <Text style={styles.statLabel}>Completadas</Text>
           </Card>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </TabSafeAreaView>
   );
 }
 
@@ -289,6 +293,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.surface,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
   },
   header: {
     flexDirection: 'row',

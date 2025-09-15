@@ -3,89 +3,99 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors, ComponentColors } from '@/constants/Colors';
-import React, { useState } from 'react';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { Appointment, BookingService } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
+import { useEffect, useState } from 'react';
 import {
-    Platform,
+    Alert,
     RefreshControl,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 
 export default function BookingsScreen() {
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [refreshing, setRefreshing] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const log = useLogger();
 
-  const upcomingBookings = [
-    {
-      id: 1,
-      providerName: 'Salón Bella Vista',
-      serviceName: 'Corte de Cabello',
-      date: '2024-01-15',
-      time: '10:30 AM',
-      status: 'confirmed',
-      price: '$15',
-      duration: '45 min',
-      providerImage: null,
-    },
-    {
-      id: 2,
-      providerName: 'Spa Relax',
-      serviceName: 'Facial Limpieza',
-      date: '2024-01-18',
-      time: '2:00 PM',
-      status: 'pending',
-      price: '$25',
-      duration: '60 min',
-      providerImage: null,
-    },
-    {
-      id: 3,
-      providerName: 'Barbería Moderna',
-      serviceName: 'Corte + Barba',
-      date: '2024-01-20',
-      time: '4:00 PM',
-      status: 'confirmed',
-      price: '$20',
-      duration: '30 min',
-      providerImage: null,
-    },
-  ];
+  useEffect(() => {
+    loadAppointments();
+  }, []);
 
-  const pastBookings = [
-    {
-      id: 4,
-      providerName: 'Clínica Dental Smile',
-      serviceName: 'Limpieza Dental',
-      date: '2024-01-10',
-      time: '9:00 AM',
-      status: 'completed',
-      price: '$30',
-      duration: '60 min',
-      providerImage: null,
-    },
-    {
-      id: 5,
-      providerName: 'Centro de Masajes Zen',
-      serviceName: 'Masaje Relajante',
-      date: '2024-01-08',
-      time: '3:00 PM',
-      status: 'completed',
-      price: '$35',
-      duration: '90 min',
-      providerImage: null,
-    },
-  ];
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simular carga de datos
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATA, 'Loading client appointments', { screen: 'Bookings' });
+      
+      const appointmentsData = await BookingService.getClientAppointments();
+      setAppointments(appointmentsData);
+      
+      log.info(LogCategory.DATA, 'Client appointments loaded', { 
+        count: appointmentsData.length,
+        screen: 'Bookings' 
+      });
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error loading client appointments', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAppointments();
+    setRefreshing(false);
+  };
+
+  // Filtrar citas por estado
+  const today = new Date().toISOString().split('T')[0];
+  const upcomingBookings = appointments.filter(apt => 
+    apt.appointment_date >= today && (apt.status === 'pending' || apt.status === 'confirmed')
+  );
+  
+  const pastBookings = appointments.filter(apt => 
+    apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
+  );
+
+  const handleCancelBooking = async (appointment: Appointment) => {
+    try {
+      log.userAction('Cancel booking', { 
+        appointmentId: appointment.id,
+        screen: 'Bookings' 
+      });
+
+      Alert.alert(
+        'Cancelar Cita',
+        '¿Estás seguro de que quieres cancelar esta cita?',
+        [
+          {
+            text: 'No',
+            style: 'cancel'
+          },
+          {
+            text: 'Sí, Cancelar',
+            style: 'destructive',
+            onPress: async () => {
+              await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
+              await loadAppointments();
+              Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error canceling booking', error);
+      Alert.alert('Error', 'No se pudo cancelar la cita');
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -95,7 +105,7 @@ export default function BookingsScreen() {
         return ComponentColors.appointment.pending;
       case 'cancelled':
         return ComponentColors.appointment.cancelled;
-      case 'completed':
+      case 'done':
         return ComponentColors.appointment.completed;
       default:
         return Colors.light.textSecondary;
@@ -110,23 +120,29 @@ export default function BookingsScreen() {
         return 'Pendiente';
       case 'cancelled':
         return 'Cancelada';
-      case 'completed':
+      case 'done':
         return 'Completada';
       default:
         return status;
     }
   };
 
-  const renderBookingCard = (booking: any) => (
-    <Card variant="elevated" style={styles.bookingCard}>
+  const renderBookingCard = (booking: Appointment) => (
+    <Card key={booking.id} variant="elevated" style={styles.bookingCard}>
       <View style={styles.bookingHeader}>
         <View style={styles.providerImage}>
           <IconSymbol name="building.2" size={24} color={Colors.light.primary} />
         </View>
         <View style={styles.providerInfo}>
-          <ThemedText style={styles.providerName}>{booking.providerName}</ThemedText>
-          <ThemedText style={styles.serviceName}>{booking.serviceName}</ThemedText>
-          <ThemedText style={styles.duration}>{booking.duration}</ThemedText>
+          <ThemedText style={styles.providerName}>
+            {booking.provider?.business_name || 'Proveedor'}
+          </ThemedText>
+          <ThemedText style={styles.serviceName}>
+            {booking.service?.name || 'Servicio'}
+          </ThemedText>
+          <ThemedText style={styles.duration}>
+            {booking.service?.duration_minutes ? `${booking.service.duration_minutes} min` : 'N/A'}
+          </ThemedText>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
           <ThemedText style={styles.statusText}>
@@ -138,15 +154,19 @@ export default function BookingsScreen() {
       <View style={styles.bookingDetails}>
         <View style={styles.detailItem}>
           <IconSymbol name="calendar" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{booking.date}</ThemedText>
+          <ThemedText style={styles.detailText}>
+            {new Date(booking.appointment_date).toLocaleDateString('es-VE')}
+          </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{booking.time}</ThemedText>
+          <ThemedText style={styles.detailText}>{booking.appointment_time}</ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.detailText}>{booking.price}</ThemedText>
+          <ThemedText style={styles.detailText}>
+            {booking.service?.price_amount ? `$${booking.service.price_amount} ${booking.service.price_currency}` : 'N/A'}
+          </ThemedText>
         </View>
       </View>
 
@@ -156,10 +176,7 @@ export default function BookingsScreen() {
             title="Cancelar"
             variant="outline"
             size="small"
-            onPress={() => {
-              // Lógica para cancelar cita
-              console.log('Cancelar cita:', booking.id);
-            }}
+            onPress={() => handleCancelBooking(booking)}
             style={[styles.actionButton, { borderColor: Colors.light.error }]}
           />
           <Button
@@ -167,23 +184,32 @@ export default function BookingsScreen() {
             variant="primary"
             size="small"
             onPress={() => {
-              // Lógica para reprogramar cita
-              console.log('Reprogramar cita:', booking.id);
+              log.userAction('Reschedule booking', { 
+                appointmentId: booking.id,
+                screen: 'Bookings' 
+              });
+              // TODO: Implementar reprogramación
             }}
             style={styles.actionButton}
           />
         </View>
       )}
 
-      {selectedTab === 'past' && booking.status === 'completed' && (
+      {selectedTab === 'past' && booking.status === 'done' && (
         <View style={styles.bookingActions}>
           <Button
             title="Calificar"
             variant="outline"
             size="small"
             onPress={() => {
-              // Lógica para calificar servicio
-              console.log('Calificar servicio:', booking.id);
+              log.userAction('Rate service', { 
+                appointmentId: booking.id,
+                screen: 'Bookings' 
+              });
+              router.push({
+                pathname: '/(booking)/rate-appointment',
+                params: { appointmentId: booking.id }
+              });
             }}
             style={styles.actionButton}
           />
@@ -192,8 +218,12 @@ export default function BookingsScreen() {
             variant="primary"
             size="small"
             onPress={() => {
-              // Lógica para reservar de nuevo
-              console.log('Reservar de nuevo:', booking.id);
+              log.userAction('Book again', { 
+                appointmentId: booking.id,
+                providerId: booking.provider_id,
+                screen: 'Bookings' 
+              });
+              // TODO: Implementar reserva de nuevo
             }}
             style={styles.actionButton}
           />
@@ -205,7 +235,7 @@ export default function BookingsScreen() {
   const currentBookings = selectedTab === 'upcoming' ? upcomingBookings : pastBookings;
 
   return (
-    <View style={styles.container}>
+    <TabSafeAreaView style={styles.container}>
       {/* Header */}
       <ThemedView style={styles.header}>
         <ThemedText type="title" style={styles.title}>
@@ -236,6 +266,7 @@ export default function BookingsScreen() {
       {/* Bookings List */}
       <ScrollView 
         style={styles.bookingsSection}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -246,7 +277,11 @@ export default function BookingsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {currentBookings.length === 0 ? (
+        {loading ? (
+          <View style={styles.loadingState}>
+            <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+          </View>
+        ) : currentBookings.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="calendar" size={64} color={Colors.light.textTertiary} />
             <ThemedText style={styles.emptyStateText}>
@@ -265,8 +300,8 @@ export default function BookingsScreen() {
                 variant="primary"
                 size="medium"
                 onPress={() => {
-                  // Navegar a explorar
-                  console.log('Navegar a explorar');
+                  log.userAction('Navigate to explore', { screen: 'Bookings' });
+                  // TODO: Implementar navegación a explorar
                 }}
                 style={styles.exploreButton}
               />
@@ -278,7 +313,7 @@ export default function BookingsScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </TabSafeAreaView>
   );
 }
 
@@ -288,9 +323,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    padding: DesignTokens.spacing.xl,
+    paddingTop: DesignTokens.spacing.lg, // Safe Area ya maneja el padding superior
+    paddingBottom: DesignTokens.spacing.lg,
   },
   title: {
     fontSize: 28,
@@ -329,7 +364,10 @@ const styles = StyleSheet.create({
   },
   bookingsSection: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
   },
   emptyState: {
     alignItems: 'center',
@@ -424,6 +462,17 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
 });
 

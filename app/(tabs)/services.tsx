@@ -1,12 +1,19 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Input } from '@/components/ui/Input';
-import { Colors } from '@/constants/Colors';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
+import { SimpleInput } from '@/components/ui/SimpleInput';
+import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
+import { LogCategory, useLogger } from '@/lib/logger';
 import React, { useState } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 export default function ServicesScreen() {
+  const { user } = useAuth();
+  const log = useLogger(user?.id);
+  
   const [services, setServices] = useState([
     {
       id: 1,
@@ -56,44 +63,76 @@ export default function ServicesScreen() {
   }, []);
 
   const handleAddService = () => {
+    log.userAction('Add service attempt', { serviceData: newService, screen: 'Services' });
+    
     if (!newService.name || !newService.duration || !newService.price) {
+      log.warn(LogCategory.SERVICE, 'Add service failed - missing required fields', { newService, screen: 'Services' });
       Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
       return;
     }
 
-    const service = {
-      id: services.length + 1,
-      name: newService.name,
-      description: newService.description,
-      duration: parseInt(newService.duration),
-      price: parseFloat(newService.price),
-      currency: newService.currency,
-      isActive: true,
-    };
+    try {
+      const service = {
+        id: services.length + 1,
+        name: newService.name,
+        description: newService.description,
+        duration: parseInt(newService.duration),
+        price_amount: parseFloat(newService.price),
+        price_currency: 'USD',
+        currency: newService.currency,
+        isActive: true,
+      };
 
-    setServices([...services, service]);
-    setNewService({ name: '', description: '', duration: '', price: '', currency: 'USD' });
-    setShowAddForm(false);
-    Alert.alert('Éxito', 'Servicio agregado correctamente');
+      setServices([...services, service]);
+      setNewService({ name: '', description: '', duration: '', price: '', currency: 'USD' });
+      setShowAddForm(false);
+      
+      log.serviceAction('Service added successfully', { service, screen: 'Services' });
+      Alert.alert('Éxito', 'Servicio agregado correctamente');
+    } catch (error) {
+      log.serviceError('Add service failed', error, 'Services');
+      Alert.alert('Error', 'No se pudo agregar el servicio');
+    }
   };
 
   const toggleServiceStatus = (id: number) => {
+    const service = services.find(s => s.id === id);
+    const newStatus = !service?.isActive;
+    
+    log.userAction('Toggle service status', { serviceId: id, newStatus, screen: 'Services' });
+    
     setServices(services.map(service => 
       service.id === id ? { ...service, isActive: !service.isActive } : service
     ));
+    
+    log.serviceAction('Service status toggled', { serviceId: id, newStatus, screen: 'Services' });
   };
 
   const deleteService = (id: number) => {
+    log.userAction('Delete service attempt', { serviceId: id, screen: 'Services' });
+    
     Alert.alert(
       'Eliminar Servicio',
       '¿Estás seguro de que quieres eliminar este servicio?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cancelar', 
+          style: 'cancel',
+          onPress: () => {
+            log.userAction('Delete service cancelled', { serviceId: id, screen: 'Services' });
+          }
+        },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            setServices(services.filter(service => service.id !== id));
+            try {
+              setServices(services.filter(service => service.id !== id));
+              log.serviceAction('Service deleted successfully', { serviceId: id, screen: 'Services' });
+            } catch (error) {
+              log.serviceError('Delete service failed', error, 'Services');
+              Alert.alert('Error', 'No se pudo eliminar el servicio');
+            }
           },
         },
       ]
@@ -101,12 +140,11 @@ export default function ServicesScreen() {
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <TabSafeAreaView style={styles.container}>
+      <ScrollableInputView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
       <View style={styles.header}>
         <IconSymbol name="scissors" size={32} color={Colors.light.primary} />
         <View style={styles.headerText}>
@@ -118,7 +156,10 @@ export default function ServicesScreen() {
       <View style={styles.section}>
         <Button
           title={showAddForm ? 'Cancelar' : 'Agregar Servicio'}
-          onPress={() => setShowAddForm(!showAddForm)}
+          onPress={() => {
+            log.userAction('Toggle add service form', { showForm: !showAddForm, screen: 'Services' });
+            setShowAddForm(!showAddForm);
+          }}
           variant="primary"
           size="medium"
           icon="plus"
@@ -128,15 +169,14 @@ export default function ServicesScreen() {
           <Card variant="elevated" padding="medium" style={styles.addForm}>
             <Text style={styles.formTitle}>Nuevo Servicio</Text>
             
-            <Input
+            <SimpleInput
               label="Nombre del Servicio"
               placeholder="Ej: Corte de Cabello"
               value={newService.name}
               onChangeText={(text) => setNewService({ ...newService, name: text })}
-              required
             />
 
-            <Input
+            <SimpleInput
               label="Descripción"
               placeholder="Descripción del servicio"
               value={newService.description}
@@ -147,23 +187,21 @@ export default function ServicesScreen() {
 
             <View style={styles.row}>
               <View style={styles.halfWidth}>
-                <Input
+                <SimpleInput
                   label="Duración (min)"
                   placeholder="30"
                   value={newService.duration}
                   onChangeText={(text) => setNewService({ ...newService, duration: text })}
                   keyboardType="numeric"
-                  required
                 />
               </View>
               <View style={styles.halfWidth}>
-                <Input
+                <SimpleInput
                   label="Precio"
                   placeholder="15.00"
                   value={newService.price}
                   onChangeText={(text) => setNewService({ ...newService, price: text })}
                   keyboardType="numeric"
-                  required
                 />
               </View>
             </View>
@@ -221,7 +259,7 @@ export default function ServicesScreen() {
                 <View style={styles.detailItem}>
                   <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
                   <Text style={styles.detailText}>
-                    ${service.price} {service.currency}
+                    ${service.price_amount} {service.price_currency}
                   </Text>
                 </View>
               </View>
@@ -229,7 +267,8 @@ export default function ServicesScreen() {
           ))}
         </View>
       </View>
-    </ScrollView>
+      </ScrollableInputView>
+    </TabSafeAreaView>
   );
 }
 
@@ -238,12 +277,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.surface,
   },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    padding: DesignTokens.spacing.xl,
+    paddingTop: DesignTokens.spacing.lg,
+    paddingBottom: DesignTokens.spacing.lg,
     backgroundColor: Colors.light.surface,
   },
   headerText: {

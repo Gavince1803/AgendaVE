@@ -4,16 +4,16 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TimeSlots } from '@/components/ui/TimeSlots';
 import { Colors } from '@/constants/Colors';
-import { BookingService } from '@/lib/booking';
+import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 export default function TimeSelectionScreen() {
@@ -106,13 +106,13 @@ export default function TimeSelectionScreen() {
   const loadAvailableTimes = async (date: string) => {
     setLoadingTimes(true);
     try {
-      const times = await BookingService.getAvailableTimeSlots(providerId as string, date);
+      const times = await BookingService.getAvailableSlots(providerId as string, date);
       setAvailableTimes(times);
     } catch (error) {
       console.error('Error loading available times:', error);
       // Fallback a horarios mock si hay error
       const mockTimes = generateAvailableTimes(date);
-      setAvailableTimes(mockTimes);
+      setAvailableTimes(mockTimes.map(t => t.time));
     } finally {
       setLoadingTimes(false);
     }
@@ -184,7 +184,7 @@ export default function TimeSelectionScreen() {
       month: 'long' 
     })
   } : null;
-  const selectedTimeData = availableTimes.find(t => t.time === selectedTime);
+  const selectedTimeData = selectedTime ? { time: selectedTime, displayTime: selectedTime } : null;
 
   return (
     <View style={styles.container}>

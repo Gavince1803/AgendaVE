@@ -1,236 +1,286 @@
+// 📱 Pantalla de Detalles del Proveedor
+// Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
+
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet
+} from 'react-native';
+
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
-import { useLocalSearchParams, router } from 'expo-router';
-import React, { useState } from 'react';
-import {
-  Alert,
-  Image,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, DesignTokens } from '@/constants/Colors';
+import { Availability, BookingService, Provider, Review, Service } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function ProviderDetailScreen() {
-  const { providerId } = useLocalSearchParams();
+  const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  const [provider, setProvider] = useState<Provider | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [availability, setAvailability] = useState<Availability[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const log = useLogger();
 
-  // Datos mock del proveedor
-  const provider = {
-    id: providerId || '1',
-    name: 'Salón Bella Vista',
-    category: 'Peluquería',
-    rating: 4.8,
-    reviewCount: 127,
-    distance: '0.5 km',
-    address: 'Av. Francisco de Miranda, Caracas',
-    phone: '+58 212 555-0123',
-    email: 'info@bellavista.com',
-    description: 'Salón de belleza profesional con más de 10 años de experiencia. Ofrecemos servicios de peluquería, estética y tratamientos faciales con productos de alta calidad.',
-    isOpen: true,
-    nextAvailable: '10:30 AM',
-    image: 'https://via.placeholder.com/300x200/2563eb/ffffff?text=Salon+Bella+Vista',
-    services: [
-      { id: 1, name: 'Corte de Cabello', price: 15, duration: 30 },
-      { id: 2, name: 'Peinado', price: 25, duration: 45 },
-      { id: 3, name: 'Tinte', price: 35, duration: 60 },
-      { id: 4, name: 'Tratamiento Capilar', price: 20, duration: 40 },
-    ],
-    reviews: [
-      {
-        id: 1,
-        userName: 'María González',
-        rating: 5,
-        comment: 'Excelente servicio, muy profesionales y el resultado superó mis expectativas.',
-        date: '2024-01-15',
-      },
-      {
-        id: 2,
-        userName: 'Carlos Pérez',
-        rating: 4,
-        comment: 'Buen servicio, aunque la espera fue un poco larga.',
-        date: '2024-01-10',
-      },
-    ],
-    workingHours: {
-      monday: '9:00 AM - 7:00 PM',
-      tuesday: '9:00 AM - 7:00 PM',
-      wednesday: '9:00 AM - 7:00 PM',
-      thursday: '9:00 AM - 7:00 PM',
-      friday: '9:00 AM - 8:00 PM',
-      saturday: '9:00 AM - 6:00 PM',
-      sunday: '10:00 AM - 4:00 PM',
-    },
+  useEffect(() => {
+    if (providerId) {
+      loadProviderData();
+    }
+  }, [providerId]);
+
+  const loadProviderData = async () => {
+    if (!providerId) return;
+    
+    try {
+      setLoading(true);
+      log.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
+
+      // Cargar datos en paralelo
+      const [providerData, servicesData, availabilityData, reviewsData] = await Promise.all([
+        BookingService.getProviderDetails(providerId),
+        BookingService.getProviderServices(providerId),
+        BookingService.getProviderAvailability(providerId),
+        BookingService.getProviderReviews(providerId)
+      ]);
+
+      setProvider(providerData);
+      setServices(servicesData);
+      setAvailability(availabilityData);
+      setReviews(reviewsData);
+
+      log.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
+        provider: providerData?.business_name,
+        servicesCount: servicesData.length,
+        availabilityCount: availabilityData.length,
+        reviewsCount: reviewsData.length
+      });
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error loading provider data', error);
+      Alert.alert('Error', 'No se pudo cargar la información del proveedor');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onRefresh = React.useCallback(() => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+    await loadProviderData();
+    setRefreshing(false);
+  };
 
-  const handleBookNow = () => {
+  const handleBookService = (service: Service) => {
+    log.userAction('Select service for booking', { 
+      serviceId: service.id, 
+      serviceName: service.name,
+      providerId: providerId 
+    });
+    
     router.push({
-      pathname: '/(booking)/service-selection',
-      params: { providerId: provider.id, providerName: provider.name },
+      pathname: '/(booking)/book-service',
+      params: {
+        providerId: providerId!,
+        serviceId: service.id,
+        serviceName: service.name,
+        servicePrice: service.price_amount.toString(),
+        serviceDuration: service.duration_minutes.toString()
+      }
     });
   };
 
-  const handleCall = () => {
-    Alert.alert('Llamar', `¿Deseas llamar a ${provider.phone}?`);
+  const formatPrice = (price: number) => {
+    return `Bs. ${price.toLocaleString('es-VE')}`;
   };
 
-  const handleEmail = () => {
-    Alert.alert('Enviar Email', `¿Deseas enviar un email a ${provider.email}?`);
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
   };
+
+  const formatAvailability = (availability: Availability[]) => {
+    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    return availability.map(a => {
+      const dayName = days[a.weekday];
+      return `${dayName}: ${a.start_time} - ${a.end_time}`;
+    }).join('\n');
+  };
+
+  const renderStars = (rating: number) => {
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(
+        <IconSymbol key={i} name="star.fill" size={16} color={Colors.light.accent} />
+      );
+    }
+
+    if (hasHalfStar) {
+      stars.push(
+        <IconSymbol key="half" name="star.lefthalf.fill" size={16} color={Colors.light.accent} />
+      );
+    }
+
+    const emptyStars = 5 - Math.ceil(rating);
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push(
+        <IconSymbol key={`empty-${i}`} name="star" size={16} color={Colors.light.textSecondary} />
+      );
+    }
+
+    return stars;
+  };
+
+  if (loading) {
+    return (
+      <TabSafeAreaView style={styles.container}>
+        <ThemedView style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>Cargando información...</ThemedText>
+        </ThemedView>
+      </TabSafeAreaView>
+    );
+  }
+
+  if (!provider) {
+    return (
+      <TabSafeAreaView style={styles.container}>
+        <ThemedView style={styles.errorContainer}>
+          <ThemedText style={styles.errorText}>Proveedor no encontrado</ThemedText>
+          <Button
+            title="Volver"
+            onPress={() => router.back()}
+            style={styles.backButton}
+          />
+        </ThemedView>
+      </TabSafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Imagen del proveedor */}
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: provider.image }} style={styles.providerImage} />
-        <View style={styles.statusBadge}>
-          <View style={[
-            styles.statusIndicator,
-            { backgroundColor: provider.isOpen ? Colors.light.success : Colors.light.error }
-          ]} />
-          <Text style={styles.statusText}>
-            {provider.isOpen ? 'Abierto' : 'Cerrado'}
-          </Text>
-        </View>
-      </View>
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
+        {/* Header del Proveedor */}
+        <Card variant="elevated" style={styles.headerCard}>
+          <ThemedView style={styles.headerContent}>
+            <ThemedView style={styles.providerInfo}>
+              <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
+              <ThemedText style={styles.category}>{provider.category}</ThemedText>
+              
+              {/* Rating */}
+              <ThemedView style={styles.ratingContainer}>
+                <ThemedView style={styles.starsContainer}>
+                  {renderStars(provider.rating)}
+                </ThemedView>
+                <ThemedText style={styles.ratingText}>
+                  {provider.rating.toFixed(1)} ({provider.total_reviews} reseñas)
+                </ThemedText>
+              </ThemedView>
 
-      {/* Información principal */}
-      <View style={styles.section}>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.providerName}>{provider.name}</Text>
-            <Text style={styles.category}>{provider.category}</Text>
-          </View>
-          <View style={styles.ratingContainer}>
-            <IconSymbol name="star.fill" size={16} color={Colors.light.warning} />
-            <Text style={styles.rating}>{provider.rating}</Text>
-            <Text style={styles.reviewCount}>({provider.reviewCount})</Text>
-          </View>
-        </View>
+              {/* Información de contacto */}
+              {provider.address && (
+                <ThemedView style={styles.contactInfo}>
+                  <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
+                </ThemedView>
+              )}
+              
+              {provider.phone && (
+                <ThemedView style={styles.contactInfo}>
+                  <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
+                </ThemedView>
+              )}
+            </ThemedView>
+          </ThemedView>
 
-        <View style={styles.infoRow}>
-          <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
-          <Text style={styles.infoText}>{provider.distance} • {provider.address}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
-          <Text style={styles.infoText}>
-            {provider.isOpen ? `Próximo disponible: ${provider.nextAvailable}` : 'Cerrado'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Descripción */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Descripción</Text>
-        <Text style={styles.description}>{provider.description}</Text>
-      </View>
-
-      {/* Servicios */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Servicios</Text>
-        <View style={styles.servicesList}>
-          {provider.services.map((service) => (
-            <Card key={service.id} variant="elevated" padding="medium" style={styles.serviceCard}>
-              <View style={styles.serviceInfo}>
-                <Text style={styles.serviceName}>{service.name}</Text>
-                <View style={styles.serviceDetails}>
-                  <Text style={styles.servicePrice}>${service.price}</Text>
-                  <Text style={styles.serviceDuration}>{service.duration} min</Text>
-                </View>
-              </View>
-            </Card>
-          ))}
-        </View>
-      </View>
-
-      {/* Horarios */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Horarios de Atención</Text>
-        <Card variant="elevated" padding="medium">
-          {Object.entries(provider.workingHours).map(([day, hours]) => (
-            <View key={day} style={styles.scheduleRow}>
-              <Text style={styles.dayName}>{day.charAt(0).toUpperCase() + day.slice(1)}</Text>
-              <Text style={styles.hours}>{hours}</Text>
-            </View>
-          ))}
+          {provider.bio && (
+            <ThemedText style={styles.bio}>{provider.bio}</ThemedText>
+          )}
         </Card>
-      </View>
 
-      {/* Reseñas */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Reseñas Recientes</Text>
-        <View style={styles.reviewsList}>
-          {provider.reviews.map((review) => (
-            <Card key={review.id} variant="elevated" padding="medium" style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Text style={styles.reviewerName}>{review.userName}</Text>
-                <View style={styles.reviewRating}>
-                  {[...Array(5)].map((_, i) => (
-                    <IconSymbol
-                      key={i}
-                      name={i < review.rating ? "star.fill" : "star"}
-                      size={12}
-                      color={Colors.light.warning}
-                    />
-                  ))}
-                </View>
-              </View>
-              <Text style={styles.reviewComment}>{review.comment}</Text>
-              <Text style={styles.reviewDate}>{review.date}</Text>
+        {/* Servicios */}
+        <ThemedView style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Servicios</ThemedText>
+          {services.map((service) => (
+            <Card key={service.id} variant="outlined" style={styles.serviceCard}>
+              <ThemedView style={styles.serviceContent}>
+                <ThemedView style={styles.serviceInfo}>
+                  <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                  {service.description && (
+                    <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                  )}
+                  <ThemedView style={styles.serviceDetails}>
+                    <Badge variant="secondary" style={styles.durationBadge}>
+                      <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
+                      <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                    </Badge>
+                    <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
+                  </ThemedView>
+                </ThemedView>
+                <Button
+                  title="Reservar"
+                  onPress={() => handleBookService(service)}
+                  style={styles.bookButton}
+                  size="small"
+                />
+              </ThemedView>
             </Card>
           ))}
-        </View>
-      </View>
+        </ThemedView>
 
-      {/* Botones de acción */}
-      <View style={styles.actionSection}>
-        <View style={styles.contactButtons}>
-          <Button
-            title="Llamar"
-            onPress={handleCall}
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="phone" size={16} color={Colors.light.primary} />}
-            style={styles.contactButton}
-          />
-          <Button
-            title="Email"
-            onPress={handleEmail}
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="envelope" size={16} color={Colors.light.primary} />}
-            style={styles.contactButton}
-          />
-        </View>
-        
-        <Button
-          title="Reservar Ahora"
-          onPress={handleBookNow}
-          variant="primary"
-          size="large"
-          fullWidth
-          disabled={!provider.isOpen}
-        />
-      </View>
-    </ScrollView>
+        {/* Horarios */}
+        <ThemedView style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Horarios de Atención</ThemedText>
+          <Card variant="outlined" style={styles.availabilityCard}>
+            <ThemedText style={styles.availabilityText}>
+              {formatAvailability(availability)}
+            </ThemedText>
+          </Card>
+        </ThemedView>
+
+        {/* Reseñas */}
+        {reviews.length > 0 && (
+          <ThemedView style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Reseñas ({reviews.length})</ThemedText>
+            {reviews.slice(0, 3).map((review) => (
+              <Card key={review.id} variant="outlined" style={styles.reviewCard}>
+                <ThemedView style={styles.reviewHeader}>
+                  <ThemedText style={styles.reviewerName}>
+                    {review.client?.display_name || 'Cliente'}
+                  </ThemedText>
+                  <ThemedView style={styles.reviewStars}>
+                    {renderStars(review.rating)}
+                  </ThemedView>
+                </ThemedView>
+                {review.comment && (
+                  <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
+                )}
+                <ThemedText style={styles.reviewDate}>
+                  {new Date(review.created_at).toLocaleDateString('es-VE')}
+                </ThemedText>
+              </Card>
+            ))}
+          </ThemedView>
+        )}
+      </ScrollView>
+    </TabSafeAreaView>
   );
 }
 
@@ -239,187 +289,179 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.surface,
   },
-  imageContainer: {
-    position: 'relative',
-    height: 200,
-  },
-  providerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  statusBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.light.text,
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.borderLight,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  titleContainer: {
+  scrollView: {
     flex: 1,
   },
-  providerName: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['6xl'],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    color: Colors.light.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: DesignTokens.spacing.xl,
+  },
+  errorText: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    color: Colors.light.textSecondary,
+    marginBottom: DesignTokens.spacing.lg,
+    textAlign: 'center',
+  },
+  backButton: {
+    marginTop: DesignTokens.spacing.md,
+  },
+  headerCard: {
+    margin: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing.xl,
+  },
+  headerContent: {
+    marginBottom: DesignTokens.spacing.md,
+  },
+  providerInfo: {
+    gap: DesignTokens.spacing.sm,
+  },
+  businessName: {
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginBottom: 4,
   },
   category: {
-    fontSize: 16,
-    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
   },
-  rating: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginLeft: 4,
+  starsContainer: {
+    flexDirection: 'row',
+    gap: 2,
   },
-  reviewCount: {
-    fontSize: 14,
+  ratingText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
-    marginLeft: 4,
   },
-  infoRow: {
+  contactInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: DesignTokens.spacing.sm,
   },
-  infoText: {
-    fontSize: 14,
+  contactText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
-    marginLeft: 8,
     flex: 1,
+  },
+  bio: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.text,
+    lineHeight: 22,
+    marginTop: DesignTokens.spacing.md,
+  },
+  section: {
+    marginHorizontal: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.xl,
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginBottom: 16,
-  },
-  description: {
-    fontSize: 16,
-    color: Colors.light.textSecondary,
-    lineHeight: 24,
-  },
-  servicesList: {
-    gap: 12,
+    marginBottom: DesignTokens.spacing.md,
   },
   serviceCard: {
-    marginBottom: 0,
+    marginBottom: DesignTokens.spacing.md,
+    padding: DesignTokens.spacing.lg,
   },
-  serviceInfo: {
+  serviceContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  serviceInfo: {
+    flex: 1,
+    marginRight: DesignTokens.spacing.md,
   },
   serviceName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    flex: 1,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  serviceDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    marginBottom: DesignTokens.spacing.sm,
+    lineHeight: 18,
   },
   serviceDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
+  },
+  durationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+  },
+  durationText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
   },
   servicePrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.success,
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.primary,
   },
-  serviceDuration: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
+  bookButton: {
+    minWidth: 80,
   },
-  scheduleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.borderLight,
+  availabilityCard: {
+    padding: DesignTokens.spacing.lg,
   },
-  dayName: {
-    fontSize: 14,
-    fontWeight: '500',
+  availabilityText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.text,
-  },
-  hours: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-  },
-  reviewsList: {
-    gap: 12,
+    lineHeight: 22,
   },
   reviewCard: {
-    marginBottom: 0,
+    marginBottom: DesignTokens.spacing.md,
+    padding: DesignTokens.spacing.lg,
   },
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   reviewerName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
   },
-  reviewRating: {
+  reviewStars: {
     flexDirection: 'row',
     gap: 2,
   },
   reviewComment: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    lineHeight: 20,
-    marginBottom: 8,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    lineHeight: 18,
+    marginBottom: DesignTokens.spacing.sm,
   },
   reviewDate: {
-    fontSize: 12,
-    color: Colors.light.textTertiary,
-  },
-  actionSection: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  contactButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  contactButton: {
-    flex: 1,
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
   },
 });

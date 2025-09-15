@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookingService } from '@/lib/booking';
+import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -70,7 +70,13 @@ export default function BookingConfirmationScreen() {
         notes: notes || undefined,
       };
 
-      await BookingService.createBooking(bookingData);
+      await BookingService.createAppointment(
+        providerId as string,
+        serviceId as string,
+        selectedDate as string,
+        appointmentTime as string,
+        notes
+      );
 
       Alert.alert(
         '¡Reserva Confirmada!',
@@ -85,7 +91,7 @@ export default function BookingConfirmationScreen() {
           {
             text: 'Volver al Inicio',
             onPress: () => {
-              router.push('/(tabs)/');
+              router.push('/(tabs)');
             },
           },
         ]
@@ -175,7 +181,7 @@ export default function BookingConfirmationScreen() {
           <Card variant="elevated" padding="medium">
             <View style={styles.providerInfo}>
               <View style={styles.providerDetails}>
-                <Text style={styles.providerName}>{providerName}</Text>
+                <Text style={styles.providerNameDetails}>{providerName}</Text>
                 <Text style={styles.providerCategory}>Peluquería</Text>
                 <Text style={styles.providerAddress}>Av. Francisco de Miranda, Caracas</Text>
                 <Text style={styles.providerPhone}>+58 212 555-0123</Text>
@@ -324,7 +330,7 @@ const styles = StyleSheet.create({
   providerDetails: {
     flex: 1,
   },
-  providerName: {
+  providerNameDetails: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.light.text,
