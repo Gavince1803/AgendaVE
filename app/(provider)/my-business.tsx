@@ -11,7 +11,7 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService, Provider, Service } from '@/lib/booking-service';
-import { useLogger } from '@/lib/logger';
+import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -45,33 +45,48 @@ export default function MyBusinessScreen() {
 
     try {
       setLoading(true);
-      log.info('Loading business data', { userId: user.id });
+      log.info(LogCategory.SERVICE, 'Loading business data', { userId: user.id });
 
       // Cargar datos del proveedor
-      const providerData = await BookingService.getProviderById(user.id);
-      if (providerData) {
-        setProvider(providerData);
-        setBusinessData({
-          business_name: providerData.business_name || '',
-          category: providerData.category || '',
-          description: providerData.description || '',
-          address: providerData.address || '',
-          phone: providerData.phone || '',
-          email: providerData.email || '',
-          website: providerData.website || '',
+      let providerData = await BookingService.getProviderById(user.id);
+      
+      // Si no existe el proveedor, crear uno básico
+      if (!providerData) {
+        log.info(LogCategory.SERVICE, 'Provider not found, creating new provider', { userId: user.id });
+        providerData = await BookingService.createProvider({
+          owner_id: user.id,
+          name: user.email || 'Mi Negocio',
+          business_name: user.email || 'Mi Negocio',
+          category: 'general',
+          bio: '',
+          address: '',
+          phone: '',
+          email: user.email || '',
+          is_active: true,
         });
       }
+      
+      setProvider(providerData);
+      setBusinessData({
+        business_name: providerData.business_name || '',
+        category: providerData.category || '',
+        description: providerData.bio || '',
+        address: providerData.address || '',
+        phone: providerData.phone || '',
+        email: providerData.email || '',
+        website: '',
+      });
 
       // Cargar servicios
       const servicesData = await BookingService.getProviderServices(user.id);
       setServices(servicesData);
 
-      log.info('Business data loaded successfully', { 
+      log.info(LogCategory.SERVICE, 'Business data loaded successfully', { 
         providerId: user.id,
         servicesCount: servicesData.length 
       });
     } catch (error) {
-      log.error('Error loading business data', { error: error.message });
+      log.error(LogCategory.SERVICE, 'Error loading business data', { error: error instanceof Error ? error.message : String(error) });
       Alert.alert('Error', 'No se pudieron cargar los datos del negocio');
     } finally {
       setLoading(false);
@@ -116,7 +131,7 @@ export default function MyBusinessScreen() {
       );
     } catch (error) {
       console.error('🔴 [MY BUSINESS] Error guardando:', error);
-      log.error('Error saving business data', { error: error.message });
+      log.error(LogCategory.SERVICE, 'Error saving business data', { error: error instanceof Error ? error.message : String(error) });
       Alert.alert('Error', `No se pudieron guardar los datos: ${error.message}`);
     } finally {
       setSaving(false);

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLogger } from '@/lib/logger';
+import { useLogger, LogCategory } from '@/lib/logger';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -87,7 +87,7 @@ export default function AddServiceScreen() {
         ]
       );
     } catch (error) {
-      log.error('Error creating service', { error: error.message });
+      log.error(LogCategory.SERVICE, 'Error creating service', { error: error instanceof Error ? error.message : String(error) });
       Alert.alert('Error', 'No se pudo crear el servicio');
     } finally {
       setSaving(false);

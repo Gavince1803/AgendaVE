@@ -17,10 +17,15 @@ export class AuthService {
       throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
     }
 
+    console.log('🔴 [AUTH SERVICE] Iniciando signUp para:', email);
+    console.log('🔴 [AUTH SERVICE] Datos del registro:', { email, fullName, role, phone });
+
+    // Intentar signup simple sin confirmación de email
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: undefined, // Deshabilitar redirección de email
         data: {
           full_name: fullName,
           role: role,
@@ -28,53 +33,59 @@ export class AuthService {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('🔴 [AUTH SERVICE] ❌ Error en signUp:', error);
+      console.error('🔴 [AUTH SERVICE] ❌ Código:', error.message);
+      console.error('🔴 [AUTH SERVICE] ❌ Detalles:', error);
+      throw error;
+    }
 
-    // Crear perfil después del registro
+    console.log('🔴 [AUTH SERVICE] ✅ SignUp exitoso:', data);
+
+    // Crear perfil inmediatamente (sin esperar confirmación de email)
     if (data.user) {
       console.log('🔴 [AUTH SERVICE] Creando perfil para usuario:', data.user.id);
-      console.log('🔴 [AUTH SERVICE] Datos del perfil:', {
-        id: data.user.id,
-        display_name: fullName,
-        role: role,
-        phone: phone || null,
-      });
+      
+      try {
+        const { data: insertData, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            display_name: fullName,
+            role: role,
+            phone: phone || null,
+          })
+          .select();
 
-      const { data: insertData, error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
-          display_name: fullName,
-          role: role,
-          phone: phone || null,
-        })
-        .select();
+        if (profileError) {
+          console.error('🔴 [AUTH SERVICE] ❌ Error creando perfil:', profileError);
+          // No lanzar error aquí, el usuario ya se creó
+        } else {
+          console.log('🔴 [AUTH SERVICE] ✅ Perfil creado exitosamente:', insertData);
+        }
+      } catch (profileError) {
+        console.error('🔴 [AUTH SERVICE] ❌ Error inesperado creando perfil:', profileError);
+      }
 
-      if (profileError) {
-        console.error('🔴 [AUTH SERVICE] ❌ Error creando perfil:', profileError);
-        console.error('🔴 [AUTH SERVICE] ❌ Código de error:', profileError.code);
-        console.error('🔴 [AUTH SERVICE] ❌ Mensaje:', profileError.message);
-        console.error('🔴 [AUTH SERVICE] ❌ Detalles:', profileError.details);
-        console.error('🔴 [AUTH SERVICE] ❌ Hint:', profileError.hint);
-        throw profileError;
-      } else {
-        console.log('🔴 [AUTH SERVICE] ✅ Perfil creado exitosamente:', insertData);
+      // Si es un proveedor, crear también el registro en la tabla providers
+      if (role === 'provider') {
+        console.log('🔴 [AUTH SERVICE] Creando registro de proveedor...');
         
-        // Si es un proveedor, crear también el registro en la tabla providers
-        if (role === 'provider') {
-          console.log('🔴 [AUTH SERVICE] Creando registro de proveedor...');
-          
+        try {
           const { data: providerData, error: providerError } = await supabase
             .from('providers')
             .insert({
               owner_id: data.user.id,
-              user_id: data.user.id,
               name: fullName,
               business_name: businessInfo?.businessName || fullName,
-              category: businessInfo?.businessType || 'Otro',
-              address: businessInfo?.address || null,
+              category: businessInfo?.businessType || 'general',
+              bio: '',
+              address: businessInfo?.address || '',
+              phone: phone || '',
+              email: email,
+              timezone: 'America/Caracas',
+              rating: 0.0,
+              total_reviews: 0,
               is_active: true,
             })
             .select();
@@ -85,6 +96,8 @@ export class AuthService {
           } else {
             console.log('🔴 [AUTH SERVICE] ✅ Proveedor creado exitosamente:', providerData);
           }
+        } catch (providerError) {
+          console.error('🔴 [AUTH SERVICE] ❌ Error inesperado creando proveedor:', providerError);
         }
       }
     }
@@ -141,11 +154,37 @@ export class AuthService {
     
     if (!user) return null;
 
-    const { data: profile } = await supabase
+    let { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .single();
+
+    // Si no existe el perfil, crear uno básico
+    if (!profile) {
+      console.log('🔴 [AUTH SERVICE] Perfil no encontrado, creando uno básico para:', user.email);
+      const { data: newProfile, error } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario',
+          role: 'client', // Rol por defecto
+          phone: null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return {
+          id: user.id,
+          email: user.email!,
+          profile: null,
+        };
+      }
+      
+      profile = newProfile;
+    }
 
     return {
       id: user.id,

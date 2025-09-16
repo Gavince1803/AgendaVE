@@ -141,6 +141,25 @@ export class BookingService {
     }
   }
 
+  static async getProviderById(userId: string): Promise<Provider | null> {
+    try {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('*')
+        .eq('owner_id', userId)
+        .single();
+
+      if (error) {
+        console.log('Provider not found for user:', userId, error.message);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching provider by user ID:', error);
+      return null;
+    }
+  }
+
   // 📍 Obtener servicios de un proveedor
   static async getProviderServices(providerId: string): Promise<Service[]> {
     try {
@@ -166,7 +185,6 @@ export class BookingService {
         .from('availabilities')
         .select('*')
         .eq('provider_id', providerId)
-        .eq('is_active', true)
         .order('weekday, start_time');
 
       if (error) throw error;
@@ -314,7 +332,7 @@ export class BookingService {
         .select(`
           *,
           service:services(*),
-          client:profiles(id, full_name, display_name, phone)
+          client:profiles(id, display_name, phone)
         `)
         .eq('provider_id', user.id)
         .order('appointment_date', { ascending: true })
@@ -342,7 +360,7 @@ export class BookingService {
           *,
           service:services(*),
           provider:providers(*),
-          client:profiles(id, full_name, display_name, phone)
+          client:profiles(id, display_name, phone)
         `)
         .single();
 
@@ -386,10 +404,7 @@ export class BookingService {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select(`
-          *,
-          client:profiles(id, full_name, display_name)
-        `)
+        .select('*')
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
 
@@ -432,7 +447,7 @@ export class BookingService {
         })
         .select(`
           *,
-          client:profiles(id, full_name, display_name)
+          client:profiles(id, display_name)
         `)
         .single();
 
@@ -517,6 +532,45 @@ export class BookingService {
   }
 
   // ✏️ Actualizar información del proveedor
+  static async createProvider(providerData: {
+    owner_id: string;
+    name: string;
+    business_name: string;
+    category: string;
+    bio?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    is_active?: boolean;
+  }): Promise<Provider> {
+    try {
+      const { data, error } = await supabase
+        .from('providers')
+        .insert({
+          owner_id: providerData.owner_id,
+          name: providerData.name,
+          business_name: providerData.business_name,
+          category: providerData.category,
+          bio: providerData.bio || '',
+          address: providerData.address || '',
+          phone: providerData.phone || '',
+          email: providerData.email || '',
+          timezone: 'America/Caracas',
+          rating: 0.0,
+          total_reviews: 0,
+          is_active: providerData.is_active ?? true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating provider:', error);
+      throw error;
+    }
+  }
+
   static async updateProvider(
     providerId: string, 
     updateData: {
@@ -526,7 +580,6 @@ export class BookingService {
       address?: string;
       phone?: string;
       email?: string;
-      website?: string;
     }
   ): Promise<Provider | null> {
     try {
@@ -541,10 +594,9 @@ export class BookingService {
           address: updateData.address,
           phone: updateData.phone,
           email: updateData.email,
-          website: updateData.website,
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', providerId)
+        .eq('owner_id', providerId)
         .select()
         .single();
 

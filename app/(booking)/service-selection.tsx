@@ -140,10 +140,7 @@ export default function ServiceSelectionScreen() {
                 key={service.id}
                 variant={selectedService === service.id ? "elevated" : "default"}
                 padding="medium"
-                style={[
-                  styles.serviceCard,
-                  selectedService === service.id ? styles.selectedServiceCard : null,
-                ]}
+                style={selectedService === service.id ? styles.selectedServiceCard : styles.serviceCard}
                 onPress={() => handleServiceSelect(service.id)}
               >
                 <View style={styles.serviceHeader}>

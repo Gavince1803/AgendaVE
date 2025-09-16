@@ -9,7 +9,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLogger } from '@/lib/logger';
+import { useLogger, LogCategory } from '@/lib/logger';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
@@ -29,8 +29,8 @@ export default function AvailabilityScreen() {
   const log = useLogger();
   const [saving, setSaving] = useState(false);
 
-  const [availability, setAvailability] = useState(() => {
-    const initial = {};
+  const [availability, setAvailability] = useState<Record<string, { enabled: boolean; startTime: string; endTime: string }>>(() => {
+    const initial: Record<string, { enabled: boolean; startTime: string; endTime: string }> = {};
     WEEKDAYS.forEach(day => {
       initial[day.key] = {
         enabled: false,
@@ -92,7 +92,7 @@ export default function AvailabilityScreen() {
         ]
       );
     } catch (error) {
-      log.error('Error saving availability', { error: error.message });
+      log.error(LogCategory.SERVICE, 'Error saving availability', { error: error instanceof Error ? error.message : String(error) });
       Alert.alert('Error', 'No se pudieron guardar los horarios');
     } finally {
       setSaving(false);

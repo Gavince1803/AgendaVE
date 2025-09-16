@@ -38,26 +38,53 @@ export default function ExploreScreen() {
 
   const categories = [
     { id: 'all', name: 'Todos', icon: 'grid' },
-    { id: 'hair', name: 'Peluquería', icon: 'scissors' },
-    { id: 'beauty', name: 'Estética', icon: 'sparkles' },
-    { id: 'health', name: 'Salud', icon: 'cross.case' },
-    { id: 'wellness', name: 'Bienestar', icon: 'leaf' },
+    { id: 'hair', name: 'Peluquería', icon: 'scissors', keywords: ['peluqueria', 'peluquero', 'barberia', 'barbero', 'corte', 'peinado'] },
+    { id: 'beauty', name: 'Estética', icon: 'sparkles', keywords: ['estetica', 'belleza', 'facial', 'manicure', 'pedicure'] },
+    { id: 'health', name: 'Salud', icon: 'cross.case', keywords: ['salud', 'medico', 'doctor', 'clinica', 'dental'] },
+    { id: 'wellness', name: 'Bienestar', icon: 'leaf', keywords: ['bienestar', 'spa', 'masaje', 'relajacion', 'yoga'] },
   ];
 
   useEffect(() => {
     loadProviders();
-  }, [selectedCategory]);
+  }, [selectedCategory, searchQuery]);
 
   const loadProviders = async () => {
     try {
       setLoading(true);
-      log.info(LogCategory.DATA, 'Loading providers', { category: selectedCategory });
+      log.info(LogCategory.DATA, 'Loading providers', { category: selectedCategory, searchQuery });
 
       let providersData: Provider[];
       if (selectedCategory === 'all') {
         providersData = await BookingService.getAllProviders();
       } else {
         providersData = await BookingService.getProvidersByCategory(selectedCategory);
+      }
+
+      // Filtrar por búsqueda si hay query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        providersData = providersData.filter(provider => {
+          const businessName = provider.business_name.toLowerCase();
+          const providerName = provider.name.toLowerCase();
+          const category = provider.category.toLowerCase();
+          const address = provider.address.toLowerCase();
+          
+          // Búsqueda directa
+          if (businessName.includes(query) || providerName.includes(query) || 
+              category.includes(query) || address.includes(query)) {
+            return true;
+          }
+          
+          // Búsqueda por palabras clave de categorías
+          const selectedCat = categories.find(cat => cat.id === selectedCategory);
+          if (selectedCat && selectedCat.keywords) {
+            return selectedCat.keywords.some(keyword => 
+              businessName.includes(keyword) || category.includes(keyword)
+            );
+          }
+          
+          return false;
+        });
       }
 
       setProviders(providersData);

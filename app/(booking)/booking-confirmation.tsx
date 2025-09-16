@@ -74,7 +74,7 @@ export default function BookingConfirmationScreen() {
         providerId as string,
         serviceId as string,
         selectedDate as string,
-        appointmentTime as string,
+        selectedTime as string,
         notes
       );
 
