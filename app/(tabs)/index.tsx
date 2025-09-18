@@ -10,12 +10,12 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 
 export default function HomeScreen() {
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
   },
   searchButton: {
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   },
   providerCategory: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
   },
   providerStatus: {
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
   providerRating: {
     alignItems: 'flex-end',

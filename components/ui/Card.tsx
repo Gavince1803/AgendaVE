@@ -1,5 +1,4 @@
 import { ComponentColors, DesignTokens } from '@/constants/Colors';
-import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
 import {
     Animated,
@@ -32,9 +31,9 @@ export function Card({
 }: CardProps) {
   const [scaleValue] = useState(new Animated.Value(1));
   
-  // Colores dinámicos para modo oscuro
-  const backgroundColor = useThemeColor({}, 'surface');
-  const borderColor = useThemeColor({}, 'border');
+  // Colores fijos para modo claro
+  const backgroundColor = ComponentColors.surface;
+  const borderColor = ComponentColors.border;
 
   const handlePressIn = () => {
     if (onPress) {

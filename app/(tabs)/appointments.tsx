@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -407,12 +407,12 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 2,
   },
   appointmentDate: {
     fontSize: 12,
-    color: Colors.light.textTertiary,
+    color: Colors.light.text,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     fontWeight: '500',
   },
   contactInfo: {
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   phoneText: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     fontWeight: '500',
   },
   notesContainer: {
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   notesLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 4,
   },
   notesText: {
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     textAlign: 'center',
   },
 });

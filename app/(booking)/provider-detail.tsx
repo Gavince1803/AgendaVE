@@ -2,7 +2,7 @@
 // Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
 
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     RefreshControl,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     flex: 1,
   },
   bio: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   serviceDescription: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
     lineHeight: 18,
   },
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.lg,
@@ -462,6 +462,6 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
 });

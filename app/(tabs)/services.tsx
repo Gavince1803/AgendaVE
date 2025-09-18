@@ -162,7 +162,6 @@ export default function ServicesScreen() {
           }}
           variant="primary"
           size="medium"
-          icon="plus"
         />
 
         {showAddForm && (
@@ -245,9 +244,9 @@ export default function ServicesScreen() {
                     onPress={() => deleteService(service.id)}
                     variant="ghost"
                     size="small"
-                    icon="trash"
-                    iconColor={Colors.light.error}
-                  />
+                  >
+                    <IconSymbol name="trash" size={16} color={Colors.light.error} />
+                  </Button>
                 </View>
               </View>
 

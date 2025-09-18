@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useThemeColor } from '@/hooks/useThemeColor';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useState } from 'react';
+import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface Category {
   id: string;
@@ -20,11 +19,11 @@ interface CategorySelectorProps {
 export function CategorySelector({ selectedCategory, onCategoryChange, categories }: CategorySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   
-  const backgroundColor = useThemeColor({}, 'background');
-  const surfaceColor = useThemeColor({}, 'surface');
-  const textColor = useThemeColor({}, 'text');
-  const borderColor = useThemeColor({}, 'border');
-  const primaryColor = useThemeColor({}, 'primary');
+  const backgroundColor = Colors.light.background;
+  const surfaceColor = Colors.light.surface;
+  const textColor = Colors.light.text;
+  const borderColor = Colors.light.border;
+  const primaryColor = Colors.light.primary;
 
   const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
 

@@ -270,6 +270,19 @@ export class BookingService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
+      // Crear timestamp combinando fecha y hora
+      const startTimestamp = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
+      
+      // Obtener duración del servicio para calcular end_ts
+      const { data: serviceData } = await supabase
+        .from('services')
+        .select('duration_minutes')
+        .eq('id', serviceId)
+        .single();
+      
+      const durationMinutes = serviceData?.duration_minutes || 30;
+      const endTimestamp = new Date(new Date(startTimestamp).getTime() + durationMinutes * 60000).toISOString();
+      
       const { data, error } = await supabase
         .from('appointments')
         .insert({
@@ -278,14 +291,12 @@ export class BookingService {
           service_id: serviceId,
           appointment_date: appointmentDate,
           appointment_time: appointmentTime,
+          start_ts: startTimestamp,
+          end_ts: endTimestamp,
           status: 'pending',
           notes: notes || null
         })
-        .select(`
-          *,
-          service:services(*),
-          provider:providers(*)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -304,11 +315,7 @@ export class BookingService {
 
       const { data, error } = await supabase
         .from('appointments')
-        .select(`
-          *,
-          service:services(*),
-          provider:providers(*)
-        `)
+        .select('*')
         .eq('client_id', user.id)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
@@ -356,12 +363,7 @@ export class BookingService {
         .from('appointments')
         .update({ status })
         .eq('id', appointmentId)
-        .select(`
-          *,
-          service:services(*),
-          provider:providers(*),
-          client:profiles(id, display_name, phone)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -609,6 +611,63 @@ export class BookingService {
       return data;
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error updating provider:', error);
+      throw error;
+    }
+  }
+
+  static async updateAvailability(
+    providerId: string,
+    availability: Record<string, { enabled: boolean; startTime: string; endTime: string }>
+  ): Promise<void> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Actualizando disponibilidad:', providerId, availability);
+      
+      // Mapeo de días de la semana
+      const weekdayMap: Record<string, number> = {
+        'sunday': 0,
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6,
+      };
+
+      // Primero, eliminar todas las disponibilidades existentes del proveedor
+      const { error: deleteError } = await supabase
+        .from('availabilities')
+        .delete()
+        .eq('provider_id', providerId);
+
+      if (deleteError) {
+        console.error('🔴 [BOOKING SERVICE] Error deleting existing availability:', deleteError);
+        throw deleteError;
+      }
+
+      // Crear nuevas disponibilidades para los días habilitados
+      const availabilityRecords = Object.entries(availability)
+        .filter(([_, dayData]) => dayData.enabled)
+        .map(([dayKey, dayData]) => ({
+          provider_id: providerId,
+          weekday: weekdayMap[dayKey],
+          start_time: dayData.startTime,
+          end_time: dayData.endTime,
+        }));
+
+      if (availabilityRecords.length > 0) {
+        const { error: insertError } = await supabase
+          .from('availabilities')
+          .insert(availabilityRecords);
+
+        if (insertError) {
+          console.error('🔴 [BOOKING SERVICE] Error inserting availability:', insertError);
+          throw insertError;
+        }
+      }
+
+      console.log('🔴 [BOOKING SERVICE] ✅ Disponibilidad actualizada exitosamente');
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error updating availability:', error);
       throw error;
     }
   }

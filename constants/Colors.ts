@@ -212,8 +212,8 @@ export const Colors = {
     
     // Texto
     text: gray[50],
-    textSecondary: gray[300],
-    textTertiary: gray[400],
+    textSecondary: gray[200],
+    textTertiary: gray[300],
     textOnPrimary: gray[900],
     textOnSecondary: gray[50],
     

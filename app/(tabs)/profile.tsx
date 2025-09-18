@@ -243,12 +243,12 @@ const styles = StyleSheet.create({
   },
   userEmail: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: DesignTokens.spacing.xs,
   },
   userPhone: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
   roleBadge: {

@@ -1,5 +1,4 @@
 import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
 import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -67,6 +66,7 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: 'Explorar',
+          href: isClient ? '/explore' : null,
           tabBarIcon: ({ color, focused }) => (
             <MaterialIcons 
               size={focused ? 30 : 26} 

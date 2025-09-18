@@ -6,12 +6,13 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLogger, LogCategory } from '@/lib/logger';
+import { BookingService } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 const WEEKDAYS = [
@@ -78,8 +79,8 @@ export default function AvailabilityScreen() {
         enabledDays: enabledDays.length
       });
 
-      // Aquí implementarías la actualización de disponibilidades
-      // await BookingService.updateAvailability(user.id, availability);
+      // Actualizar disponibilidades en la base de datos
+      await BookingService.updateAvailability(user.id, availability);
 
       Alert.alert(
         'Éxito', 
@@ -87,7 +88,7 @@ export default function AvailabilityScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.back()
+            onPress: () => router.push('/(provider)/my-business')
           }
         ]
       );
@@ -127,13 +128,13 @@ export default function AvailabilityScreen() {
   };
 
   return (
-    <BookingSafeAreaView>
+    <TabSafeAreaView>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <ThemedView style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push('/(provider)/my-business')}
           >
             <IconSymbol name="chevron.left" size={24} color={Colors.light.text} />
           </TouchableOpacity>
@@ -255,7 +256,7 @@ export default function AvailabilityScreen() {
           <Button
             title="Cancelar"
             variant="outline"
-            onPress={() => router.back()}
+            onPress={() => router.push('/(provider)/my-business')}
             style={styles.cancelButton}
           />
           <Button
@@ -269,7 +270,7 @@ export default function AvailabilityScreen() {
         {/* Espacio adicional */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </BookingSafeAreaView>
+    </TabSafeAreaView>
   );
 }
 

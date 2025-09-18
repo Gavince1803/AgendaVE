@@ -455,13 +455,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginTop: DesignTokens.spacing.md,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginTop: DesignTokens.spacing.sm,
     textAlign: 'center',
   },
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   serviceDescription: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
   },
   serviceDetails: {

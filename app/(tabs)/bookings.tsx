@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -423,12 +423,12 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 2,
   },
   duration: {
     fontSize: 12,
-    color: Colors.light.textTertiary,
+    color: Colors.light.text,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     fontWeight: '500',
   },
   bookingActions: {
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     textAlign: 'center',
   },
 });

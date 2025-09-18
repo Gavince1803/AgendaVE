@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   stepText: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
   section: {
     paddingHorizontal: 20,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 2,
   },
   summaryValue: {
@@ -338,17 +338,17 @@ const styles = StyleSheet.create({
   },
   providerCategory: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 8,
   },
   providerAddress: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     marginBottom: 4,
   },
   providerPhone: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
   },
   notesLabel: {
     fontSize: 14,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   notesPlaceholder: {
     fontSize: 14,
-    color: Colors.light.textTertiary,
+    color: Colors.light.text,
     fontStyle: 'italic',
   },
   termsContainer: {
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   },
   termsText: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     lineHeight: 18,
   },
   policyContainer: {

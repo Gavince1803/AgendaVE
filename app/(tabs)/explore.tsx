@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { useThemeColor } from '@/hooks/useThemeColor';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
@@ -28,13 +27,13 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(true);
   const log = useLogger();
   
-  // Colores dinámicos para modo oscuro
-  const backgroundColor = useThemeColor({}, 'background');
-  const surfaceColor = useThemeColor({}, 'surface');
-  const textColor = useThemeColor({}, 'text');
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
-  const borderColor = useThemeColor({}, 'border');
-  const primaryColor = useThemeColor({}, 'primary');
+  // Colores fijos para modo claro
+  const backgroundColor = Colors.light.background;
+  const surfaceColor = Colors.light.surface;
+  const textColor = Colors.light.text;
+  const textSecondaryColor = Colors.light.textSecondary;
+  const borderColor = Colors.light.border;
+  const primaryColor = Colors.light.primary;
 
   const categories = [
     { id: 'all', name: 'Todos', icon: 'grid' },
@@ -429,7 +428,7 @@ const styles = StyleSheet.create({
   },
   nextAvailable: {
     fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textTertiary,
+    color: Colors.light.text,
   },
   providerRating: {
     alignItems: 'flex-end',
