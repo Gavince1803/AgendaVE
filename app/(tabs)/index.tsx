@@ -513,7 +513,7 @@ function ProviderHomeScreen() {
             onPress={() => {
               log.userAction('Navigate to all appointments', { screen: 'ProviderHome' });
               log.navigation('ProviderHome', 'Appointments');
-              // TODO: Implementar navegación a todas las citas
+              router.push('/(tabs)/appointments');
             }}
           />
         </View>
@@ -542,14 +542,14 @@ function ProviderHomeScreen() {
                   </View>
                   <View style={styles.appointmentInfo}>
                     <ThemedText style={styles.clientName}>
-                      {appointment.client?.display_name || 'Cliente'}
+                      {appointment.profiles?.display_name || 'Cliente'}
                     </ThemedText>
                     <ThemedText style={styles.serviceName}>
-                      {appointment.service?.name || 'Servicio'}
+                      {appointment.services?.name || 'Servicio'}
                     </ThemedText>
-                    {appointment.client?.phone && (
+                    {appointment.profiles?.phone && (
                       <ThemedText style={styles.clientPhone}>
-                        📞 {appointment.client.phone}
+                        📞 {appointment.profiles.phone}
                       </ThemedText>
                     )}
                   </View>
@@ -627,7 +627,7 @@ function ProviderHomeScreen() {
             onPress={() => {
               log.userAction('Navigate to services', { screen: 'ProviderHome' });
               log.navigation('ProviderHome', 'Services');
-              // TODO: Implementar navegación a servicios
+              router.push('/(provider)/my-business');
             }}
             style={styles.quickActionButton}
           />
@@ -639,7 +639,7 @@ function ProviderHomeScreen() {
             onPress={() => {
               log.userAction('Navigate to schedule', { screen: 'ProviderHome' });
               log.navigation('ProviderHome', 'Calendar');
-              // TODO: Implementar navegación a horarios
+              router.push('/(provider)/availability');
             }}
             style={styles.quickActionButton}
           />

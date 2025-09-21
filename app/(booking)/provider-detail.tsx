@@ -97,7 +97,7 @@ export default function ProviderDetailScreen() {
   };
 
   const formatPrice = (price: number) => {
-    return `Bs. ${price.toLocaleString('es-VE')}`;
+    return `$${price.toLocaleString('en-US')}`;
   };
 
   const formatDuration = (minutes: number) => {
@@ -217,32 +217,42 @@ export default function ProviderDetailScreen() {
 
         {/* Servicios */}
         <ThemedView style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Servicios</ThemedText>
-          {services.map((service) => (
-            <Card key={service.id} variant="outlined" style={styles.serviceCard}>
-              <ThemedView style={styles.serviceContent}>
-                <ThemedView style={styles.serviceInfo}>
-                  <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
-                  {service.description && (
-                    <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
-                  )}
-                  <ThemedView style={styles.serviceDetails}>
-                    <Badge variant="secondary" style={styles.durationBadge}>
-                      <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
-                      <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
-                    </Badge>
-                    <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Servicios ({services.length})</ThemedText>
+          {services.length > 0 ? (
+            services.map((service) => (
+              <Card key={service.id} variant="outlined" style={styles.serviceCard}>
+                <ThemedView style={styles.serviceContent}>
+                  <ThemedView style={styles.serviceInfo}>
+                    <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                    {service.description && (
+                      <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                    )}
+                    <ThemedView style={styles.serviceDetails}>
+                      <Badge variant="secondary" style={styles.durationBadge}>
+                        <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
+                        <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                      </Badge>
+                      <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
+                    </ThemedView>
                   </ThemedView>
+                  <Button
+                    title="Reservar"
+                    onPress={() => handleBookService(service)}
+                    style={styles.bookButton}
+                    size="small"
+                  />
                 </ThemedView>
-                <Button
-                  title="Reservar"
-                  onPress={() => handleBookService(service)}
-                  style={styles.bookButton}
-                  size="small"
-                />
+              </Card>
+            ))
+          ) : (
+            <Card variant="outlined" style={styles.emptyServicesCard}>
+              <ThemedView style={styles.emptyServicesContent}>
+                <IconSymbol name="wrench.and.screwdriver" size={48} color={Colors.light.textSecondary} />
+                <ThemedText style={styles.emptyServicesText}>Este proveedor aún no ha configurado servicios</ThemedText>
+                <ThemedText style={styles.emptyServicesSubtext}>Contacta directamente para obtener más información</ThemedText>
               </ThemedView>
             </Card>
-          ))}
+          )}
         </ThemedView>
 
         {/* Horarios */}
@@ -463,5 +473,26 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.text,
+  },
+  emptyServicesCard: {
+    padding: DesignTokens.spacing.xl,
+  },
+  emptyServicesContent: {
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.lg,
+  },
+  emptyServicesText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginTop: DesignTokens.spacing.md,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  emptyServicesSubtext: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

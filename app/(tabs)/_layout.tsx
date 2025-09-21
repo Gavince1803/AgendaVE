@@ -32,7 +32,7 @@ export default function TabLayout() {
   console.log('🔍 [TAB LAYOUT] Profile completo:', user?.profile);
   console.log('🔍 [TAB LAYOUT] Renderizando tab bookings para cliente:', isClient);
   console.log('🔍 [TAB LAYOUT] Renderizando tab appointments para proveedor:', isProvider);
-  console.log('🔍 [TAB LAYOUT] Renderizando tab services para proveedor:', isProvider);
+  // console.log('🔍 [TAB LAYOUT] Renderizando tab services para proveedor:', isProvider);
 
   return (
     <Tabs
@@ -104,6 +104,16 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* 
+        Services tab removed - services are managed in Mi Negocio via profile screen
+        The services.tsx file has been renamed to services.tsx.disabled to prevent 
+        Expo Router from automatically creating a route for it.
+        
+        To re-enable: 
+        1. Rename services.tsx.disabled back to services.tsx
+        2. Uncomment the Tabs.Screen below
+      */}
+      {/* 
       <Tabs.Screen
         name="services"
         options={{
@@ -118,6 +128,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      */}
       <Tabs.Screen
         name="provider-calendar"
         options={{

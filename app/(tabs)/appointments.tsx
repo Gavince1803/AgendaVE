@@ -142,10 +142,10 @@ export default function AppointmentsScreen() {
         </View>
         <View style={styles.clientInfo}>
           <ThemedText style={styles.clientName}>
-            {appointment.client?.display_name || 'Cliente'}
+            {appointment.profiles?.display_name || 'Cliente'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
-            {appointment.service?.name || 'Servicio'}
+            {appointment.services?.name || 'Servicio'}
           </ThemedText>
           <ThemedText style={styles.appointmentDate}>
             {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
@@ -166,21 +166,21 @@ export default function AppointmentsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="timer" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.service?.duration_minutes ? `${appointment.service.duration_minutes} min` : 'N/A'}
+            {appointment.services?.duration_minutes ? `${appointment.services.duration_minutes} min` : 'N/A'}
           </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.service?.price_amount ? `$${appointment.service.price_amount} ${appointment.service.price_currency}` : 'N/A'}
+            {appointment.services?.price_amount ? `$${appointment.services.price_amount} ${appointment.services.price_currency}` : 'N/A'}
           </ThemedText>
         </View>
       </View>
 
-      {appointment.client?.phone && (
+      {appointment.profiles?.phone && (
         <View style={styles.contactInfo}>
           <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.phoneText}>{appointment.client.phone}</ThemedText>
+          <ThemedText style={styles.phoneText}>{appointment.profiles.phone}</ThemedText>
         </View>
       )}
 

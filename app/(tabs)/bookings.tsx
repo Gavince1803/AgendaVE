@@ -7,9 +7,11 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     Alert,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -71,28 +73,116 @@ export default function BookingsScreen() {
         screen: 'Bookings' 
       });
 
-      Alert.alert(
-        'Cancelar Cita',
-        '¿Estás seguro de que quieres cancelar esta cita?',
-        [
-          {
-            text: 'No',
-            style: 'cancel'
-          },
-          {
-            text: 'Sí, Cancelar',
-            style: 'destructive',
-            onPress: async () => {
-              await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
-              await loadAppointments();
-              Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
-            }
+      const cancelAppointment = async () => {
+        try {
+          console.log('🔴 [BOOKINGS] Cancelling appointment:', appointment.id);
+          await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
+          await loadAppointments();
+          
+          if (Platform.OS === 'web') {
+            window.alert('Tu cita ha sido cancelada exitosamente');
+          } else {
+            Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
           }
-        ]
-      );
+        } catch (error) {
+          console.error('🔴 [BOOKINGS] Error cancelling appointment:', error);
+          const errorMsg = 'No se pudo cancelar la cita';
+          if (Platform.OS === 'web') {
+            window.alert(errorMsg);
+          } else {
+            Alert.alert('Error', errorMsg);
+          }
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm('¿Estás seguro de que quieres cancelar esta cita?');
+        if (confirmed) {
+          await cancelAppointment();
+        }
+      } else {
+        Alert.alert(
+          'Cancelar Cita',
+          '¿Estás seguro de que quieres cancelar esta cita?',
+          [
+            {
+              text: 'No',
+              style: 'cancel'
+            },
+            {
+              text: 'Sí, Cancelar',
+              style: 'destructive',
+              onPress: cancelAppointment
+            }
+          ]
+        );
+      }
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error canceling booking', error);
-      Alert.alert('Error', 'No se pudo cancelar la cita');
+      const errorMsg = 'No se pudo cancelar la cita';
+      if (Platform.OS === 'web') {
+        window.alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    }
+  };
+
+  const handleRescheduleBooking = async (appointment: Appointment) => {
+    try {
+      log.userAction('Reschedule booking', { 
+        appointmentId: appointment.id,
+        screen: 'Bookings' 
+      });
+
+      const navigateToReschedule = () => {
+        console.log('🔴 [BOOKINGS] Navigating to reschedule for appointment:', appointment.id);
+        // Navigate to booking screen with provider and service info for rescheduling
+        router.push({
+          pathname: '/(booking)/book-service',
+          params: {
+            providerId: appointment.provider_id,
+            serviceId: appointment.service_id,
+            serviceName: appointment.services?.name || '',
+            servicePrice: appointment.services?.price_amount?.toString() || '',
+            serviceDuration: appointment.services?.duration_minutes?.toString() || '',
+            rescheduleId: appointment.id, // Pass original appointment ID for rescheduling
+            mode: 'reschedule'
+          }
+        });
+      };
+
+      const message = `¿Quieres reprogramar tu cita de "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
+      
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm(message);
+        if (confirmed) {
+          navigateToReschedule();
+        }
+      } else {
+        Alert.alert(
+          'Reprogramar Cita',
+          message,
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel'
+            },
+            {
+              text: 'Reprogramar',
+              onPress: navigateToReschedule
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error starting reschedule process', error);
+      const errorMsg = 'No se pudo iniciar el proceso de reprogramación';
+      if (Platform.OS === 'web') {
+        window.alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
     }
   };
 
@@ -135,13 +225,13 @@ export default function BookingsScreen() {
         </View>
         <View style={styles.providerInfo}>
           <ThemedText style={styles.providerName}>
-            {booking.provider?.business_name || 'Proveedor'}
+            {booking.providers?.business_name || 'Proveedor'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
-            {booking.service?.name || 'Servicio'}
+            {booking.services?.name || 'Servicio'}
           </ThemedText>
           <ThemedText style={styles.duration}>
-            {booking.service?.duration_minutes ? `${booking.service.duration_minutes} min` : 'N/A'}
+            {booking.services?.duration_minutes ? `${booking.services.duration_minutes} min` : 'N/A'}
           </ThemedText>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) }]}>
@@ -165,7 +255,7 @@ export default function BookingsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {booking.service?.price_amount ? `$${booking.service.price_amount} ${booking.service.price_currency}` : 'N/A'}
+            {booking.services?.price_amount ? `$${booking.services.price_amount} ${booking.services.price_currency}` : 'N/A'}
           </ThemedText>
         </View>
       </View>
@@ -183,13 +273,7 @@ export default function BookingsScreen() {
             title="Reprogramar"
             variant="primary"
             size="small"
-            onPress={() => {
-              log.userAction('Reschedule booking', { 
-                appointmentId: booking.id,
-                screen: 'Bookings' 
-              });
-              // TODO: Implementar reprogramación
-            }}
+            onPress={() => handleRescheduleBooking(booking)}
             style={styles.actionButton}
           />
         </View>

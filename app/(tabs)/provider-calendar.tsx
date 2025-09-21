@@ -6,6 +6,7 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
+import { supabase } from '@/lib/supabase';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -35,9 +36,27 @@ export default function ProviderCalendarScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Cargar citas del proveedor
-      const providerAppointments = await BookingService.getProviderAppointments(user!.id);
-      setAppointments(providerAppointments);
+      // Obtener el proveedor actual primero
+      const provider = await BookingService.getProviderById(user!.id);
+      if (!provider) {
+        console.warn('No provider found for user:', user!.id);
+        setAppointments([]);
+        return;
+      }
+      
+      // Cargar citas del proveedor usando el provider_id
+      const { data: providerAppointments } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(*),
+          profiles!appointments_client_id_fkey(id, display_name, phone)
+        `)
+        .eq('provider_id', provider.id)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+      
+      setAppointments(providerAppointments || []);
 
       // Procesar fechas disponibles y ocupadas
       const dates = new Set<string>();

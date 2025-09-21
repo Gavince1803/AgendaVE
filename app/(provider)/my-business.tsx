@@ -10,19 +10,22 @@ import { Input } from '@/components/ui/Input';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookingService, Provider, Service } from '@/lib/booking-service';
+import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function MyBusinessScreen() {
   const { user } = useAuth();
   const log = useLogger();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showInactiveServices, setShowInactiveServices] = useState(false);
 
   // Estados para edición
   const [editingBusiness, setEditingBusiness] = useState(false);
@@ -40,6 +43,14 @@ export default function MyBusinessScreen() {
     loadBusinessData();
   }, []);
 
+  // Refilter services when toggle changes
+  useEffect(() => {
+    const filteredServices = showInactiveServices 
+      ? allServices // Show all services
+      : allServices.filter(s => s.is_active === true); // Show only active
+    setServices(filteredServices);
+  }, [showInactiveServices, allServices]);
+
   const loadBusinessData = async () => {
     if (!user) return;
 
@@ -54,7 +65,7 @@ export default function MyBusinessScreen() {
       if (!providerData) {
         log.info(LogCategory.SERVICE, 'Provider not found, creating new provider', { userId: user.id });
         providerData = await BookingService.createProvider({
-          owner_id: user.id,
+          user_id: user.id,
           name: user.email || 'Mi Negocio',
           business_name: user.email || 'Mi Negocio',
           category: 'general',
@@ -77,13 +88,31 @@ export default function MyBusinessScreen() {
         website: '',
       });
 
-      // Cargar servicios
-      const servicesData = await BookingService.getProviderServices(user.id);
-      setServices(servicesData);
+      // Cargar TODOS los servicios (activos e inactivos) para gestión
+      const allServicesData = await BookingService.getAllProviderServices(providerData.id);
+      console.log('🔴 [MY BUSINESS] All services loaded:', allServicesData);
+      console.log('🔴 [MY BUSINESS] All services summary:', allServicesData.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
+      
+      // Store all services
+      setAllServices(allServicesData);
+      
+      // Filter services based on toggle state
+      const filteredServices = showInactiveServices 
+        ? allServicesData // Show all services
+        : allServicesData.filter(s => s.is_active === true); // Show only active
+      
+      console.log('🔴 [MY BUSINESS] Filtered services:', filteredServices.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
+      setServices(filteredServices);
+
+      // Cargar disponibilidad del proveedor
+      const availabilityData = await BookingService.getProviderAvailability(providerData.id);
+      setAvailability(availabilityData);
 
       log.info(LogCategory.SERVICE, 'Business data loaded successfully', { 
         providerId: user.id,
-        servicesCount: servicesData.length 
+        servicesCount: allServicesData.length,
+        activeServicesCount: activeServicesData.length,
+        availabilityCount: availabilityData.length 
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading business data', { error: error instanceof Error ? error.message : String(error) });
@@ -174,7 +203,7 @@ export default function MyBusinessScreen() {
 
   if (loading) {
     return (
-      <TabSafeAreaView>
+      <TabSafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
           <ThemedText>Cargando datos del negocio...</ThemedText>
         </View>
@@ -183,7 +212,7 @@ export default function MyBusinessScreen() {
   }
 
   return (
-    <TabSafeAreaView>
+    <TabSafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <ThemedView style={styles.header}>
@@ -312,24 +341,193 @@ export default function MyBusinessScreen() {
           )}
         </Card>
 
-        {/* Servicios - Enlace al tab de Services */}
+        {/* Servicios */}
         <Card variant="elevated" style={styles.section}>
-          <TouchableOpacity 
-            style={styles.servicesLink}
-            onPress={() => router.push('/(tabs)/services')}
-          >
-            <View style={styles.servicesLinkContent}>
-              <View style={styles.servicesLinkInfo}>
-                <ThemedText type="subtitle" style={styles.servicesLinkTitle}>
-                  Mis Servicios ({services.length})
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Mis Servicios ({allServices.filter(s => s.is_active).length} activos / {allServices.length} total)
+            </ThemedText>
+            <View style={styles.serviceHeaderActions}>
+              <TouchableOpacity 
+                onPress={() => setShowInactiveServices(!showInactiveServices)}
+                style={[styles.toggleButton, showInactiveServices && styles.toggleButtonActive]}
+              >
+                <ThemedText style={[styles.toggleButtonText, showInactiveServices && styles.toggleButtonTextActive]}>
+                  {showInactiveServices ? 'Ocultar Inactivos' : 'Ver Inactivos'}
                 </ThemedText>
-                <ThemedText style={styles.servicesLinkSubtext}>
-                  Gestiona tus servicios, precios y disponibilidad
-                </ThemedText>
-              </View>
-              <IconSymbol name="chevron.right" size={24} color={Colors.light.primary} />
+              </TouchableOpacity>
+              <Button
+                title="Agregar"
+                size="small"
+                onPress={handleAddService}
+                leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
+              />
             </View>
-          </TouchableOpacity>
+          </View>
+
+          {services.length > 0 ? (
+            <View style={styles.servicesList}>
+              {services.map((service) => (
+                <View 
+                  key={service.id} 
+                  style={[
+                    styles.serviceItem,
+                    { opacity: service.is_active ? 1 : 0.6 } // Inactive services appear grayed out
+                  ]}
+                >
+                  <View style={styles.serviceInfo}>
+                    <ThemedText style={[
+                      styles.serviceName,
+                      !service.is_active && { color: Colors.light.textSecondary }
+                    ]}>
+                      {service.name} {!service.is_active && '(Inactivo)'}
+                    </ThemedText>
+                    <ThemedText style={[
+                      styles.servicePrice,
+                      !service.is_active && { color: Colors.light.textSecondary }
+                    ]}>
+                      ${service.price_amount} - {service.duration_minutes} min
+                    </ThemedText>
+                  </View>
+                  <View style={styles.serviceActions}>
+                    <TouchableOpacity 
+                      style={[styles.statusBadge, { backgroundColor: service.is_active ? Colors.light.success : Colors.light.error }]}
+                      onPress={async () => {
+                        const newStatus = !service.is_active;
+                        const action = newStatus ? 'activar' : 'desactivar';
+                        const actionPast = newStatus ? 'activado' : 'desactivado';
+                        
+                        Alert.alert(
+                          `${action.charAt(0).toUpperCase() + action.slice(1)} Servicio`,
+                          `¿Estás seguro de que quieres ${action} el servicio "${service.name}"?`,
+                          [
+                            { text: 'Cancelar', style: 'cancel' },
+                            { 
+                              text: action.charAt(0).toUpperCase() + action.slice(1),
+                              onPress: async () => {
+                                try {
+                                  console.log('🔴 [MY BUSINESS] Toggling service:', {
+                                    serviceId: service.id,
+                                    currentStatus: service.is_active,
+                                    newStatus
+                                  });
+                                  
+                                  await BookingService.updateService(service.id, {
+                                    is_active: newStatus
+                                  });
+                                  
+                                  await loadBusinessData(); // Refresh data
+                                  Alert.alert('Éxito', `Servicio ${actionPast} correctamente`);
+                                } catch (error) {
+                                  console.error('🔴 [MY BUSINESS] Error toggling service:', error);
+                                  Alert.alert('Error', 'No se pudo actualizar el servicio');
+                                }
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      <ThemedText style={styles.statusText}>
+                        {service.is_active ? 'Activo' : 'Inactivo'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleEditService(service.id)}
+                      style={styles.iconButton}
+                    >
+                      <IconSymbol name="pencil" size={16} color={Colors.light.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        console.log('🔴 [MY BUSINESS] Delete button pressed for service:', {
+                          serviceId: service.id,
+                          serviceName: service.name
+                        });
+                        console.log('🔴 [MY BUSINESS] Current services before delete:', services.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
+                        
+                        const deleteHandler = async () => {
+                          console.log('🔴 [MY BUSINESS] Confirmed deletion for service:', service.id);
+                          try {
+                            console.log('🔴 [MY BUSINESS] Calling deleteService...');
+                            await BookingService.deleteService(service.id);
+                            
+                            console.log('🔴 [MY BUSINESS] Service deleted, refreshing data...');
+                            await loadBusinessData(); // Refresh data
+                            
+                            console.log('🔴 [MY BUSINESS] ✅ Service deactivation completed successfully');
+                            
+                            if (Platform.OS === 'web') {
+                              window.alert('Servicio desactivado correctamente');
+                            } else {
+                              Alert.alert('Éxito', 'Servicio desactivado correctamente');
+                            }
+                          } catch (error) {
+                            console.error('🔴 [MY BUSINESS] ❌ Error deleting service:', error);
+                            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+                            
+                            if (Platform.OS === 'web') {
+                              window.alert(`No se pudo eliminar el servicio:\n${errorMessage}`);
+                            } else {
+                              Alert.alert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
+                            }
+                          }
+                        };
+                        
+                        if (Platform.OS === 'web') {
+                          const confirmed = window.confirm(
+                            `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`
+                          );
+                          
+                          if (confirmed) {
+                            deleteHandler();
+                          } else {
+                            console.log('🔴 [MY BUSINESS] Delete cancelled by user');
+                          }
+                        } else {
+                          Alert.alert(
+                            'Desactivar Servicio',
+                            `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`,
+                            [
+                              { 
+                                text: 'Cancelar', 
+                                style: 'cancel',
+                                onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
+                              },
+                              { 
+                                text: 'Desactivar', 
+                                style: 'destructive',
+                                onPress: deleteHandler
+                              }
+                            ]
+                          );
+                        }
+                      }}
+                      style={styles.iconButton}
+                    >
+                      <IconSymbol name="trash" size={16} color={Colors.light.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+              
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <IconSymbol name="scissors" size={32} color={Colors.light.textSecondary} />
+              <ThemedText style={styles.emptyText}>No tienes servicios registrados</ThemedText>
+              <ThemedText style={styles.emptySubtext}>
+                Agrega tu primer servicio para empezar a recibir reservas
+              </ThemedText>
+              <Button
+                title="Agregar Servicio"
+                size="medium"
+                onPress={handleAddService}
+                style={styles.addFirstServiceButton}
+                leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
+              />
+            </View>
+          )}
         </Card>
 
         {/* Horarios */}
@@ -346,17 +544,40 @@ export default function MyBusinessScreen() {
             />
           </View>
 
-          <ThemedView style={styles.availabilityInfo}>
-            <IconSymbol name="clock" size={24} color={Colors.light.primary} />
-            <View style={styles.availabilityText}>
-              <ThemedText style={styles.availabilityTitle}>
-                Configura tus horarios
-              </ThemedText>
-              <ThemedText style={styles.availabilitySubtext}>
-                Define cuándo estás disponible para recibir citas
-              </ThemedText>
+          {availability.length > 0 ? (
+            <View style={styles.availabilityList}>
+              {availability.map((av) => {
+                const weekdays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                return (
+                  <View key={av.id} style={styles.availabilityItem}>
+                    <View style={styles.dayInfo}>
+                      <ThemedText style={styles.dayName}>
+                        {weekdays[av.weekday]}
+                      </ThemedText>
+                      <ThemedText style={styles.timeRange}>
+                        {av.start_time} - {av.end_time}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.availabilityBadge}>
+                      <ThemedText style={styles.availabilityBadgeText}>Activo</ThemedText>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-          </ThemedView>
+          ) : (
+            <ThemedView style={styles.availabilityInfo}>
+              <IconSymbol name="clock" size={24} color={Colors.light.primary} />
+              <View style={styles.availabilityText}>
+                <ThemedText style={styles.availabilityTitle}>
+                  Configura tus horarios
+                </ThemedText>
+                <ThemedText style={styles.availabilitySubtext}>
+                  Define cuándo estás disponible para recibir citas
+                </ThemedText>
+              </View>
+            </ThemedView>
+          )}
         </Card>
 
         {/* Estadísticas */}
@@ -395,6 +616,9 @@ export default function MyBusinessScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: Colors.light.background,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
@@ -515,6 +739,41 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surfaceVariant,
     borderRadius: DesignTokens.radius.md,
   },
+  availabilityList: {
+    gap: DesignTokens.spacing.sm,
+  },
+  availabilityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+  },
+  dayInfo: {
+    flex: 1,
+  },
+  dayName: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  timeRange: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  availabilityBadge: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.success,
+    borderRadius: DesignTokens.radius.sm,
+  },
+  availabilityBadgeText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.surface,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
   availabilityText: {
     marginLeft: DesignTokens.spacing.md,
     flex: 1,
@@ -583,5 +842,58 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
+  },
+  serviceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  iconButton: {
+    padding: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.sm,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+    marginTop: DesignTokens.spacing.md,
+  },
+  viewAllText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  addFirstServiceButton: {
+    marginTop: DesignTokens.spacing.lg,
+  },
+  serviceHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  toggleButton: {
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+  },
+  toggleButtonActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  toggleButtonText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  toggleButtonTextActive: {
+    color: Colors.light.surface,
   },
 });

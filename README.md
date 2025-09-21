@@ -114,6 +114,26 @@ constants/          # Constantes y colores
 - [x] Pantallas para proveedores
 - [x] Integración con Supabase
 - [x] Diseño moderno y diferenciado
+- [x] Sistema de citas completo (crear, confirmar, cancelar, reprogramar)
+- [x] Gestión de servicios para proveedores
+- [x] Dashboard con estadísticas en tiempo real
+- [x] Soporte multiplataforma (iOS, Android, Web)
+
+## 🆕 Últimas Mejoras (Sep 2025)
+
+### Funcionalidades Añadidas
+- **Sistema de citas completo**: Confirmación, cancelación y reprogramación
+- **Permisos granulares**: RLS policies optimizadas para appointments
+- **Interfaz mejorada**: Botones de acción rápida en dashboard de proveedor
+- **Compatibilidad web**: Confirmaciones nativas para navegadores
+- **Logging mejorado**: Sistema de logs estructurado para debugging
+
+### Correcciones Técnicas
+- ✅ **BookingService**: Métodos `confirmAppointment`, `cancelAppointment`, `updateAppointment`
+- ✅ **RLS Policies**: Políticas de seguridad optimizadas para clientes y proveedores
+- ✅ **Data Fetching**: Joins manuales para evitar errores de foreign keys
+- ✅ **Cross-platform**: Alertas y confirmaciones compatibles con web/móvil
+- ✅ **Authentication**: Validación de permisos mejorada
 
 ## 🔮 Próximas Características
 

@@ -4,8 +4,7 @@ import { supabase } from './supabase';
 
 export interface Provider {
   id: string;
-  owner_id: string;
-  user_id?: string;
+  user_id: string;
   name: string;
   business_name?: string;
   bio?: string;
@@ -146,7 +145,7 @@ export class BookingService {
       const { data, error } = await supabase
         .from('providers')
         .select('*')
-        .eq('owner_id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
@@ -160,7 +159,7 @@ export class BookingService {
     }
   }
 
-  // 📍 Obtener servicios de un proveedor
+  // 📍 Obtener servicios de un proveedor (solo activos - para clientes)
   static async getProviderServices(providerId: string): Promise<Service[]> {
     try {
       const { data, error } = await supabase
@@ -178,14 +177,47 @@ export class BookingService {
     }
   }
 
-  // 📍 Obtener disponibilidad de un proveedor
-  static async getProviderAvailability(providerId: string): Promise<Availability[]> {
+  // 📍 Obtener TODOS los servicios de un proveedor (activos e inactivos - para gestión)
+  static async getAllProviderServices(providerId: string): Promise<Service[]> {
     try {
       const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('is_active', { ascending: false }) // Activos primero
+        .order('name'); // Luego por nombre
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching all provider services:', error);
+      throw error;
+    }
+  }
+
+  // 📋 Obtener disponibilidad de un proveedor
+  static async getProviderAvailability(providerId: string): Promise<Availability[]> {
+    try {
+      // Try with is_active filter first
+      let { data, error } = await supabase
         .from('availabilities')
         .select('*')
         .eq('provider_id', providerId)
+        .eq('is_active', true)
         .order('weekday, start_time');
+
+      // If is_active column doesn't exist, try without it
+      if (error && error.message?.includes('is_active')) {
+        console.log('🔴 [BOOKING SERVICE] Retrying availability query without is_active...');
+        const result = await supabase
+          .from('availabilities')
+          .select('*')
+          .eq('provider_id', providerId)
+          .order('weekday, start_time');
+        
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       return data || [];
@@ -195,11 +227,34 @@ export class BookingService {
     }
   }
 
+  // 📋 Obtener disponibilidad de un proveedor con limpieza de datos
+  static async getProviderAvailabilityWithCleanup(userId: string): Promise<Availability[]> {
+    try {
+      // First, run consistency check
+      await this.checkAvailabilityConsistency(userId);
+      
+      // Get the provider
+      const provider = await this.getProviderById(userId);
+      if (!provider) {
+        return [];
+      }
+      
+      // Now get clean availability data
+      return await this.getProviderAvailability(provider.id);
+    } catch (error) {
+      console.error('Error fetching provider availability with cleanup:', error);
+      throw error;
+    }
+  }
+
   // 📍 Obtener horarios disponibles para una fecha específica
   static async getAvailableSlots(providerId: string, date: string): Promise<string[]> {
     try {
+      console.log('🔴 [GET SLOTS] Getting available slots for:', { providerId, date });
+      
       // Obtener disponibilidad del proveedor
       const availability = await this.getProviderAvailability(providerId);
+      console.log('🔴 [GET SLOTS] Provider availability:', availability);
       
       // Obtener citas existentes para esa fecha
       const { data: existingAppointments, error: appointmentsError } = await supabase
@@ -210,17 +265,31 @@ export class BookingService {
         .in('status', ['pending', 'confirmed']);
 
       if (appointmentsError) throw appointmentsError;
+      console.log('🔴 [GET SLOTS] Existing appointments:', existingAppointments);
 
       // Obtener servicios del proveedor para calcular duración
       const services = await this.getProviderServices(providerId);
+      console.log('🔴 [GET SLOTS] Provider services:', services);
       
       // Generar slots disponibles
       const availableSlots: string[] = [];
       const dayOfWeek = new Date(date).getDay();
+      const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      console.log('🔴 [GET SLOTS] Date analysis:', {
+        date,
+        dayOfWeek,
+        dayName: weekdayNames[dayOfWeek],
+        availabilityCount: availability.length
+      });
       
       // Encontrar disponibilidad para este día
       const dayAvailability = availability.find(a => a.weekday === dayOfWeek);
-      if (!dayAvailability) return availableSlots;
+      console.log('🔴 [GET SLOTS] Day availability for', weekdayNames[dayOfWeek], ':', dayAvailability);
+      
+      if (!dayAvailability) {
+        console.log('🔴 [GET SLOTS] ❌ No availability found for', weekdayNames[dayOfWeek], '- returning empty slots');
+        return availableSlots;
+      }
 
       // Generar slots de 30 minutos
       const startTime = new Date(`2000-01-01T${dayAvailability.start_time}`);
@@ -313,15 +382,52 @@ export class BookingService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
-      const { data, error } = await supabase
+      // First, get appointments
+      const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select('*')
         .eq('client_id', user.id)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
 
-      if (error) throw error;
-      return data || [];
+      if (appointmentsError) throw appointmentsError;
+      
+      if (!appointments || appointments.length === 0) {
+        return [];
+      }
+
+      // Get unique service and provider IDs
+      const serviceIds = [...new Set(appointments.map(apt => apt.service_id).filter(Boolean))];
+      const providerIds = [...new Set(appointments.map(apt => apt.provider_id).filter(Boolean))];
+
+      // Fetch services and providers separately
+      const [servicesData, providersData] = await Promise.all([
+        serviceIds.length > 0 
+          ? supabase.from('services').select('*').in('id', serviceIds)
+          : { data: [], error: null },
+        providerIds.length > 0 
+          ? supabase.from('providers').select('*').in('id', providerIds)
+          : { data: [], error: null }
+      ]);
+
+      const services = servicesData.data || [];
+      const providers = providersData.data || [];
+
+      // Manually join the data
+      console.log('🔴 [CLIENT APPOINTMENTS] Manual join:', {
+        appointmentsCount: appointments.length,
+        servicesCount: services.length,
+        providersCount: providers.length
+      });
+
+      const enrichedAppointments = appointments.map(appointment => ({
+        ...appointment,
+        services: services.find(s => s.id === appointment.service_id) || null,
+        providers: providers.find(p => p.id === appointment.provider_id) || null
+      }));
+
+      console.log('🔴 [CLIENT APPOINTMENTS] Sample enriched appointment:', enrichedAppointments[0]);
+      return enrichedAppointments;
     } catch (error) {
       console.error('Error fetching client appointments:', error);
       throw error;
@@ -329,19 +435,26 @@ export class BookingService {
   }
 
   // 📍 Obtener citas del proveedor
-  static async getProviderAppointments(): Promise<Appointment[]> {
+  static async getProviderAppointments(userId?: string): Promise<Appointment[]> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
+
+      // Obtener el proveedor primero
+      const provider = await this.getProviderById(userId || user.id);
+      if (!provider) {
+        console.warn('No provider found for user:', userId || user.id);
+        return [];
+      }
 
       const { data, error } = await supabase
         .from('appointments')
         .select(`
           *,
-          service:services(*),
-          client:profiles(id, display_name, phone)
+          services(*),
+          profiles!appointments_client_id_fkey(id, display_name, phone)
         `)
-        .eq('provider_id', user.id)
+        .eq('provider_id', provider.id)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
 
@@ -397,6 +510,116 @@ export class BookingService {
       return data;
     } catch (error) {
       console.error('Error updating appointment status:', error);
+      throw error;
+    }
+  }
+
+  // 📍 Confirmar cita (método específico)
+  static async confirmAppointment(appointmentId: string): Promise<Appointment> {
+    return this.updateAppointmentStatus(appointmentId, 'confirmed');
+  }
+
+  // 📍 Cancelar cita (método específico)
+  static async cancelAppointment(appointmentId: string): Promise<Appointment> {
+    return this.updateAppointmentStatus(appointmentId, 'cancelled');
+  }
+
+  // 📍 Actualizar cita (para reprogramación)
+  static async updateAppointment(
+    appointmentId: string,
+    updateData: {
+      appointment_date?: string;
+      appointment_time?: string;
+      service_id?: string;
+      notes?: string;
+    }
+  ): Promise<Appointment> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Updating appointment:', appointmentId, updateData);
+      
+      // Check authentication
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuario no autenticado');
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Authenticated user:', user.id);
+      
+      // First, get the current appointment to check permissions
+      const { data: currentAppointment, error: fetchError } = await supabase
+        .from('appointments')
+        .select('client_id, provider_id, service_id')
+        .eq('id', appointmentId)
+        .single();
+        
+      if (fetchError) {
+        console.error('🔴 [BOOKING SERVICE] Error fetching appointment:', fetchError);
+        throw new Error(`No se pudo obtener la cita: ${fetchError.message}`);
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Current appointment:', currentAppointment);
+      
+      // Check if user is either the client or the provider
+      let hasPermission = false;
+      if (currentAppointment.client_id === user.id) {
+        hasPermission = true;
+        console.log('🔴 [BOOKING SERVICE] User is the client - permission granted');
+      } else {
+        // Check if user is the provider
+        const provider = await this.getProviderById(user.id);
+        if (provider && provider.id === currentAppointment.provider_id) {
+          hasPermission = true;
+          console.log('🔴 [BOOKING SERVICE] User is the provider - permission granted');
+        }
+      }
+      
+      if (!hasPermission) {
+        throw new Error('No tienes permisos para actualizar esta cita');
+      }
+      
+      // If date/time is being updated, we need to recalculate timestamps
+      let updatePayload: any = { ...updateData };
+      
+      if (updateData.appointment_date && updateData.appointment_time) {
+        const startTimestamp = new Date(`${updateData.appointment_date}T${updateData.appointment_time}:00`).toISOString();
+        
+        // Get service duration to calculate end timestamp
+        let durationMinutes = 30; // default
+        const serviceId = updateData.service_id || currentAppointment.service_id;
+        if (serviceId) {
+          const { data: serviceData } = await supabase
+            .from('services')
+            .select('duration_minutes')
+            .eq('id', serviceId)
+            .single();
+          
+          durationMinutes = serviceData?.duration_minutes || 30;
+        }
+        
+        const endTimestamp = new Date(new Date(startTimestamp).getTime() + durationMinutes * 60000).toISOString();
+        
+        updatePayload.start_ts = startTimestamp;
+        updatePayload.end_ts = endTimestamp;
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Update payload:', updatePayload);
+      
+      const { data, error } = await supabase
+        .from('appointments')
+        .update(updatePayload)
+        .eq('id', appointmentId)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error updating appointment:', error);
+        throw new Error(`Error al actualizar la cita: ${error.message}`);
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] ✅ Appointment updated successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error updating appointment:', error);
       throw error;
     }
   }
@@ -535,7 +758,7 @@ export class BookingService {
 
   // ✏️ Actualizar información del proveedor
   static async createProvider(providerData: {
-    owner_id: string;
+    user_id: string;
     name: string;
     business_name: string;
     category: string;
@@ -549,7 +772,7 @@ export class BookingService {
       const { data, error } = await supabase
         .from('providers')
         .insert({
-          owner_id: providerData.owner_id,
+          user_id: providerData.user_id,
           name: providerData.name,
           business_name: providerData.business_name,
           category: providerData.category,
@@ -598,7 +821,7 @@ export class BookingService {
           email: updateData.email,
           updated_at: new Date().toISOString(),
         })
-        .eq('owner_id', providerId)
+        .eq('user_id', providerId)
         .select()
         .single();
 
@@ -616,11 +839,19 @@ export class BookingService {
   }
 
   static async updateAvailability(
-    providerId: string,
+    userId: string,
     availability: Record<string, { enabled: boolean; startTime: string; endTime: string }>
   ): Promise<void> {
     try {
-      console.log('🔴 [BOOKING SERVICE] Actualizando disponibilidad:', providerId, availability);
+      console.log('🔴 [BOOKING SERVICE] Actualizando disponibilidad para userId:', userId, availability);
+      
+      // First, get the provider record to get the correct provider_id
+      const provider = await this.getProviderById(userId);
+      if (!provider) {
+        throw new Error('Provider not found for user');
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Provider encontrado:', provider.id);
       
       // Mapeo de días de la semana
       const weekdayMap: Record<string, number> = {
@@ -637,7 +868,7 @@ export class BookingService {
       const { error: deleteError } = await supabase
         .from('availabilities')
         .delete()
-        .eq('provider_id', providerId);
+        .eq('provider_id', provider.id);
 
       if (deleteError) {
         console.error('🔴 [BOOKING SERVICE] Error deleting existing availability:', deleteError);
@@ -648,18 +879,34 @@ export class BookingService {
       const availabilityRecords = Object.entries(availability)
         .filter(([_, dayData]) => dayData.enabled)
         .map(([dayKey, dayData]) => ({
-          provider_id: providerId,
+          provider_id: provider.id,
           weekday: weekdayMap[dayKey],
           start_time: dayData.startTime,
-          end_time: dayData.endTime,
+          end_time: dayData.endTime
         }));
 
-      if (availabilityRecords.length > 0) {
-        const { error: insertError } = await supabase
-          .from('availabilities')
-          .insert(availabilityRecords);
+      console.log('🔴 [BOOKING SERVICE] Records to insert:', availabilityRecords);
 
-        if (insertError) {
+      if (availabilityRecords.length > 0) {
+        // Try with is_active first, fall back without if it fails
+        const recordsWithActive = availabilityRecords.map(record => ({ ...record, is_active: true }));
+        
+        let { error: insertError } = await supabase
+          .from('availabilities')
+          .insert(recordsWithActive);
+
+        // If it fails with is_active column, try without it
+        if (insertError && insertError.message?.includes('is_active')) {
+          console.log('🔴 [BOOKING SERVICE] Retrying without is_active column...');
+          const { error: retryError } = await supabase
+            .from('availabilities')
+            .insert(availabilityRecords);
+          
+          if (retryError) {
+            console.error('🔴 [BOOKING SERVICE] Error inserting availability (retry):', retryError);
+            throw retryError;
+          }
+        } else if (insertError) {
           console.error('🔴 [BOOKING SERVICE] Error inserting availability:', insertError);
           throw insertError;
         }
@@ -668,6 +915,236 @@ export class BookingService {
       console.log('🔴 [BOOKING SERVICE] ✅ Disponibilidad actualizada exitosamente');
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error updating availability:', error);
+      throw error;
+    }
+  }
+
+  // 🔄 Check data consistency for availability
+  static async checkAvailabilityConsistency(userId: string): Promise<void> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Checking availability consistency for userId:', userId);
+      
+      // Get the provider record
+      const provider = await this.getProviderById(userId);
+      if (!provider) {
+        console.log('🔴 [BOOKING SERVICE] No provider found, skipping consistency check');
+        return;
+      }
+      
+      // Check for duplicate or orphaned availability records
+      const { data: availabilities, error } = await supabase
+        .from('availabilities')
+        .select('*')
+        .eq('provider_id', provider.id);
+        
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error checking availabilities:', error);
+        return;
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Found', availabilities?.length || 0, 'availability records');
+      
+      // Group by weekday to find duplicates
+      const weekdayGroups: Record<number, any[]> = {};
+      availabilities?.forEach(av => {
+        if (!weekdayGroups[av.weekday]) {
+          weekdayGroups[av.weekday] = [];
+        }
+        weekdayGroups[av.weekday].push(av);
+      });
+      
+      // Remove duplicates, keeping the most recent
+      for (const [weekday, records] of Object.entries(weekdayGroups)) {
+        if (records.length > 1) {
+          console.log('🔴 [BOOKING SERVICE] Found duplicate availability records for weekday', weekday);
+          
+          // Sort by created_at and keep the most recent
+          records.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const toDelete = records.slice(1); // Keep first (most recent), delete rest
+          
+          for (const record of toDelete) {
+            const { error: deleteError } = await supabase
+              .from('availabilities')
+              .delete()
+              .eq('id', record.id);
+              
+            if (deleteError) {
+              console.error('🔴 [BOOKING SERVICE] Error deleting duplicate:', deleteError);
+            } else {
+              console.log('🔴 [BOOKING SERVICE] Deleted duplicate availability record:', record.id);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error in consistency check:', error);
+    }
+  }
+
+  // ✂️ Create a new service for a provider
+  static async createService(
+    userId: string,
+    serviceData: {
+      name: string;
+      description?: string;
+      price_amount: number;
+      price_currency?: string;
+      duration_minutes: number;
+      is_active?: boolean;
+    }
+  ): Promise<Service> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Creating service for userId:', userId, serviceData);
+      
+      // Check authentication state
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      console.log('🔴 [BOOKING SERVICE] Auth user:', authUser?.id, authUser?.email);
+      console.log('🔴 [BOOKING SERVICE] Auth error:', authError);
+      
+      if (!authUser) {
+        throw new Error('Usuario no autenticado. Inicia sesión para crear servicios.');
+      }
+      
+      if (authUser.id !== userId) {
+        console.log('🔴 [BOOKING SERVICE] Auth user ID mismatch:', { authUserId: authUser.id, requestedUserId: userId });
+        throw new Error('No tienes permisos para crear servicios para este usuario.');
+      }
+      
+      // Also check the session to ensure it's active
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('🔴 [BOOKING SERVICE] Session active:', !!session);
+      console.log('🔴 [BOOKING SERVICE] Session error:', sessionError);
+      
+      if (!session) {
+        throw new Error('Sesión expirada. Inicia sesión nuevamente.');
+      }
+      
+      // Get the provider record to get the correct provider_id
+      const provider = await this.getProviderById(userId);
+      if (!provider) {
+        throw new Error('Provider not found for user');
+      }
+      
+      console.log('🔴 [BOOKING SERVICE] Provider encontrado:', provider.id);
+      
+      const { data, error } = await supabase
+        .from('services')
+        .insert({
+          provider_id: provider.id,
+          name: serviceData.name,
+          description: serviceData.description || null,
+          price_amount: serviceData.price_amount,
+          price_currency: serviceData.price_currency || 'USD',
+          duration_minutes: serviceData.duration_minutes,
+          is_active: serviceData.is_active ?? true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error creating service:', error);
+        throw error;
+      }
+
+      console.log('🔴 [BOOKING SERVICE] ✅ Service created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error creating service:', error);
+      throw error;
+    }
+  }
+
+  // ✏️ Update an existing service
+  static async updateService(
+    serviceId: string,
+    serviceData: {
+      name?: string;
+      description?: string;
+      price_amount?: number;
+      price_currency?: string;
+      duration_minutes?: number;
+      is_active?: boolean;
+    }
+  ): Promise<Service> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Updating service:', serviceId, serviceData);
+      
+      const { data, error } = await supabase
+        .from('services')
+        .update({
+          ...serviceData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', serviceId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error updating service:', error);
+        throw error;
+      }
+
+      console.log('🔴 [BOOKING SERVICE] ✅ Service updated successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error updating service:', error);
+      throw error;
+    }
+  }
+
+  // 🗑️ Delete a service
+  static async deleteService(serviceId: string): Promise<void> {
+    try {
+      console.log('🔴 [BOOKING SERVICE] Deleting service:', serviceId);
+      
+      // First check if there are any appointments using this service
+      const { data: appointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('id, status')
+        .eq('service_id', serviceId);
+        
+      if (appointmentsError) {
+        console.error('🔴 [BOOKING SERVICE] Error checking appointments:', appointmentsError);
+        throw appointmentsError;
+      }
+      
+      if (appointments && appointments.length > 0) {
+        console.log('🔴 [BOOKING SERVICE] Found', appointments.length, 'appointments using this service');
+        
+        // Check if any are pending or confirmed
+        const activeAppointments = appointments.filter(apt => 
+          apt.status === 'pending' || apt.status === 'confirmed'
+        );
+        
+        if (activeAppointments.length > 0) {
+          throw new Error(
+            `No se puede eliminar el servicio porque tiene ${activeAppointments.length} cita(s) pendiente(s) o confirmada(s). ` +
+            'Cancela o completa las citas antes de eliminar el servicio.'
+          );
+        }
+      }
+      
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', serviceId);
+
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error deleting service:', error);
+        
+        // Provide better error messages
+        if (error.code === '23503') {
+          throw new Error('No se puede eliminar el servicio porque tiene citas asociadas.');
+        } else if (error.message?.includes('foreign key')) {
+          throw new Error('No se puede eliminar el servicio porque está siendo usado por citas existentes.');
+        } else {
+          throw new Error(`Error al eliminar servicio: ${error.message}`);
+        }
+      }
+
+      console.log('🔴 [BOOKING SERVICE] ✅ Service deleted successfully');
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error deleting service:', error);
       throw error;
     }
   }

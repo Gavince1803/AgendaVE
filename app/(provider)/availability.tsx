@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 const WEEKDAYS = [
   { key: 'monday', label: 'Lunes', short: 'L' },
@@ -68,33 +69,87 @@ export default function AvailabilityScreen() {
     // Verificar que al menos un día esté habilitado
     const enabledDays = Object.values(availability).filter((day: any) => day.enabled);
     if (enabledDays.length === 0) {
-      Alert.alert('Error', 'Debes habilitar al menos un día de la semana');
+      const message = 'Debes habilitar al menos un día de la semana';
+      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
       return;
     }
 
-    try {
-      setSaving(true);
-      log.userAction('Save availability', { 
-        providerId: user.id,
-        enabledDays: enabledDays.length
-      });
+    // Crear resumen de días habilitados para el diálogo
+    const enabledDaysText = WEEKDAYS
+      .filter(day => availability[day.key].enabled)
+      .map(day => `${day.label}: ${availability[day.key].startTime} - ${availability[day.key].endTime}`)
+      .join('\n');
 
-      // Actualizar disponibilidades en la base de datos
-      await BookingService.updateAvailability(user.id, availability);
-
+    // Diálogo de confirmación
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`
+      );
+      
+      if (confirmed) {
+        saveAvailability(enabledDays);
+      }
+    } else {
       Alert.alert(
-        'Éxito', 
-        'Horarios actualizados exitosamente',
+        'Confirmar Horarios de Atención',
+        `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`,
         [
           {
-            text: 'OK',
-            onPress: () => router.push('/(provider)/my-business')
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Guardar Horarios',
+            style: 'default',
+            onPress: () => saveAvailability(enabledDays)
           }
         ]
       );
+    }
+  };
+
+  const saveAvailability = async (enabledDays: any[]) => {
+    try {
+      setSaving(true);
+      log.userAction('Save availability', { 
+        providerId: user!.id,
+        enabledDays: enabledDays.length
+      });
+
+      // Actualizar disponibilidades en la base de datos usando el user ID
+      // El método updateAvailability ahora maneja internamente obtener el provider
+      await BookingService.updateAvailability(user!.id, availability);
+
+      if (Platform.OS === 'web') {
+        window.alert('Éxito: Horarios actualizados exitosamente');
+        router.push('/(provider)/my-business');
+      } else {
+        Alert.alert(
+          'Éxito', 
+          'Horarios actualizados exitosamente',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.push('/(provider)/my-business')
+            }
+          ]
+        );
+      }
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving availability', { error: error instanceof Error ? error.message : String(error) });
-      Alert.alert('Error', 'No se pudieron guardar los horarios');
+      
+      let errorMessage = 'No se pudieron guardar los horarios';
+      if (error instanceof Error) {
+        if (error.message.includes('row-level security')) {
+          errorMessage = 'Error de permisos en la base de datos.\n\nPor favor:\n1. Ve a tu panel de Supabase\n2. Ejecuta las consultas del archivo supabase_fixes.sql\n3. Inténtalo de nuevo';
+        } else if (error.message.includes('Provider not found')) {
+          errorMessage = 'No se encontró tu perfil de proveedor.\n\nPor favor configura tu negocio desde "Mi Negocio" primero.';
+        } else {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+      
+      Platform.OS === 'web' ? window.alert(`Error al Guardar Horarios: ${errorMessage}`) : Alert.alert('Error al Guardar Horarios', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -209,24 +264,17 @@ export default function AvailabilityScreen() {
                 
                 {availability[day.key].enabled && (
                   <View style={styles.timeRow}>
-                    <View style={styles.timeInput}>
-                      <ThemedText style={styles.timeLabel}>Desde:</ThemedText>
-                      <TouchableOpacity style={styles.timeButton}>
-                        <ThemedText style={styles.timeText}>
-                          {availability[day.key].startTime}
-                        </ThemedText>
-                        <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.timeInput}>
-                      <ThemedText style={styles.timeLabel}>Hasta:</ThemedText>
-                      <TouchableOpacity style={styles.timeButton}>
-                        <ThemedText style={styles.timeText}>
-                          {availability[day.key].endTime}
-                        </ThemedText>
-                        <IconSymbol name="clock" size={16} color={Colors.light.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
+                    <TimePicker
+                      label="Desde:"
+                      value={availability[day.key].startTime}
+                      onTimeChange={(time) => handleTimeChange(day.key, 'startTime', time)}
+                    />
+                    <View style={styles.timeSeparator} />
+                    <TimePicker
+                      label="Hasta:"
+                      value={availability[day.key].endTime}
+                      onTimeChange={(time) => handleTimeChange(day.key, 'endTime', time)}
+                    />
                   </View>
                 )}
               </View>
@@ -349,29 +397,12 @@ const styles = StyleSheet.create({
   },
   timeRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: DesignTokens.spacing.md,
+    marginTop: DesignTokens.spacing.md,
   },
-  timeInput: {
-    flex: 1,
-  },
-  timeLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    marginBottom: DesignTokens.spacing.sm,
-  },
-  timeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: DesignTokens.spacing.md,
-    backgroundColor: Colors.light.surface,
-    borderRadius: DesignTokens.radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  timeText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  timeSeparator: {
+    width: DesignTokens.spacing.md,
   },
   infoCard: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -29,13 +30,17 @@ export default function BookServiceScreen() {
     serviceId, 
     serviceName, 
     servicePrice, 
-    serviceDuration 
+    serviceDuration,
+    rescheduleId,
+    mode
   } = useLocalSearchParams<{
     providerId: string;
     serviceId: string;
     serviceName: string;
     servicePrice: string;
     serviceDuration: string;
+    rescheduleId?: string;
+    mode?: string;
   }>();
 
   const [provider, setProvider] = useState<Provider | null>(null);
@@ -95,14 +100,31 @@ export default function BookServiceScreen() {
     
     try {
       const dateString = selectedDate.toISOString().split('T')[0];
+      const dayOfWeek = selectedDate.getDay();
+      const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      
+      console.log('🔴 [BOOK SERVICE] Loading slots for:', {
+        providerId,
+        dateString,
+        dayOfWeek,
+        dayName: weekdayNames[dayOfWeek]
+      });
+      
       const slots = await BookingService.getAvailableSlots(providerId, dateString);
       setAvailableSlots(slots);
+      
+      console.log('🔴 [BOOK SERVICE] Slots loaded:', { 
+        date: dateString, 
+        slotsCount: slots.length,
+        slots 
+      });
       
       log.info(LogCategory.DATABASE, 'Available slots loaded', { 
         date: dateString, 
         slotsCount: slots.length 
       });
     } catch (error) {
+      console.error('🔴 [BOOK SERVICE] Error loading available slots:', error);
       log.error(LogCategory.SERVICE, 'Error loading available slots', error);
       setAvailableSlots([]);
     }
@@ -123,6 +145,12 @@ export default function BookServiceScreen() {
     }
   };
 
+  const handleWebDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = new Date(event.target.value);
+    setSelectedDate(selectedDate);
+    setSelectedTime(''); // Reset selected time when date changes
+  };
+
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
     log.userAction('Select time slot', { time, date: selectedDate.toISOString().split('T')[0] });
@@ -134,41 +162,100 @@ export default function BookServiceScreen() {
       return;
     }
 
-    try {
-      setBooking(true);
-      log.userAction('Book appointment', {
-        providerId: provider.id,
-        serviceId: service.id,
-        date: selectedDate.toISOString().split('T')[0],
-        time: selectedTime
-      });
-
-      const appointment = await BookingService.createAppointment(
-        provider.id,
-        service.id,
-        selectedDate.toISOString().split('T')[0],
-        selectedTime
+    // Show confirmation dialog before booking
+    const bookingDetails = `Servicio: ${service.name}\nProveedor: ${provider.business_name}\nFecha: ${formatDate(selectedDate)}\nHora: ${selectedTime}\nDuración: ${formatDuration(service.duration_minutes)}\nPrecio: ${formatPrice(service.price_amount)}`;
+    
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `¿Confirmar esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`
       );
-
-      log.info(LogCategory.DATABASE, 'Appointment created successfully', { appointmentId: appointment.id });
-
+      
+      if (confirmed) {
+        createAppointment();
+      }
+    } else {
       Alert.alert(
-        '¡Reserva Confirmada!',
-        `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`,
+        'Confirmar Reserva',
+        `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
         [
           {
-            text: 'Ver Mis Citas',
-            onPress: () => router.push('/(tabs)/bookings')
+            text: 'Cancelar',
+            style: 'cancel'
           },
           {
-            text: 'Continuar',
-            onPress: () => router.back()
+            text: 'Confirmar Reserva',
+            style: 'default',
+            onPress: createAppointment
           }
         ]
       );
+    }
+  };
+
+  const createAppointment = async () => {
+    if (!selectedTime || !service || !provider) return;
+
+    try {
+      setBooking(true);
+      const isRescheduling = mode === 'reschedule' && rescheduleId;
+      
+      log.userAction(isRescheduling ? 'Reschedule appointment' : 'Book appointment', {
+        providerId: provider.id,
+        serviceId: service.id,
+        date: selectedDate.toISOString().split('T')[0],
+        time: selectedTime,
+        originalAppointmentId: rescheduleId
+      });
+
+      let appointment;
+      if (isRescheduling) {
+        // Update existing appointment with new date/time
+        appointment = await BookingService.updateAppointment(rescheduleId, {
+          appointment_date: selectedDate.toISOString().split('T')[0],
+          appointment_time: selectedTime,
+          status: 'pending' // Reset to pending for provider confirmation
+        });
+      } else {
+        // Create new appointment
+        appointment = await BookingService.createAppointment(
+          provider.id,
+          service.id,
+          selectedDate.toISOString().split('T')[0],
+          selectedTime
+        );
+      }
+
+      log.info(LogCategory.DATABASE, isRescheduling ? 'Appointment rescheduled successfully' : 'Appointment created successfully', { appointmentId: appointment.id });
+
+      const successTitle = isRescheduling ? '¡Cita Reprogramada!' : '¡Reserva Confirmada!';
+      const successMessage = isRescheduling 
+        ? `Tu cita ha sido reprogramada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor confirmará el nuevo horario pronto.`
+        : `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`;
+
+      if (Platform.OS === 'web') {
+        window.alert(`${successTitle}\n\n${successMessage}`);
+        router.push('/(tabs)/bookings');
+      } else {
+        Alert.alert(
+          successTitle,
+          successMessage,
+          [
+            {
+              text: 'Ver Mis Citas',
+              onPress: () => router.push('/(tabs)/bookings')
+            },
+            {
+              text: 'Continuar',
+              onPress: () => router.back()
+            }
+          ]
+        );
+      }
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
-      Alert.alert('Error', 'No se pudo crear la reserva. Inténtalo de nuevo.');
+      
+      const errorMessage = error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtalo de nuevo.';
+      Platform.OS === 'web' ? window.alert(`Error: ${errorMessage}`) : Alert.alert('Error', errorMessage);
     } finally {
       setBooking(false);
     }
@@ -184,7 +271,7 @@ export default function BookServiceScreen() {
   };
 
   const formatPrice = (price: number) => {
-    return `Bs. ${price.toLocaleString('es-VE')}`;
+    return `$${price.toLocaleString('en-US')}`;
   };
 
   const formatDuration = (minutes: number) => {
@@ -241,10 +328,10 @@ export default function BookServiceScreen() {
             <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
             
             <ThemedView style={styles.serviceDetails}>
-              <Badge variant="secondary" style={styles.durationBadge}>
+              <ThemedView style={styles.durationBadge}>
                 <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
-              </Badge>
+              </ThemedView>
               <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
             </ThemedView>
 
@@ -257,16 +344,36 @@ export default function BookServiceScreen() {
         {/* Selección de Fecha */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Selecciona la Fecha</ThemedText>
-          <TouchableOpacity
-            style={styles.dateSelector}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <IconSymbol name="calendar" size={20} color={Colors.light.primary} />
-            <ThemedText style={styles.dateText}>
-              {formatDate(selectedDate)}
-            </ThemedText>
-            <IconSymbol name="chevron.right" size={16} color={Colors.light.textSecondary} />
-          </TouchableOpacity>
+          {Platform.OS === 'web' ? (
+            // Web date input
+            <input
+              type="date"
+              value={selectedDate.toISOString().split('T')[0]}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={handleWebDateChange}
+              style={{
+                width: '100%',
+                padding: 16,
+                fontSize: 16,
+                borderRadius: 12,
+                border: `1px solid ${Colors.light.border}`,
+                backgroundColor: Colors.light.surface,
+                color: Colors.light.text
+              }}
+            />
+          ) : (
+            // Native date selector
+            <TouchableOpacity
+              style={styles.dateSelector}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <IconSymbol name="calendar" size={20} color={Colors.light.primary} />
+              <ThemedText style={styles.dateText}>
+                {formatDate(selectedDate)}
+              </ThemedText>
+              <IconSymbol name="chevron.right" size={16} color={Colors.light.textSecondary} />
+            </TouchableOpacity>
+          )}
         </ThemedView>
 
         {/* Selección de Hora */}
@@ -304,7 +411,7 @@ export default function BookServiceScreen() {
         {/* Botón de Reserva */}
         <ThemedView style={styles.section}>
           <Button
-            title={booking ? "Reservando..." : "Confirmar Reserva"}
+            title={booking ? (mode === 'reschedule' ? "Reprogramando..." : "Reservando...") : (mode === 'reschedule' ? "Confirmar Reprogramación" : "Confirmar Reserva")}
             onPress={handleBookAppointment}
             disabled={!selectedTime || booking}
             style={styles.bookButton}
@@ -313,8 +420,8 @@ export default function BookServiceScreen() {
         </ThemedView>
       </ScrollView>
 
-      {/* Date Picker */}
-      {showDatePicker && (
+      {/* Date Picker - Native Only */}
+      {Platform.OS !== 'web' && showDatePicker && (
         <DateTimePicker
           value={selectedDate}
           mode="date"
@@ -390,6 +497,9 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.xs,
     paddingHorizontal: DesignTokens.spacing.sm,
     paddingVertical: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+    alignSelf: 'flex-start',
   },
   durationText: {
     fontSize: DesignTokens.typography.fontSizes.xs,

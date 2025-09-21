@@ -387,6 +387,10 @@ export const ComponentColors = {
     shadowDark: 'rgba(0, 0, 0, 0.3)',
   },
   
+  // Surface colors
+  surface: '#ffffff',
+  border: gray[200],
+  
   // Inputs
   input: {
     background: '#ffffff',

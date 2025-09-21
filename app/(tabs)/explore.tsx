@@ -104,9 +104,8 @@ export default function ExploreScreen() {
   };
 
   const renderProviderCard = (provider: Provider) => (
-    <Card variant="elevated" style={styles.providerCard}>
+    <Card key={provider.id} variant="elevated" style={styles.providerCard}>
       <TouchableOpacity
-        key={provider.id}
         onPress={() => {
           log.userAction('View provider details', { providerId: provider.id, providerName: provider.business_name });
           router.push({
