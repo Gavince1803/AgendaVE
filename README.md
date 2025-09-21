@@ -9,6 +9,8 @@ Una aplicación móvil moderna para reservas de servicios en Venezuela, inspirad
 - **Gestión de citas** para clientes y proveedores
 - **Sistema de favoritos** para guardar proveedores preferidos
 - **Exploración de servicios** con categorías y filtros
+- **Gestión de empleados** para proveedores con múltiples trabajadores
+- **Flujo de reservas completo** con selección de servicio, empleado y horario
 - **Dashboard personalizado** según el rol del usuario
 - **Integración con Supabase** para backend y base de datos
 
@@ -75,6 +77,7 @@ El proyecto utiliza Supabase con las siguientes tablas principales:
 - `profiles` - Perfiles de usuarios
 - `providers` - Información de proveedores/negocios
 - `services` - Servicios ofrecidos
+- `employees` - Empleados que trabajan para cada proveedor
 - `appointments` - Citas agendadas
 - `availabilities` - Horarios disponibles
 - `user_favorites` - Relación entre usuarios y proveedores favoritos
@@ -110,6 +113,38 @@ CREATE TABLE user_favorites (
 #### Troubleshooting:
 Si experimentas problemas con favoritos, usa las funciones de debug en `lib/debug-favorites.ts` para diagnóstico detallado.
 
+### 💼 Sistema de Empleados
+
+El sistema de empleados permite a los proveedores gestionar múltiples trabajadores y a los clientes seleccionar empleados específicos al hacer reservas.
+
+#### Características:
+- **Gestión completa de empleados**: CRUD para empleados de cada proveedor
+- **Empleado propietario automático**: Se crea automáticamente al registrar un proveedor
+- **Selección de empleado en reservas**: Los clientes pueden elegir empleado específico
+- **Interfaz optimizada**: Lista horizontal scrolleable con diseño responsive
+- **Sincronización de datos**: Actualización automática de nombres de empleados propietarios
+
+#### Base de Datos:
+```sql
+CREATE TABLE employees (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  provider_id uuid REFERENCES providers(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  position text,
+  phone text,
+  email text,
+  is_active boolean DEFAULT true,
+  is_owner boolean DEFAULT false,
+  created_at timestamp DEFAULT now()
+);
+```
+
+#### Funciones Principales:
+- `EmployeeService.getEmployees(providerId)` - Obtener empleados del proveedor
+- `EmployeeService.createEmployee(employeeData)` - Crear nuevo empleado
+- `EmployeeService.updateEmployee(id, data)` - Actualizar empleado
+- `EmployeeService.deleteEmployee(id)` - Eliminar empleado
+
 ## 🎨 Diseño
 
 - **Colores principales**: Azul (#2563eb) y tonos neutros
@@ -124,10 +159,14 @@ Si experimentas problemas con favoritos, usa las funciones de debug en `lib/debu
 app/
 ├── (auth)/          # Pantallas de autenticación
 ├── (tabs)/          # Pantallas principales con tabs
+│   └── booking/     # Flujo de reservas (servicio, empleado, horario)
 ├── _layout.tsx      # Layout raíz
 components/          # Componentes reutilizables
+│   └── ui/          # Componentes de UI (EmployeeSelector, etc.)
 contexts/           # Contextos de React (Auth)
-lib/                # Configuración de Supabase
+lib/                # Configuración de Supabase y servicios
+│   ├── services/    # Servicios (BookingService, EmployeeService)
+│   └── debug/       # Utilidades de debugging
 constants/          # Constantes y colores
 ```
 
@@ -154,9 +193,13 @@ constants/          # Constantes y colores
 - [x] Dashboard con estadísticas en tiempo real
 - [x] Soporte multiplataforma (iOS, Android, Web)
 
-## 🆕 Últimas Mejoras (Sep 2025)
+## 🆕 Últimas Mejoras (Dec 2024)
 
 ### Funcionalidades Añadidas
+- **Sistema de empleados completo**: Gestión CRUD de empleados para proveedores
+- **Flujo de reservas mejorado**: Selección de servicio, empleado y horario
+- **Interfaz de selección optimizada**: Cards de empleados responsive con scroll horizontal
+- **Sincronización de datos**: Scripts SQL para actualizar nombres de empleados propietarios
 - **Sistema de favoritos completo**: Agregar/quitar proveedores de favoritos
 - **Sistema de citas completo**: Confirmación, cancelación y reprogramación
 - **Permisos granulares**: RLS policies optimizadas para appointments y favoritos
@@ -165,6 +208,11 @@ constants/          # Constantes y colores
 - **Logging mejorado**: Sistema de logs estructurado para debugging
 
 ### Correcciones Técnicas
+- ✅ **EmployeeService**: CRUD completo para gestión de empleados
+- ✅ **UI Components**: EmployeeSelector con scroll horizontal optimizado
+- ✅ **Data Consistency**: Sincronización entre nombres de empleados y perfiles
+- ✅ **Service Selection**: Muestra duración y precio en selección de empleado
+- ✅ **Layout Fixes**: Corrección de clipping en listas de empleados
 - ✅ **BookingService**: Métodos `confirmAppointment`, `cancelAppointment`, `updateAppointment`
 - ✅ **FavoritesService**: Métodos `addToFavorites`, `removeFromFavorites`, `getFavoriteProviders`
 - ✅ **RLS Policies**: Políticas de seguridad optimizadas para clientes y proveedores
