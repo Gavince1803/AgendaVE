@@ -25,6 +25,8 @@ export default function BookingConfirmationScreen() {
     serviceName, 
     servicePrice, 
     serviceDuration,
+    employeeId,
+    employeeName,
     selectedDate,
     selectedTime,
   } = useLocalSearchParams();
@@ -75,34 +77,45 @@ export default function BookingConfirmationScreen() {
         serviceId as string,
         selectedDate as string,
         selectedTime as string,
+        (employeeId as string) || undefined,
         notes
       );
 
-      Alert.alert(
-        '¡Reserva Confirmada!',
-        'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
-        [
-          {
-            text: 'Ver Mis Citas',
-            onPress: () => {
-              router.push('/(tabs)/bookings');
+      if (Platform.OS === 'web') {
+        const action = window.confirm('¡Reserva Confirmada!\n\nTu cita ha sido reservada exitosamente. ¿Quieres ver tus citas o volver al inicio?\n\nPresiona OK para ver tus citas o Cancelar para volver al inicio.');
+        if (action) {
+          router.push('/(tabs)/bookings');
+        } else {
+          router.push('/(tabs)');
+        }
+      } else {
+        Alert.alert(
+          '¡Reserva Confirmada!',
+          'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
+          [
+            {
+              text: 'Ver Mis Citas',
+              onPress: () => {
+                router.push('/(tabs)/bookings');
+              },
             },
-          },
-          {
-            text: 'Volver al Inicio',
-            onPress: () => {
-              router.push('/(tabs)');
+            {
+              text: 'Volver al Inicio',
+              onPress: () => {
+                router.push('/(tabs)');
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error creating booking:', error);
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.',
-        [{ text: 'OK' }]
-      );
+      const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.';
+      if (Platform.OS === 'web') {
+        window.alert(`Error\n\n${errorMessage}`);
+      } else {
+        Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+      }
     } finally {
       setLoading(false);
     }
@@ -148,6 +161,16 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryValue}>{serviceName}</Text>
               </View>
             </View>
+            
+            {employeeName && (
+              <View style={styles.summaryItem}>
+                <IconSymbol name="person" size={20} color={Colors.light.primary} />
+                <View style={styles.summaryContent}>
+                  <Text style={styles.summaryLabel}>Empleado</Text>
+                  <Text style={styles.summaryValue}>{employeeName}</Text>
+                </View>
+              </View>
+            )}
             
             <View style={styles.summaryItem}>
               <IconSymbol name="calendar" size={20} color={Colors.light.primary} />

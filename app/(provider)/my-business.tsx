@@ -111,7 +111,7 @@ export default function MyBusinessScreen() {
       log.info(LogCategory.SERVICE, 'Business data loaded successfully', { 
         providerId: user.id,
         servicesCount: allServicesData.length,
-        activeServicesCount: activeServicesData.length,
+        activeServicesCount: allServicesData.filter(s => s.is_active === true).length,
         availabilityCount: availabilityData.length 
       });
     } catch (error) {
@@ -530,6 +530,36 @@ export default function MyBusinessScreen() {
           )}
         </Card>
 
+        {/* Empleados */}
+        <Card variant="elevated" style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Empleados
+            </ThemedText>
+            <Button
+              title="Gestionar"
+              size="small"
+              onPress={() => {
+                log.userAction('Navigate to employee management', { providerId: user?.id });
+                router.push('/(provider)/employee-management');
+              }}
+              leftIcon={<IconSymbol name="person.2" size={16} color={Colors.light.surface} />}
+            />
+          </View>
+          
+          <ThemedView style={styles.employeeInfo}>
+            <IconSymbol name="person.2" size={24} color={Colors.light.primary} />
+            <View style={styles.employeeText}>
+              <ThemedText style={styles.employeeTitle}>
+                Gestiona tu equipo
+              </ThemedText>
+              <ThemedText style={styles.employeeSubtext}>
+                Agrega empleados y configura sus horarios individuales
+              </ThemedText>
+            </View>
+          </ThemedView>
+        </Card>
+
         {/* Horarios */}
         <Card variant="elevated" style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -784,6 +814,26 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing.xs,
   },
   availabilitySubtext: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  employeeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: DesignTokens.spacing.lg,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+  },
+  employeeText: {
+    marginLeft: DesignTokens.spacing.md,
+    flex: 1,
+  },
+  employeeTitle: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  employeeSubtext: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
   },

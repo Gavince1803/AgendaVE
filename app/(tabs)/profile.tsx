@@ -72,28 +72,7 @@ export default function ProfileScreen() {
       title: 'Editar Perfil',
       icon: 'person.circle',
       onPress: () => {
-        // Implement profile editing with basic info form
-        Alert.alert(
-          'Editar Perfil',
-          'Configura tu información personal',
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Configurar',
-              onPress: () => {
-                // Navigate to a profile edit form or show inline editing
-                Alert.alert(
-                  'Información',
-                  'La edición completa del perfil estará disponible próximamente.\n\nPor ahora, contacta a soporte para cambios importantes.',
-                  [{ text: 'Entendido' }]
-                );
-              }
-            }
-          ]
-        );
+        router.push('/(main)/profile-edit');
       },
     },
     {
@@ -101,28 +80,27 @@ export default function ProfileScreen() {
       title: 'Notificaciones',
       icon: 'bell',
       onPress: () => {
-        // Show notification preferences
+        // Show notification settings in a modal
         Alert.alert(
-          'Notificaciones',
-          'Configura tus preferencias de notificaciones',
+          'Configuración de Notificaciones',
+          'Configura cómo quieres recibir notificaciones sobre tus citas y recordatorios.',
           [
             {
               text: 'Cancelar',
               style: 'cancel'
             },
             {
-              text: 'Activar Todas',
+              text: 'Activar Push',
               onPress: () => {
-                setToastMessage('Notificaciones activadas');
+                setToastMessage('Notificaciones push activadas');
                 setToastType('success');
                 setShowToast(true);
               }
             },
             {
-              text: 'Desactivar',
-              style: 'destructive',
+              text: 'Solo Email',
               onPress: () => {
-                setToastMessage('Notificaciones desactivadas');
+                setToastMessage('Solo recibirás notificaciones por email');
                 setToastType('success');
                 setShowToast(true);
               }
@@ -221,8 +199,8 @@ export default function ProfileScreen() {
         icon: 'gearshape',
         onPress: () => {
           Alert.alert(
-            'Configuración de Proveedor',
-            'Ajusta las configuraciones de tu negocio',
+            'Panel de Proveedor',
+            'Accede a las herramientas para gestionar tu negocio',
             [
               {
                 text: 'Cancelar',
@@ -231,6 +209,14 @@ export default function ProfileScreen() {
               {
                 text: 'Mi Negocio',
                 onPress: () => router.push('/(provider)/my-business')
+              },
+              {
+                text: 'Empleados',
+                onPress: () => router.push('/(provider)/employee-management')
+              },
+              {
+                text: 'Horarios',
+                onPress: () => router.push('/(provider)/availability')
               }
             ]
           );
@@ -242,22 +228,7 @@ export default function ProfileScreen() {
         title: 'Mis Favoritos',
         icon: 'heart',
         onPress: () => {
-          Alert.alert(
-            'Mis Favoritos',
-            'Tus proveedores y servicios favoritos',
-            [
-              {
-                text: 'Cancelar',
-                style: 'cancel'
-              },
-              {
-                text: 'Ver Favoritos',
-                onPress: () => {
-                  Alert.alert('Información', 'La sección de favoritos estará disponible próximamente');
-                }
-              }
-            ]
-          );
+          router.push('/(tabs)/favorites');
         },
       },
     ]),
@@ -435,6 +406,9 @@ const styles = StyleSheet.create({
   },
   roleBadge: {
     marginTop: DesignTokens.spacing.sm,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuCard: {
     marginHorizontal: DesignTokens.spacing['2xl'],

@@ -110,7 +110,7 @@ export default function BookServiceScreen() {
         dayName: weekdayNames[dayOfWeek]
       });
       
-      const slots = await BookingService.getAvailableSlots(providerId, dateString);
+      const slots = await BookingService.getAvailableSlots(providerId, dateString, serviceId);
       setAvailableSlots(slots);
       
       console.log('🔴 [BOOK SERVICE] Slots loaded:', { 

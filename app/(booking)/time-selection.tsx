@@ -23,7 +23,9 @@ export default function TimeSelectionScreen() {
     serviceId, 
     serviceName, 
     servicePrice, 
-    serviceDuration 
+    serviceDuration,
+    employeeId,
+    employeeName
   } = useLocalSearchParams();
   
   const [refreshing, setRefreshing] = useState(false);
@@ -106,8 +108,19 @@ export default function TimeSelectionScreen() {
   const loadAvailableTimes = async (date: string) => {
     setLoadingTimes(true);
     try {
-      const times = await BookingService.getAvailableSlots(providerId as string, date);
+      let times: string[] = [];
+      
+      // Use employee-specific availability if employee is selected
+      if (employeeId && employeeId !== '') {
+        console.log('🔴 [TIME SELECTION] Loading employee slots for:', { employeeId, providerId, date, serviceId });
+        times = await BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
+      } else {
+        console.log('🔴 [TIME SELECTION] Loading provider slots for:', { providerId, date, serviceId });
+        times = await BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
+      }
+      
       setAvailableTimes(times);
+      console.log('🔴 [TIME SELECTION] Loaded times:', { date, serviceId, serviceDuration, timesCount: times.length, employeeId });
     } catch (error) {
       console.error('Error loading available times:', error);
       // Fallback a horarios mock si hay error
@@ -170,6 +183,8 @@ export default function TimeSelectionScreen() {
         serviceName,
         servicePrice,
         serviceDuration,
+        employeeId,
+        employeeName,
         selectedDate,
         selectedTime,
       },
@@ -257,6 +272,12 @@ export default function TimeSelectionScreen() {
                 <Text style={styles.summaryLabel}>Servicio:</Text>
                 <Text style={styles.summaryValue}>{serviceName}</Text>
               </View>
+              {employeeName && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Empleado:</Text>
+                  <Text style={styles.summaryValue}>{employeeName}</Text>
+                </View>
+              )}
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Duración:</Text>
                 <Text style={styles.summaryValue}>{serviceDuration} minutos</Text>

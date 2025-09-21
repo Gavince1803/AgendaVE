@@ -131,13 +131,10 @@ export default function ProviderDetailScreen() {
     });
     
     router.push({
-      pathname: '/(booking)/book-service',
+      pathname: '/(booking)/service-selection',
       params: {
         providerId: providerId!,
-        serviceId: service.id,
-        serviceName: service.name,
-        servicePrice: service.price_amount.toString(),
-        serviceDuration: service.duration_minutes.toString()
+        providerName: provider?.business_name || 'Proveedor'
       }
     });
   };

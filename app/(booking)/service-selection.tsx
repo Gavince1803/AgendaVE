@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
-import { BookingService } from '@/lib/booking-service';
+import { BookingService, Employee } from '@/lib/booking-service';
+import { EmployeeSelector } from '@/components/ui/EmployeeSelector';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -18,13 +19,17 @@ export default function ServiceSelectionScreen() {
   const { providerId, providerName } = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedService, setSelectedService] = useState<number | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [services, setServices] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
 
   // Cargar servicios del proveedor
   useEffect(() => {
     if (providerId) {
       loadServices();
+      loadEmployees();
     }
   }, [providerId]);
 
@@ -70,9 +75,32 @@ export default function ServiceSelectionScreen() {
     }
   };
 
+  const loadEmployees = async () => {
+    setEmployeesLoading(true);
+    console.log('🔴 [SERVICE SELECTION] Loading employees for provider:', providerId);
+    try {
+      const providerEmployees = await BookingService.getProviderEmployees(providerId as string);
+      console.log('🔴 [SERVICE SELECTION] Loaded employees:', providerEmployees);
+      setEmployees(providerEmployees);
+      
+      // Auto-select the first employee (usually the owner)
+      if (providerEmployees.length > 0) {
+        setSelectedEmployee(providerEmployees[0]);
+        console.log('🔴 [SERVICE SELECTION] Auto-selected employee:', providerEmployees[0]);
+      } else {
+        console.log('🔴 [SERVICE SELECTION] No employees found for provider');
+      }
+    } catch (error) {
+      console.error('🔴 [SERVICE SELECTION] Error loading employees:', error);
+      setEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
+    }
+  };
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    loadServices().finally(() => {
+    Promise.all([loadServices(), loadEmployees()]).finally(() => {
       setRefreshing(false);
     });
   }, [providerId]);
@@ -95,8 +123,10 @@ export default function ServiceSelectionScreen() {
           providerName,
           serviceId: service.id.toString(),
           serviceName: service.name,
-          servicePrice: service.price.toString(),
-          serviceDuration: service.duration.toString(),
+          servicePrice: service.price_amount?.toString() || service.price?.toString() || '0',
+          serviceDuration: service.duration_minutes?.toString() || service.duration?.toString() || '30',
+          employeeId: selectedEmployee?.id || '',
+          employeeName: selectedEmployee?.name || '',
         },
       });
     }
@@ -125,6 +155,19 @@ export default function ServiceSelectionScreen() {
             Selecciona el servicio que deseas reservar
           </Text>
         </View>
+
+        {/* Employee selection */}
+        <EmployeeSelector
+          employees={employees}
+          selectedEmployee={selectedEmployee}
+          onEmployeeSelect={setSelectedEmployee}
+          loading={employeesLoading}
+          selectedService={selectedServiceData ? {
+            name: selectedServiceData.name,
+            price: selectedServiceData.price_amount || selectedServiceData.price || 0,
+            duration: selectedServiceData.duration_minutes || selectedServiceData.duration || 0
+          } : null}
+        />
 
         {/* Lista de servicios */}
         <View style={styles.servicesSection}>
@@ -158,8 +201,8 @@ export default function ServiceSelectionScreen() {
                   </View>
                   
                   <View style={styles.servicePricing}>
-                    <Text style={styles.servicePrice}>${service.price}</Text>
-                    <Text style={styles.serviceDuration}>{service.duration} min</Text>
+                    <Text style={styles.servicePrice}>${service.price_amount || service.price || 0}</Text>
+                    <Text style={styles.serviceDuration}>{service.duration_minutes || service.duration || 0} min</Text>
                   </View>
                 </View>
 
@@ -186,12 +229,12 @@ export default function ServiceSelectionScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Duración:</Text>
-                <Text style={styles.summaryValue}>{selectedServiceData.duration} minutos</Text>
+                <Text style={styles.summaryValue}>{selectedServiceData.duration_minutes || selectedServiceData.duration || 0} minutos</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Precio:</Text>
                 <Text style={[styles.summaryValue, styles.priceText]}>
-                  ${selectedServiceData.price}
+                  ${selectedServiceData.price_amount || selectedServiceData.price || 0}
                 </Text>
               </View>
             </Card>

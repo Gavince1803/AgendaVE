@@ -47,11 +47,39 @@ export interface Availability {
   updated_at: string;
 }
 
+export interface Employee {
+  id: string;
+  provider_id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  is_active: boolean;
+  is_owner: boolean;
+  profile_image_url?: string;
+  custom_schedule_enabled: boolean;
+  bio?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAvailability {
+  id: string;
+  employee_id: string;
+  day_of_week: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Appointment {
   id: string;
   client_id: string;
   provider_id: string;
   service_id: string;
+  employee_id?: string;
   appointment_date: string;
   appointment_time: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'done';
@@ -62,6 +90,7 @@ export interface Appointment {
   // Joined data
   service?: Service;
   provider?: Provider;
+  employee?: Employee;
   client?: {
     id: string;
     full_name?: string;
@@ -177,6 +206,77 @@ export class BookingService {
     }
   }
 
+  // 👥 Obtener empleados de un proveedor
+  static async getProviderEmployees(providerId: string): Promise<Employee[]> {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('is_owner', { ascending: false }) // Owners first
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching provider employees:', error);
+      throw error;
+    }
+  }
+
+  // 👥 Obtener disponibilidad de un empleado
+  static async getEmployeeAvailability(employeeId: string, dayOfWeek: number): Promise<{start_time: string, end_time: string, is_available: boolean}[]> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_employee_availability', {
+          employee_uuid: employeeId,
+          check_day: dayOfWeek
+        });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching employee availability:', error);
+      throw error;
+    }
+  }
+
+  // 👥 Crear un nuevo empleado
+  static async createEmployee(employeeData: {
+    provider_id: string;
+    name: string;
+    position?: string;
+    bio?: string;
+    is_owner?: boolean;
+    is_active?: boolean;
+    custom_schedule_enabled?: boolean;
+    profile_image_url?: string;
+  }): Promise<Employee> {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .insert({
+          provider_id: employeeData.provider_id,
+          name: employeeData.name,
+          position: employeeData.position || 'Empleado',
+          bio: employeeData.bio || '',
+          is_owner: employeeData.is_owner || false,
+          is_active: employeeData.is_active ?? true,
+          custom_schedule_enabled: employeeData.custom_schedule_enabled || false,
+          profile_image_url: employeeData.profile_image_url || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      throw error;
+    }
+  }
+
   // 📍 Obtener TODOS los servicios de un proveedor (activos e inactivos - para gestión)
   static async getAllProviderServices(providerId: string): Promise<Service[]> {
     try {
@@ -248,9 +348,21 @@ export class BookingService {
   }
 
   // 📍 Obtener horarios disponibles para una fecha específica
-  static async getAvailableSlots(providerId: string, date: string): Promise<string[]> {
+  static async getAvailableSlots(providerId: string, date: string, serviceId?: string): Promise<string[]> {
     try {
-      console.log('🔴 [GET SLOTS] Getting available slots for:', { providerId, date });
+      console.log('🔴 [GET SLOTS] Getting available slots for:', { providerId, date, serviceId });
+      
+      // Obtener duración del servicio si se proporciona
+      let serviceDuration = 30; // Default to 30 minutes
+      if (serviceId) {
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select('duration_minutes')
+          .eq('id', serviceId)
+          .single();
+        serviceDuration = serviceData?.duration_minutes || 30;
+        console.log('🔴 [GET SLOTS] Service duration:', serviceDuration, 'minutes');
+      }
       
       // Obtener disponibilidad del proveedor
       const availability = await this.getProviderAvailability(providerId);
@@ -266,7 +378,7 @@ export class BookingService {
 
       if (appointmentsError) throw appointmentsError;
       console.log('🔴 [GET SLOTS] Existing appointments:', existingAppointments);
-
+      
       // Obtener servicios del proveedor para calcular duración
       const services = await this.getProviderServices(providerId);
       console.log('🔴 [GET SLOTS] Provider services:', services);
@@ -299,30 +411,150 @@ export class BookingService {
       while (currentTime < endTime) {
         const timeString = currentTime.toTimeString().slice(0, 5);
         
-        // Verificar si este slot está disponible
-        const isAvailable = !existingAppointments?.some(apt => {
+        // Calcular tiempo de fin del servicio seleccionado
+        const slotStart = currentTime.getTime();
+        const slotEnd = slotStart + (serviceDuration * 60 * 1000);
+        
+        // Check if service would extend beyond availability period
+        if (slotEnd > endTime.getTime()) {
+          console.log('🔴 [GET SLOTS] Service would extend beyond availability for slot:', timeString);
+          break; // No more slots can fit the full service duration
+        }
+        
+        // Verificar si este slot y toda su duración están disponibles
+        const hasConflict = existingAppointments?.some(apt => {
           const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
           const service = services.find(s => s.id === apt.service_id);
-          const duration = service?.duration_minutes || 60;
+          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
           
-          const slotStart = currentTime.getTime();
-          const slotEnd = slotStart + (30 * 60 * 1000); // 30 minutos
           const aptStart = aptTime.getTime();
-          const aptEnd = aptStart + (duration * 60 * 1000);
+          const aptEnd = aptStart + (aptDuration * 60 * 1000);
           
-          return (slotStart < aptEnd && slotEnd > aptStart);
+          // Check if there's any overlap between the new service slot and existing appointment
+          const overlap = (slotStart < aptEnd && slotEnd > aptStart);
+          if (overlap) {
+            console.log('🔴 [GET SLOTS] Conflict detected for slot', timeString, '- overlaps with appointment at', apt.appointment_time);
+          }
+          return overlap;
         });
 
-        if (isAvailable) {
+        if (!hasConflict) {
           availableSlots.push(timeString);
         }
         
         currentTime.setMinutes(currentTime.getMinutes() + 30);
       }
 
+      console.log('🔴 [GET SLOTS] Final available slots:', availableSlots);
       return availableSlots;
     } catch (error) {
       console.error('Error fetching available slots:', error);
+      throw error;
+    }
+  }
+
+  // 👥 Obtener horarios disponibles para un empleado específico
+  static async getEmployeeAvailableSlots(employeeId: string, providerId: string, date: string, serviceId?: string): Promise<string[]> {
+    try {
+      console.log('🔴 [GET EMPLOYEE SLOTS] Getting available slots for employee:', { employeeId, providerId, date, serviceId });
+      
+      // Obtener duración del servicio si se proporciona
+      let serviceDuration = 30; // Default to 30 minutes
+      if (serviceId) {
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select('duration_minutes')
+          .eq('id', serviceId)
+          .single();
+        serviceDuration = serviceData?.duration_minutes || 30;
+        console.log('🔴 [GET EMPLOYEE SLOTS] Service duration:', serviceDuration, 'minutes');
+      }
+      
+      const dayOfWeek = new Date(date).getDay();
+      
+      // Obtener disponibilidad específica del empleado
+      const employeeAvailability = await this.getEmployeeAvailability(employeeId, dayOfWeek);
+      console.log('🔴 [GET EMPLOYEE SLOTS] Employee availability:', employeeAvailability);
+      
+      if (!employeeAvailability || employeeAvailability.length === 0 || !employeeAvailability[0]?.is_available) {
+        console.log('🔴 [GET EMPLOYEE SLOTS] ❌ No availability found for employee');
+        return [];
+      }
+      
+      const dayAvailability = employeeAvailability[0];
+      
+      // Obtener citas existentes para esa fecha y empleado
+      const { data: existingAppointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('appointment_time, services(duration_minutes)')
+        .eq('provider_id', providerId)
+        .eq('employee_id', employeeId)
+        .eq('appointment_date', date)
+        .in('status', ['pending', 'confirmed']);
+
+      if (appointmentsError) throw appointmentsError;
+      console.log('🔴 [GET EMPLOYEE SLOTS] Existing appointments for employee:', existingAppointments);
+      
+      // Obtener servicios del proveedor para calcular duración
+      const services = await this.getProviderServices(providerId);
+      console.log('🔴 [GET EMPLOYEE SLOTS] Provider services:', services);
+      
+      // Generar slots disponibles
+      const availableSlots: string[] = [];
+      
+      // Generar slots de 30 minutos
+      const startTime = new Date(`2000-01-01T${dayAvailability.start_time}`);
+      const endTime = new Date(`2000-01-01T${dayAvailability.end_time}`);
+      
+      let currentTime = new Date(startTime);
+      while (currentTime < endTime) {
+        const timeString = currentTime.toTimeString().slice(0, 5);
+        
+        // Calcular tiempo de fin del servicio seleccionado
+        const slotStart = currentTime.getTime();
+        const slotEnd = slotStart + (serviceDuration * 60 * 1000);
+        
+        // Check if service would extend beyond availability period
+        if (slotEnd > endTime.getTime()) {
+          console.log('🔴 [GET EMPLOYEE SLOTS] Service would extend beyond availability for slot:', timeString);
+          break; // No more slots can fit the full service duration
+        }
+        
+        // Verificar si este slot y toda su duración están disponibles
+        const hasConflict = existingAppointments?.some(apt => {
+          const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
+          const service = services.find(s => s.id === apt.service_id);
+          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
+          
+          const aptStart = aptTime.getTime();
+          const aptEnd = aptStart + (aptDuration * 60 * 1000);
+          
+          // Check if there's any overlap between the new service slot and existing appointment
+          const overlap = (slotStart < aptEnd && slotEnd > aptStart);
+          if (overlap) {
+            console.log('🔴 [GET EMPLOYEE SLOTS] Conflict detected for slot', timeString, '- overlaps with appointment at', apt.appointment_time);
+          }
+          return overlap;
+        });
+
+        if (!hasConflict) {
+          availableSlots.push(timeString);
+        }
+        
+        currentTime.setMinutes(currentTime.getMinutes() + 30);
+      }
+
+      console.log('🔴 [GET EMPLOYEE SLOTS] Generated slots:', { 
+        date, 
+        employee: employeeId, 
+        serviceDuration, 
+        slotsCount: availableSlots.length, 
+        slots: availableSlots 
+      });
+
+      return availableSlots;
+    } catch (error) {
+      console.error('Error fetching employee available slots:', error);
       throw error;
     }
   }
@@ -333,6 +565,7 @@ export class BookingService {
     serviceId: string,
     appointmentDate: string,
     appointmentTime: string,
+    employeeId?: string,
     notes?: string
   ): Promise<Appointment> {
     try {
@@ -358,6 +591,7 @@ export class BookingService {
           client_id: user.id,
           provider_id: providerId,
           service_id: serviceId,
+          employee_id: employeeId || null,
           appointment_date: appointmentDate,
           appointment_time: appointmentTime,
           start_ts: startTimestamp,
@@ -756,7 +990,7 @@ export class BookingService {
     }
   }
 
-  // ✏️ Actualizar información del proveedor
+  // ✏️ Crear proveedor y automáticamente crear el propietario como empleado
   static async createProvider(providerData: {
     user_id: string;
     name: string;
@@ -769,7 +1003,8 @@ export class BookingService {
     is_active?: boolean;
   }): Promise<Provider> {
     try {
-      const { data, error } = await supabase
+      // Crear el proveedor
+      const { data: provider, error: providerError } = await supabase
         .from('providers')
         .insert({
           user_id: providerData.user_id,
@@ -788,8 +1023,35 @@ export class BookingService {
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (providerError) throw providerError;
+      
+      // Automáticamente crear el propietario como empleado
+      try {
+        // Get the user profile to get the display name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', providerData.user_id)
+          .single();
+          
+        const ownerName = profile?.display_name || providerData.name;
+        
+        await this.createEmployee({
+          provider_id: provider.id,
+          name: ownerName,
+          position: 'Propietario',
+          bio: 'Propietario del negocio',
+          is_owner: true,
+          is_active: true,
+          custom_schedule_enabled: false,
+        });
+        console.log('✅ [BOOKING SERVICE] Owner created as employee automatically');
+      } catch (employeeError) {
+        console.warn('⚠️ [BOOKING SERVICE] Could not create owner as employee:', employeeError);
+        // No fallar la creación del proveedor por esto
+      }
+      
+      return provider;
     } catch (error) {
       console.error('Error creating provider:', error);
       throw error;
