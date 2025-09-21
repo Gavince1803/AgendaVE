@@ -1148,4 +1148,158 @@ export class BookingService {
       throw error;
     }
   }
+
+  // ❤️ Favorites functionality
+  
+  // Get user's favorite providers
+  static async getFavoriteProviders(): Promise<Provider[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select(`
+          provider_id,
+          providers!inner(
+            id,
+            user_id,
+            name,
+            business_name,
+            bio,
+            address,
+            phone,
+            email,
+            logo_url,
+            lat,
+            lng,
+            timezone,
+            category,
+            rating,
+            total_reviews,
+            is_active,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('providers.is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Extract providers from the join result
+      return (data || []).map(item => item.providers as Provider);
+    } catch (error) {
+      console.error('Error getting favorite providers:', error);
+      throw error;
+    }
+  }
+
+  // Add provider to favorites
+  static async addToFavorites(providerId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      // Check if already in favorites
+      const { data: existing } = await supabase
+        .from('user_favorites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('provider_id', providerId)
+        .single();
+
+      if (existing) {
+        // Already in favorites, no need to add again
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_favorites')
+        .insert({
+          user_id: user.id,
+          provider_id: providerId
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error adding to favorites:', error);
+      throw error;
+    }
+  }
+
+  // Remove provider from favorites
+  static async removeFromFavorites(providerId: string): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { error } = await supabase
+        .from('user_favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('provider_id', providerId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error removing from favorites:', error);
+      throw error;
+    }
+  }
+
+  // Check if provider is in user's favorites
+  static async isProviderFavorite(providerId: string): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('provider_id', providerId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 means no rows found, which is fine
+        throw error;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error('Error checking if provider is favorite:', error);
+      return false;
+    }
+  }
+
+  // Get favorite status for multiple providers
+  static async getFavoriteStatuses(providerIds: string[]): Promise<Record<string, boolean>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return {};
+
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select('provider_id')
+        .eq('user_id', user.id)
+        .in('provider_id', providerIds);
+
+      if (error) throw error;
+
+      const favoriteStatuses: Record<string, boolean> = {};
+      providerIds.forEach(id => {
+        favoriteStatuses[id] = false;
+      });
+      
+      data?.forEach(favorite => {
+        favoriteStatuses[favorite.provider_id] = true;
+      });
+
+      return favoriteStatuses;
+    } catch (error) {
+      console.error('Error getting favorite statuses:', error);
+      return {};
+    }
+  }
 }

@@ -7,6 +7,7 @@ Una aplicación móvil moderna para reservas de servicios en Venezuela, inspirad
 - **Autenticación completa** con roles (Cliente, Proveedor, Admin)
 - **Interfaz moderna** con diseño diferenciado y UX optimizada
 - **Gestión de citas** para clientes y proveedores
+- **Sistema de favoritos** para guardar proveedores preferidos
 - **Exploración de servicios** con categorías y filtros
 - **Dashboard personalizado** según el rol del usuario
 - **Integración con Supabase** para backend y base de datos
@@ -28,6 +29,7 @@ Una aplicación móvil moderna para reservas de servicios en Venezuela, inspirad
 ### Cliente
 - **Inicio**: Categorías populares y proveedores destacados
 - **Explorar**: Búsqueda y filtrado de servicios
+- **Favoritos**: Proveedores guardados como favoritos
 - **Mis Citas**: Gestión de citas (próximas/historial)
 - **Perfil**: Configuración de usuario
 
@@ -75,6 +77,38 @@ El proyecto utiliza Supabase con las siguientes tablas principales:
 - `services` - Servicios ofrecidos
 - `appointments` - Citas agendadas
 - `availabilities` - Horarios disponibles
+- `user_favorites` - Relación entre usuarios y proveedores favoritos
+
+### 💖 Sistema de Favoritos
+
+El sistema de favoritos permite a los usuarios guardar sus proveedores preferidos para acceso rápido.
+
+#### Características:
+- **Añadir/Quitar favoritos**: Desde pantallas de explorar y detalle de proveedor
+- **Pantalla dedicada**: Tab exclusivo para ver todos los favoritos
+- **Persistencia**: Guardado en base de datos con sincronización en tiempo real
+- **Indicadores visuales**: Iconos de corazón que cambian según el estado
+
+#### Base de Datos:
+```sql
+CREATE TABLE user_favorites (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider_id uuid REFERENCES providers(id) ON DELETE CASCADE,
+  created_at timestamp DEFAULT now(),
+  UNIQUE(user_id, provider_id)
+);
+```
+
+#### Funciones Principales:
+- `BookingService.addToFavorites(providerId)` - Añadir a favoritos
+- `BookingService.removeFromFavorites(providerId)` - Quitar de favoritos
+- `BookingService.getFavoriteProviders()` - Obtener lista de favoritos
+- `BookingService.isProviderFavorite(providerId)` - Verificar estado
+- `BookingService.getFavoriteStatuses(providerIds[])` - Estados múltiples
+
+#### Troubleshooting:
+Si experimentas problemas con favoritos, usa las funciones de debug en `lib/debug-favorites.ts` para diagnóstico detallado.
 
 ## 🎨 Diseño
 
@@ -115,6 +149,7 @@ constants/          # Constantes y colores
 - [x] Integración con Supabase
 - [x] Diseño moderno y diferenciado
 - [x] Sistema de citas completo (crear, confirmar, cancelar, reprogramar)
+- [x] Sistema de favoritos completo (agregar, quitar, visualizar)
 - [x] Gestión de servicios para proveedores
 - [x] Dashboard con estadísticas en tiempo real
 - [x] Soporte multiplataforma (iOS, Android, Web)
@@ -122,27 +157,31 @@ constants/          # Constantes y colores
 ## 🆕 Últimas Mejoras (Sep 2025)
 
 ### Funcionalidades Añadidas
+- **Sistema de favoritos completo**: Agregar/quitar proveedores de favoritos
 - **Sistema de citas completo**: Confirmación, cancelación y reprogramación
-- **Permisos granulares**: RLS policies optimizadas para appointments
-- **Interfaz mejorada**: Botones de acción rápida en dashboard de proveedor
+- **Permisos granulares**: RLS policies optimizadas para appointments y favoritos
+- **Interfaz mejorada**: Botones de acción rápida y iconos de favoritos
 - **Compatibilidad web**: Confirmaciones nativas para navegadores
 - **Logging mejorado**: Sistema de logs estructurado para debugging
 
 ### Correcciones Técnicas
 - ✅ **BookingService**: Métodos `confirmAppointment`, `cancelAppointment`, `updateAppointment`
+- ✅ **FavoritesService**: Métodos `addToFavorites`, `removeFromFavorites`, `getFavoriteProviders`
 - ✅ **RLS Policies**: Políticas de seguridad optimizadas para clientes y proveedores
 - ✅ **Data Fetching**: Joins manuales para evitar errores de foreign keys
 - ✅ **Cross-platform**: Alertas y confirmaciones compatibles con web/móvil
 - ✅ **Authentication**: Validación de permisos mejorada
+- ✅ **Debug Utilities**: Herramientas de debugging para troubleshooting
 
 ## 🔮 Próximas Características
 
 - [ ] Sistema de pagos
 - [ ] Notificaciones push
 - [ ] Geolocalización
-- [ ] Reseñas y calificaciones
+- [ ] Reseñas y calificaciones avanzadas
 - [ ] Chat en tiempo real
 - [ ] Reportes y analytics
+- [ ] Sincronización offline
 
 ## 📄 Licencia
 

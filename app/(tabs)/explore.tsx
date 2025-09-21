@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { FiltersModal, FilterOptions } from '@/components/ui/FiltersModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -24,7 +25,17 @@ export default function ExploreScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [filteredProviders, setFilteredProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({});
+  const [filters, setFilters] = useState<FilterOptions>({
+    priceRange: { min: 0, max: 1000 },
+    rating: 0,
+    distance: 50,
+    availability: 'all',
+    sortBy: 'distance',
+  });
   const log = useLogger();
   
   // Colores fijos para modo claro
@@ -46,6 +57,14 @@ export default function ExploreScreen() {
   useEffect(() => {
     loadProviders();
   }, [selectedCategory, searchQuery]);
+
+  useEffect(() => {
+    applyFiltersAndSort();
+  }, [providers, filters]);
+
+  useEffect(() => {
+    loadFavoriteStatuses();
+  }, [filteredProviders]);
 
   const loadProviders = async () => {
     try {
@@ -97,6 +116,98 @@ export default function ExploreScreen() {
     }
   };
 
+  const applyFiltersAndSort = () => {
+    let filtered = [...providers];
+
+    // Apply rating filter
+    if (filters.rating > 0) {
+      filtered = filtered.filter(provider => provider.rating >= filters.rating);
+    }
+
+    // Apply availability filter (simulated for now)
+    if (filters.availability !== 'all') {
+      // In a real app, this would filter based on actual availability data
+      filtered = filtered.filter(provider => provider.is_active);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'rating':
+          return b.rating - a.rating;
+        case 'name':
+          return a.business_name.localeCompare(b.business_name);
+        case 'price':
+          // In a real app, this would sort by actual service prices
+          return a.business_name.localeCompare(b.business_name); // Placeholder
+        case 'distance':
+        default:
+          // In a real app, this would sort by actual distance
+          return a.business_name.localeCompare(b.business_name); // Placeholder
+      }
+    });
+
+    setFilteredProviders(filtered);
+    log.info(LogCategory.DATA, 'Filters applied', { 
+      originalCount: providers.length,
+      filteredCount: filtered.length,
+      filters 
+    });
+  };
+
+  const handleApplyFilters = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    log.userAction('Apply filters', { filters: newFilters });
+  };
+
+  const handleShowFilters = () => {
+    setShowFiltersModal(true);
+    log.userAction('Open filters modal', { screen: 'Explore' });
+  };
+
+  const loadFavoriteStatuses = async () => {
+    try {
+      if (filteredProviders.length === 0) return;
+      
+      const providerIds = filteredProviders.map(p => p.id);
+      const statuses = await BookingService.getFavoriteStatuses(providerIds);
+      setFavoriteStatuses(statuses);
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error loading favorite statuses', error);
+    }
+  };
+
+  const handleToggleFavorite = async (provider: Provider) => {
+    try {
+      const isFavorite = favoriteStatuses[provider.id] || false;
+      
+      if (isFavorite) {
+        await BookingService.removeFromFavorites(provider.id);
+        log.userAction('Remove from favorites', { 
+          providerId: provider.id, 
+          providerName: provider.business_name,
+          screen: 'Explore'
+        });
+      } else {
+        await BookingService.addToFavorites(provider.id);
+        log.userAction('Add to favorites', { 
+          providerId: provider.id, 
+          providerName: provider.business_name,
+          screen: 'Explore'
+        });
+      }
+      
+      // Update local state
+      setFavoriteStatuses(prev => ({
+        ...prev,
+        [provider.id]: !isFavorite
+      }));
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error toggling favorite', error);
+      // You might want to show a toast or alert here
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadProviders();
@@ -142,6 +253,16 @@ export default function ExploreScreen() {
               <ThemedText style={styles.ratingText}>{provider.rating.toFixed(1)}</ThemedText>
             </View>
             <ThemedText style={styles.reviewsText}>({provider.total_reviews})</ThemedText>
+            <TouchableOpacity
+              style={styles.favoriteButton}
+              onPress={() => handleToggleFavorite(provider)}
+            >
+              <IconSymbol
+                name={favoriteStatuses[provider.id] ? "heart.fill" : "heart"}
+                size={20}
+                color={favoriteStatuses[provider.id] ? Colors.light.accent : Colors.light.textSecondary}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -267,10 +388,7 @@ export default function ExploreScreen() {
               variant="ghost"
               size="small"
               icon={<IconSymbol name="line.3.horizontal.decrease" size={16} color={primaryColor} />}
-              onPress={() => {
-                // Abrir filtros
-                console.log('Abrir filtros');
-              }}
+              onPress={handleShowFilters}
             />
           </View>
           
@@ -278,12 +396,12 @@ export default function ExploreScreen() {
             <ThemedView style={styles.loadingContainer}>
               <ThemedText style={[styles.loadingText, { color: textSecondaryColor }]}>Cargando proveedores...</ThemedText>
             </ThemedView>
-          ) : providers.length > 0 ? (
-            providers.map((provider) => renderProviderCard(provider))
+          ) : filteredProviders.length > 0 ? (
+            filteredProviders.map((provider) => renderProviderCard(provider))
           ) : (
             <ThemedView style={styles.emptyContainer}>
               <ThemedText style={[styles.emptyText, { color: textSecondaryColor }]}>
-                No se encontraron proveedores en esta categoría
+                {providers.length > 0 ? 'No se encontraron proveedores con estos filtros' : 'No se encontraron proveedores en esta categoría'}
               </ThemedText>
             </ThemedView>
           )}
@@ -292,6 +410,14 @@ export default function ExploreScreen() {
         {/* Espacio adicional al final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Filters Modal */}
+      <FiltersModal
+        visible={showFiltersModal}
+        onClose={() => setShowFiltersModal(false)}
+        onApplyFilters={handleApplyFilters}
+        currentFilters={filters}
+      />
     </View>
   );
 }
@@ -477,5 +603,9 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.light.border,
     paddingTop: DesignTokens.spacing.md,
     alignItems: 'center',
+  },
+  favoriteButton: {
+    padding: DesignTokens.spacing.xs,
+    marginLeft: DesignTokens.spacing.sm,
   },
 });

@@ -308,7 +308,7 @@ function ClientHomeScreen() {
             style={styles.quickActionCard}
             onPress={() => {
               log.userAction('Navigate to favorites', { screen: 'ClientHome' });
-              // TODO: Implementar navegación a favoritos
+              router.push('/(tabs)/favorites');
             }}
           >
             <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.accent + '20' }]}>

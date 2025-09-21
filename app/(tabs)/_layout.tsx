@@ -91,6 +91,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="favorites"
+        options={{
+          title: 'Favoritos',
+          href: isClient ? '/favorites' : null,
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons 
+              size={focused ? 30 : 26} 
+              name="favorite" 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="appointments"
         options={{
           title: 'Citas',

@@ -29,6 +29,8 @@ export default function ProviderDetailScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const log = useLogger();
 
   useEffect(() => {
@@ -56,6 +58,9 @@ export default function ProviderDetailScreen() {
       setServices(servicesData);
       setAvailability(availabilityData);
       setReviews(reviewsData);
+      
+      // Load favorite status
+      await loadFavoriteStatus();
 
       log.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
         provider: providerData?.business_name,
@@ -68,6 +73,47 @@ export default function ProviderDetailScreen() {
       Alert.alert('Error', 'No se pudo cargar la información del proveedor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFavoriteStatus = async () => {
+    if (!providerId) return;
+    
+    try {
+      const favoriteStatus = await BookingService.isProviderFavorite(providerId);
+      setIsFavorite(favoriteStatus);
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error loading favorite status', error);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!providerId || !provider) return;
+    
+    try {
+      setFavoriteLoading(true);
+      
+      if (isFavorite) {
+        await BookingService.removeFromFavorites(providerId);
+        log.userAction('Remove from favorites', { 
+          providerId,
+          providerName: provider.business_name,
+          screen: 'ProviderDetail'
+        });
+      } else {
+        await BookingService.addToFavorites(providerId);
+        log.userAction('Add to favorites', { 
+          providerId,
+          providerName: provider.business_name,
+          screen: 'ProviderDetail'
+        });
+      }
+      
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error toggling favorite', error);
+    } finally {
+      setFavoriteLoading(false);
     }
   };
 
@@ -179,35 +225,54 @@ export default function ProviderDetailScreen() {
         {/* Header del Proveedor */}
         <Card variant="elevated" style={styles.headerCard}>
           <ThemedView style={styles.headerContent}>
-            <ThemedView style={styles.providerInfo}>
-              <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
-              <ThemedText style={styles.category}>{provider.category}</ThemedText>
-              
-              {/* Rating */}
-              <ThemedView style={styles.ratingContainer}>
-                <ThemedView style={styles.starsContainer}>
-                  {renderStars(provider.rating)}
-                </ThemedView>
-                <ThemedText style={styles.ratingText}>
-                  {provider.rating.toFixed(1)} ({provider.total_reviews} reseñas)
-                </ThemedText>
+            <ThemedView style={styles.providerMainSection}>
+              <ThemedView style={styles.providerInfo}>
+                <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
+                <ThemedText style={styles.category}>{provider.category}</ThemedText>
               </ThemedView>
-
-              {/* Información de contacto */}
-              {provider.address && (
-                <ThemedView style={styles.contactInfo}>
-                  <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
-                  <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
-                </ThemedView>
-              )}
               
-              {provider.phone && (
-                <ThemedView style={styles.contactInfo}>
-                  <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-                  <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
-                </ThemedView>
-              )}
+              <Button
+                title=""
+                variant="ghost"
+                size="small"
+                onPress={handleToggleFavorite}
+                loading={favoriteLoading}
+                disabled={favoriteLoading}
+                style={styles.favoriteButton}
+                icon={
+                  <IconSymbol
+                    name={isFavorite ? "heart.fill" : "heart"}
+                    size={24}
+                    color={isFavorite ? Colors.light.accent : Colors.light.textSecondary}
+                  />
+                }
+              />
             </ThemedView>
+            
+            {/* Rating */}
+            <ThemedView style={styles.ratingContainer}>
+              <ThemedView style={styles.starsContainer}>
+                {renderStars(provider.rating)}
+              </ThemedView>
+              <ThemedText style={styles.ratingText}>
+                {provider.rating.toFixed(1)} ({provider.total_reviews} reseñas)
+              </ThemedText>
+            </ThemedView>
+
+            {/* Información de contacto */}
+            {provider.address && (
+              <ThemedView style={styles.contactInfo}>
+                <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
+                <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
+              </ThemedView>
+            )}
+            
+            {provider.phone && (
+              <ThemedView style={styles.contactInfo}>
+                <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
+                <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
+              </ThemedView>
+            )}
           </ThemedView>
 
           {provider.bio && (
@@ -336,8 +401,19 @@ const styles = StyleSheet.create({
   headerContent: {
     marginBottom: DesignTokens.spacing.md,
   },
+  providerMainSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: DesignTokens.spacing.md,
+  },
   providerInfo: {
+    flex: 1,
     gap: DesignTokens.spacing.sm,
+  },
+  favoriteButton: {
+    marginLeft: DesignTokens.spacing.md,
+    padding: DesignTokens.spacing.sm,
   },
   businessName: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],

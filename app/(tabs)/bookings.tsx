@@ -186,6 +186,81 @@ export default function BookingsScreen() {
     }
   };
 
+  const handleBookAgain = async (appointment: Appointment) => {
+    try {
+      log.userAction('Book again', { 
+        appointmentId: appointment.id,
+        providerId: appointment.provider_id,
+        screen: 'Bookings' 
+      });
+
+      const navigateToBookAgain = () => {
+        console.log('🔴 [BOOKINGS] Navigating to book again for appointment:', appointment.id);
+        // Navigate to booking screen with provider and service info for new booking
+        router.push({
+          pathname: '/(booking)/book-service',
+          params: {
+            providerId: appointment.provider_id,
+            providerName: appointment.providers?.business_name || '',
+            serviceId: appointment.service_id,
+            serviceName: appointment.services?.name || '',
+            servicePrice: appointment.services?.price_amount?.toString() || '',
+            serviceDuration: appointment.services?.duration_minutes?.toString() || '',
+            mode: 'book-again'
+          }
+        });
+      };
+
+      const message = `¿Quieres reservar nuevamente "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
+      
+      if (Platform.OS === 'web') {
+        const confirmed = window.confirm(message);
+        if (confirmed) {
+          navigateToBookAgain();
+        }
+      } else {
+        Alert.alert(
+          'Reservar de Nuevo',
+          message,
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel'
+            },
+            {
+              text: 'Reservar',
+              onPress: navigateToBookAgain
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error starting book again process', error);
+      const errorMsg = 'No se pudo iniciar el proceso de reserva';
+      if (Platform.OS === 'web') {
+        window.alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    }
+  };
+
+  const handleExploreServices = () => {
+    try {
+      log.userAction('Navigate to explore', { screen: 'Bookings' });
+      // Navigate to the explore tab
+      router.push('/(tabs)/explore');
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error navigating to explore', error);
+      const errorMsg = 'No se pudo navegar a explorar servicios';
+      if (Platform.OS === 'web') {
+        window.alert(errorMsg);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -301,14 +376,7 @@ export default function BookingsScreen() {
             title="Reservar de nuevo"
             variant="primary"
             size="small"
-            onPress={() => {
-              log.userAction('Book again', { 
-                appointmentId: booking.id,
-                providerId: booking.provider_id,
-                screen: 'Bookings' 
-              });
-              // TODO: Implementar reserva de nuevo
-            }}
+            onPress={() => handleBookAgain(booking)}
             style={styles.actionButton}
           />
         </View>
@@ -383,10 +451,7 @@ export default function BookingsScreen() {
                 title="Explorar Servicios"
                 variant="primary"
                 size="medium"
-                onPress={() => {
-                  log.userAction('Navigate to explore', { screen: 'Bookings' });
-                  // TODO: Implementar navegación a explorar
-                }}
+                onPress={handleExploreServices}
                 style={styles.exploreButton}
               />
             )}
