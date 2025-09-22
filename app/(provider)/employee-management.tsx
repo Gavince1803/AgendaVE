@@ -124,7 +124,7 @@ export default function EmployeeManagementScreen() {
     });
   };
 
-  const handleDeleteEmployee = (employee: Employee) => {
+  const handleDeleteEmployee = async (employee: Employee) => {
     if (employee.is_owner) {
       Alert.alert('Error', 'No puedes eliminar al propietario del negocio');
       return;
