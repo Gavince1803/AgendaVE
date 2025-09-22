@@ -398,6 +398,10 @@ export default function TimeSelectionScreen() {
   );
 }
 
+// Platform-specific constants
+const HEADER_PADDING_TOP = Platform.OS === 'ios' ? 60 : 44;
+const BOTTOM_PADDING = Platform.OS === 'ios' ? 40 : 20;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -408,7 +412,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 44,
+    paddingTop: HEADER_PADDING_TOP,
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
@@ -435,7 +439,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.light.textSecondary,
     marginBottom: 8,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   progressBar: {
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingBottom: BOTTOM_PADDING,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
@@ -559,6 +562,6 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     textAlign: 'center',
     marginTop: 12,
-    fontStyle: 'italic',
+    opacity: 0.8,
   },
 });
