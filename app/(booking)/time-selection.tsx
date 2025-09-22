@@ -35,6 +35,7 @@ export default function TimeSelectionScreen() {
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const [loadingDates, setLoadingDates] = useState(false);
 
   // Generar fechas disponibles (próximos 7 días)
   const generateAvailableDates = () => {
@@ -91,15 +92,10 @@ export default function TimeSelectionScreen() {
     return times.filter(t => t.isAvailable);
   };
 
-  // Cargar fechas disponibles al inicio
+  // Cargar fechas disponibles al inicio y cuando cambian los parámetros clave
   useEffect(() => {
-    loadAvailableDates();
-  }, []);
-
-  // Reload available dates when employee changes
-  useEffect(() => {
-    if (providerId) {
-      console.log('🔴 [TIME SELECTION] Employee changed, reloading available dates:', { employeeId });
+    if (providerId && serviceId && !loadingDates) {
+      console.log('🔴 [TIME SELECTION] Loading available dates for:', { employeeId, providerId, serviceId });
       loadAvailableDates();
     }
   }, [employeeId, providerId, serviceId]);
@@ -140,71 +136,91 @@ export default function TimeSelectionScreen() {
   };
 
   const loadAvailableDates = async () => {
+    if (loadingDates) {
+      console.log('🔴 [TIME SELECTION] Already loading dates, skipping...');
+      return;
+    }
+    
+    setLoadingDates(true);
     try {
       console.log('🔴 [TIME SELECTION] Loading available dates for employee/provider:', { employeeId, providerId });
       const availableDatesArray = [];
       const today = new Date();
       
-      // Check availability for the next 30 days
-      for (let i = 0; i < 30; i++) {
+      // Optimized: Check availability for fewer days initially (next 14 days)
+      // and only check more if needed
+      const daysToCheck = 14;
+      const datePromises = [];
+      
+      for (let i = 0; i < daysToCheck; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         const dateString = date.toISOString().split('T')[0];
         
-        try {
-          let hasAvailability = false;
-          
-          // Check if employee or provider has availability for this date
-          if (employeeId && employeeId !== '') {
-            // Check employee-specific availability
-            const employeeSlots = await BookingService.getEmployeeAvailableSlots(
-              employeeId as string, 
-              providerId as string, 
-              dateString, 
-              serviceId as string
-            );
-            hasAvailability = employeeSlots.length > 0;
-          } else {
-            // Check provider availability
-            const providerSlots = await BookingService.getAvailableSlots(
-              providerId as string, 
-              dateString, 
-              serviceId as string
-            );
-            hasAvailability = providerSlots.length > 0;
+        // Create promise for each date check
+        const datePromise = (async () => {
+          try {
+            let hasAvailability = false;
+            
+            // Check if employee or provider has availability for this date
+            if (employeeId && employeeId !== '') {
+              // Check employee-specific availability
+              const employeeSlots = await BookingService.getEmployeeAvailableSlots(
+                employeeId as string, 
+                providerId as string, 
+                dateString, 
+                serviceId as string
+              );
+              hasAvailability = employeeSlots.length > 0;
+            } else {
+              // Check provider availability
+              const providerSlots = await BookingService.getAvailableSlots(
+                providerId as string, 
+                dateString, 
+                serviceId as string
+              );
+              hasAvailability = providerSlots.length > 0;
+            }
+            
+            return hasAvailability ? dateString : null;
+          } catch (dateError) {
+            // If there's an error checking this specific date, log it but continue
+            console.warn('🔴 [TIME SELECTION] Error checking date availability:', dateString, dateError);
+            return null;
           }
-          
-          if (hasAvailability) {
-            availableDatesArray.push(dateString);
-          }
-        } catch (dateError) {
-          // If there's an error checking this specific date, log it but continue
-          console.warn('🔴 [TIME SELECTION] Error checking date availability:', dateString, dateError);
-        }
+        })();
+        
+        datePromises.push(datePromise);
       }
       
+      // Wait for all date checks to complete (parallel execution)
+      const dateResults = await Promise.all(datePromises);
+      const validDates = dateResults.filter(date => date !== null) as string[];
+      
       console.log('🔴 [TIME SELECTION] Available dates found:', { 
-        totalDates: 30, 
-        availableDates: availableDatesArray.length, 
-        dates: availableDatesArray 
+        totalDatesChecked: daysToCheck, 
+        availableDates: validDates.length, 
+        dates: validDates 
       });
       
-      setAvailableDates(availableDatesArray);
+      setAvailableDates(validDates);
       
       // En una implementación real, aquí se cargarían las fechas ocupadas desde Supabase
       // const bookedDates = await BookingService.getBookedDates(providerId as string);
       // setBookedDates(bookedDates);
     } catch (error) {
       console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
-      // Fallback: show all dates if there's an error
+      // Fallback: show next 7 days if there's an error
       const fallbackDates = [];
       const today = new Date();
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 7; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         fallbackDates.push(date.toISOString().split('T')[0]);
       }
       setAvailableDates(fallbackDates);
+    } finally {
+      setLoadingDates(false);
     }
   };
 
@@ -286,12 +302,18 @@ export default function TimeSelectionScreen() {
         </View>
 
         {/* Calendario */}
-        <Calendar
-          selectedDate={selectedDate}
-          onDateSelect={handleDateSelect}
-          availableDates={availableDates}
-          bookedDates={bookedDates}
-        />
+        {loadingDates ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Cargando fechas disponibles...</Text>
+          </View>
+        ) : (
+          <Calendar
+            selectedDate={selectedDate}
+            onDateSelect={handleDateSelect}
+            availableDates={availableDates}
+            bookedDates={bookedDates}
+          />
+        )}
 
         {/* Franjas horarias */}
         {selectedDate && (
@@ -477,5 +499,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
+  },
+  loadingContainer: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 16,
+    padding: 40,
+    margin: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
 });

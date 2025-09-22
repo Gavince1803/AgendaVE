@@ -149,28 +149,28 @@ export function Calendar({
             style={[
               styles.dayButton,
               !day.isCurrentMonth && styles.dayButtonInactive,
+              day.isPast && styles.dayButtonPast,
+              day.isAvailable && day.isCurrentMonth && !day.isPast && styles.dayButtonAvailable,
+              day.isBooked && styles.dayButtonBooked,
               day.isToday && styles.dayButtonToday,
               day.isSelected && styles.dayButtonSelected,
-              day.isAvailable && styles.dayButtonAvailable,
-              day.isBooked && styles.dayButtonBooked,
-              day.isPast && styles.dayButtonPast,
             ]}
             onPress={() => {
-              if (day.isCurrentMonth && !day.isPast) {
+              if (day.isCurrentMonth && !day.isPast && (day.isAvailable || availableDates.length === 0)) {
                 onDateSelect(day.fullDate);
               }
             }}
-            disabled={!day.isCurrentMonth || day.isPast}
+            disabled={!day.isCurrentMonth || day.isPast || (availableDates.length > 0 && !day.isAvailable)}
           >
             <Text
               style={[
                 styles.dayText,
                 !day.isCurrentMonth && styles.dayTextInactive,
+                day.isPast && styles.dayTextPast,
+                day.isAvailable && day.isCurrentMonth && !day.isPast && styles.dayTextAvailable,
+                day.isBooked && styles.dayTextBooked,
                 day.isToday && styles.dayTextToday,
                 day.isSelected && styles.dayTextSelected,
-                day.isAvailable && styles.dayTextAvailable,
-                day.isBooked && styles.dayTextBooked,
-                day.isPast && styles.dayTextPast,
               ]}
             >
               {day.date}
