@@ -358,21 +358,21 @@ export const handleValidationError = (error: any) =>
   handleError(error, { action: 'validation' });
 
 // Async wrapper for error handling
-export const withErrorHandling = async <T>(
+export async function withErrorHandling<T>(
   asyncFunction: () => Promise<T>,
   context?: {
     action?: string;
     userId?: string;
     additionalContext?: Record<string, any>;
   }
-): Promise<T | null> => {
+): Promise<T | null> {
   try {
     return await asyncFunction();
   } catch (error) {
     handleError(error, context);
     return null;
   }
-};
+}
 
 // React component error boundary (for use with class components)
 export class ErrorBoundary extends React.Component<
