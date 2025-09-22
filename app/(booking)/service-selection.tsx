@@ -142,18 +142,35 @@ export default function ServiceSelectionScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
+        {/* Header Premium */}
         <View style={styles.header}>
-          <Text style={styles.providerName}>{providerName}</Text>
-          <Text style={styles.stepText}>Paso 1 de 3</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.providerName}>{providerName}</Text>
+            <Text style={styles.providerSubtitle}>Servicios Profesionales</Text>
+          </View>
+          <View style={styles.stepIndicator}>
+            <Text style={styles.stepText}>Paso 1 de 3</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '33%' }]} />
+            </View>
+          </View>
         </View>
 
-        {/* Instrucciones */}
-        <View style={styles.instructionCard}>
-          <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
-          <Text style={styles.instructionText}>
-            Selecciona el servicio que deseas reservar
-          </Text>
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <Card variant="wellness" padding="large" shadow="sm">
+            <View style={styles.welcomeContent}>
+              <View style={styles.welcomeIcon}>
+                <IconSymbol name="sparkles" size={24} color={Colors.light.primary} />
+              </View>
+              <View style={styles.welcomeTextContainer}>
+                <Text style={styles.welcomeTitle}>¡Bienvenido!</Text>
+                <Text style={styles.welcomeText}>
+                  Selecciona el servicio perfecto para ti
+                </Text>
+              </View>
+            </View>
+          </Card>
         </View>
 
         {/* Employee selection */}
@@ -181,9 +198,13 @@ export default function ServiceSelectionScreen() {
               {services.map((service) => (
               <Card
                 key={service.id}
-                variant={selectedService === service.id ? "elevated" : "default"}
-                padding="medium"
-                style={selectedService === service.id ? styles.selectedServiceCard : styles.serviceCard}
+                variant={selectedService === service.id ? "premium" : "soft"}
+                padding="large"
+                style={[
+                  styles.serviceCard,
+                  selectedService === service.id ? styles.selectedServiceCard : styles.unselectedServiceCard
+                ]}
+                shadow={selectedService === service.id ? "lg" : "sm"}
                 onPress={() => handleServiceSelect(service.id)}
               >
                 <View style={styles.serviceHeader}>
@@ -245,14 +266,20 @@ export default function ServiceSelectionScreen() {
       {/* Botón de continuar */}
       <View style={styles.bottomSection}>
         <Button
-          title="Continuar"
+          title="Seleccionar Horario"
           onPress={handleContinue}
-          variant="primary"
+          variant="wellness"
           size="large"
           fullWidth
-          disabled={!selectedService}
-          icon={<IconSymbol name="arrow.right" size={16} color="#ffffff" />}
+          elevated
+          disabled={!selectedService || !selectedEmployee}
+          icon={<IconSymbol name="calendar" size={18} color="#ffffff" />}
         />
+        {(!selectedService || !selectedEmployee) && (
+          <Text style={styles.requirementText}>
+            {!selectedService ? 'Selecciona un servicio' : 'Selecciona un empleado'}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -261,44 +288,85 @@ export default function ServiceSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: '#fafafa',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    padding: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 44,
     backgroundColor: Colors.light.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  headerContent: {
+    marginBottom: 16,
   },
   providerName: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.light.text,
+    letterSpacing: -0.5,
+  },
+  providerSubtitle: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    marginTop: 4,
+  },
+  stepIndicator: {
+    alignItems: 'flex-end',
   },
   stepText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.light.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  instructionCard: {
+  progressBar: {
+    width: 120,
+    height: 4,
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 2,
+  },
+  welcomeSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  welcomeContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.info + '10',
-    margin: 20,
-    marginTop: 0,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.light.info,
   },
-  instructionText: {
-    fontSize: 14,
-    color: Colors.light.text,
-    marginLeft: 12,
+  welcomeIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.light.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  welcomeTextContainer: {
     flex: 1,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  welcomeText: {
+    fontSize: 15,
+    color: Colors.light.textSecondary,
+    lineHeight: 22,
   },
   servicesSection: {
     paddingHorizontal: 20,
@@ -314,13 +382,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   serviceCard: {
-    marginBottom: 0,
+    marginBottom: 16,
+    borderRadius: 20,
   },
   selectedServiceCard: {
-    borderColor: Colors.light.primary,
     borderWidth: 2,
+    borderColor: Colors.light.primary,
+    transform: [{ scale: 1.02 }],
   },
-  serviceHeader: {
+  unselectedServiceCard: {
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -428,5 +501,12 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: Colors.light.textSecondary,
+  },
+  requirementText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
 });

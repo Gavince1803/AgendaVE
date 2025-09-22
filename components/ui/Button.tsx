@@ -1,4 +1,4 @@
-import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { Colors, ComponentColors, DesignTokens, Gradients } from '@/constants/Colors';
 import React, { useState } from 'react';
 import {
     Animated,
@@ -11,15 +11,16 @@ import { LoadingSpinner } from './LoadingSpinner';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'warning' | 'error';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'warning' | 'error' | 'wellness' | 'premium' | 'soft';
   size?: 'small' | 'medium' | 'large' | 'xl';
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
-  gradient?: boolean;
+  gradient?: boolean | 'primary' | 'wellness' | 'premium' | 'soft';
   rounded?: boolean;
+  elevated?: boolean;
 }
 
 export function Button({
@@ -33,6 +34,7 @@ export function Button({
   iconPosition = 'left',
   gradient = false,
   rounded = false,
+  elevated = false,
   style,
   ...props
 }: ButtonProps) {
@@ -65,6 +67,8 @@ export function Button({
     styles[size],
     fullWidth && styles.fullWidth,
     rounded && styles.rounded,
+    elevated && styles.elevated,
+    gradient && styles.gradient,
     (disabled || loading) && styles.disabled,
     style,
   ];
@@ -172,6 +176,21 @@ const styles = StyleSheet.create({
     shadowColor: ComponentColors.button.error,
     ...DesignTokens.elevation.md,
   },
+  wellness: {
+    backgroundColor: '#14b8a6', // mint
+    shadowColor: '#14b8a6',
+    ...DesignTokens.elevation.md,
+  },
+  premium: {
+    backgroundColor: '#a855f7', // lavender
+    shadowColor: '#a855f7',
+    ...DesignTokens.elevation.lg,
+  },
+  soft: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+  },
   
   // Tamaños
   small: {
@@ -212,6 +231,14 @@ const styles = StyleSheet.create({
   rounded: {
     borderRadius: DesignTokens.radius.full,
   },
+  elevated: {
+    ...DesignTokens.elevation.lg,
+    transform: [{ translateY: -1 }],
+  },
+  gradient: {
+    // Los gradientes se manejarán con LinearGradient en una versión futura
+    ...DesignTokens.elevation.lg,
+  },
   
   // Texto
   text: {
@@ -239,6 +266,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: Colors.light.textOnPrimary,
+  },
+  wellnessText: {
+    color: Colors.light.textOnPrimary,
+  },
+  premiumText: {
+    color: Colors.light.textOnPrimary,
+  },
+  softText: {
+    color: Colors.light.text,
   },
   
   // Tamaños de texto

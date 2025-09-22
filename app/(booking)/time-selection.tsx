@@ -280,10 +280,18 @@ export default function TimeSelectionScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
+        {/* Header Premium */}
         <View style={styles.header}>
-          <Text style={styles.providerName}>{providerName}</Text>
-          <Text style={styles.stepText}>Paso 2 de 3</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.providerName}>{providerName}</Text>
+            <Text style={styles.providerSubtitle}>Selecciona tu horario</Text>
+          </View>
+          <View style={styles.stepIndicator}>
+            <Text style={styles.stepText}>Paso 2 de 3</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '66%' }]} />
+            </View>
+          </View>
         </View>
 
         {/* Resumen del servicio */}
@@ -368,17 +376,23 @@ export default function TimeSelectionScreen() {
         )}
       </ScrollView>
 
-      {/* Botón de continuar */}
+      {/* Botón de continuar premium */}
       <View style={styles.bottomSection}>
         <Button
-          title="Continuar"
+          title="Continuar a Confirmación"
           onPress={handleContinue}
-          variant="primary"
+          variant="wellness"
           size="large"
           fullWidth
+          elevated
           disabled={!selectedDate || !selectedTime}
-          icon={<IconSymbol name="arrow.right" size={16} color="#ffffff" />}
+          icon={<IconSymbol name="arrow.right" size={18} color="#ffffff" />}
         />
+        {(!selectedDate || !selectedTime) && (
+          <Text style={styles.requirementText}>
+            {!selectedDate ? 'Selecciona una fecha' : 'Selecciona un horario'}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -387,27 +401,54 @@ export default function TimeSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: '#fafafa',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    padding: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 44,
     backgroundColor: Colors.light.background,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  headerContent: {
+    marginBottom: 16,
   },
   providerName: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.light.text,
+    letterSpacing: -0.5,
+  },
+  providerSubtitle: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    marginTop: 4,
+  },
+  stepIndicator: {
+    alignItems: 'flex-end',
   },
   stepText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.light.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  progressBar: {
+    width: 120,
+    height: 4,
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.light.primary,
+    borderRadius: 2,
   },
   serviceSummary: {
     padding: 20,
@@ -512,5 +553,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.light.textSecondary,
     textAlign: 'center',
+  },
+  requirementText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
 });

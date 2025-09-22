@@ -11,12 +11,45 @@ import {
 
 interface CardProps extends TouchableOpacityProps {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient';
+  variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient' | 'wellness' | 'premium' | 'soft';
   padding?: 'none' | 'small' | 'medium' | 'large' | 'xl';
   onPress?: () => void;
   style?: ViewStyle;
   rounded?: boolean;
   shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  borderColor?: string;
+  backgroundColor?: string;
+}
+
+// Helper functions for dynamic styling
+function getBackgroundColor(variant: string): string {
+  switch (variant) {
+    case 'wellness':
+      return '#f0fdfa'; // mint background
+    case 'premium':
+      return '#faf5ff'; // lavender background
+    case 'soft':
+      return '#f8fafc'; // soft gray background
+    case 'glass':
+      return 'rgba(255, 255, 255, 0.8)';
+    default:
+      return ComponentColors.surface;
+  }
+}
+
+function getBorderColor(variant: string): string {
+  switch (variant) {
+    case 'wellness':
+      return '#ccfbf1'; // light mint
+    case 'premium':
+      return '#f3e8ff'; // light lavender
+    case 'soft':
+      return '#e2e8f0'; // light gray
+    case 'glass':
+      return 'rgba(255, 255, 255, 0.2)';
+    default:
+      return ComponentColors.border;
+  }
 }
 
 export function Card({
@@ -27,13 +60,15 @@ export function Card({
   style,
   rounded = false,
   shadow = 'md',
+  borderColor,
+  backgroundColor,
   ...props
 }: CardProps) {
   const [scaleValue] = useState(new Animated.Value(1));
   
-  // Colores fijos para modo claro
-  const backgroundColor = ComponentColors.surface;
-  const borderColor = ComponentColors.border;
+  // Colores dinámicos basados en variant o props
+  const cardBackgroundColor = backgroundColor || getBackgroundColor(variant);
+  const cardBorderColor = borderColor || getBorderColor(variant);
 
   const handlePressIn = () => {
     if (onPress) {
@@ -59,7 +94,7 @@ export function Card({
 
   const cardStyle = [
     styles.base,
-    { backgroundColor, borderColor },
+    { backgroundColor: cardBackgroundColor, borderColor: cardBorderColor },
     styles[variant],
     styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}`],
     styles[`shadow${shadow.charAt(0).toUpperCase() + shadow.slice(1)}`],
@@ -119,6 +154,18 @@ const styles = StyleSheet.create({
   },
   gradient: {
     backgroundColor: 'transparent',
+  },
+  wellness: {
+    borderWidth: 1,
+    ...DesignTokens.elevation.sm,
+  },
+  premium: {
+    borderWidth: 1,
+    ...DesignTokens.elevation.md,
+  },
+  soft: {
+    borderWidth: 1,
+    ...DesignTokens.elevation.sm,
   },
   
   // Padding
