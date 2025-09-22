@@ -242,6 +242,99 @@ export class BookingService {
     }
   }
 
+  // 👥 Obtener toda la disponibilidad semanal de un empleado
+  static async getEmployeeWeeklyAvailability(employeeId: string): Promise<EmployeeAvailability[]> {
+    try {
+      const { data, error } = await supabase
+        .from('employee_availabilities')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .order('day_of_week, start_time');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching employee weekly availability:', error);
+      throw error;
+    }
+  }
+
+  // 👥 Actualizar disponibilidad completa de un empleado
+  static async updateEmployeeAvailability(
+    employeeId: string, 
+    availability: Record<string, { enabled: boolean; startTime: string; endTime: string }>
+  ): Promise<void> {
+    try {
+      // First, delete all existing availabilities for this employee
+      const { error: deleteError } = await supabase
+        .from('employee_availabilities')
+        .delete()
+        .eq('employee_id', employeeId);
+
+      if (deleteError) throw deleteError;
+
+      // Convert weekday keys to day_of_week numbers
+      const dayMapping: Record<string, number> = {
+        'sunday': 0,
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6
+      };
+
+      // Insert new availabilities
+      const newAvailabilities = Object.entries(availability)
+        .filter(([_, dayData]) => dayData.enabled)
+        .map(([dayKey, dayData]) => ({
+          employee_id: employeeId,
+          day_of_week: dayMapping[dayKey],
+          start_time: dayData.startTime,
+          end_time: dayData.endTime,
+          is_available: true
+        }));
+
+      if (newAvailabilities.length > 0) {
+        const { error: insertError } = await supabase
+          .from('employee_availabilities')
+          .insert(newAvailabilities);
+
+        if (insertError) throw insertError;
+      }
+
+      console.log('✅ Employee availability updated successfully:', { employeeId, availabilityCount: newAvailabilities.length });
+    } catch (error) {
+      console.error('Error updating employee availability:', error);
+      throw error;
+    }
+  }
+
+  // 👥 Habilitar/deshabilitar horario personalizado de empleado
+  static async updateEmployeeCustomSchedule(employeeId: string, enabled: boolean): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ custom_schedule_enabled: enabled })
+        .eq('id', employeeId);
+
+      if (error) throw error;
+
+      // If disabling custom schedule, also clear all employee availabilities
+      if (!enabled) {
+        await supabase
+          .from('employee_availabilities')
+          .delete()
+          .eq('employee_id', employeeId);
+      }
+
+      console.log('✅ Employee custom schedule updated:', { employeeId, enabled });
+    } catch (error) {
+      console.error('Error updating employee custom schedule:', error);
+      throw error;
+    }
+  }
+
   // 👥 Crear un nuevo empleado
   static async createEmployee(employeeData: {
     provider_id: string;

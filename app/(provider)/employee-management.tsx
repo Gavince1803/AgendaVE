@@ -113,7 +113,18 @@ export default function EmployeeManagementScreen() {
     });
   };
 
-  const handleDeleteEmployee = async (employee: Employee) => {
+  const handleManageSchedule = (employee: Employee) => {
+    router.push({
+      pathname: '/(provider)/employee-schedule',
+      params: {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        customScheduleEnabled: employee.custom_schedule_enabled.toString(),
+      }
+    });
+  };
+
+  const handleDeleteEmployee = (employee: Employee) => {
     if (employee.is_owner) {
       Alert.alert('Error', 'No puedes eliminar al propietario del negocio');
       return;
@@ -249,6 +260,28 @@ export default function EmployeeManagementScreen() {
                         </Text>
                       </View>
                     </View>
+                  </View>
+
+                  {/* Employee Actions */}
+                  {/* Employee Schedule Info */}
+                  <View style={styles.employeeSchedule}>
+                    <View style={styles.scheduleInfo}>
+                      <IconSymbol 
+                        name={employee.custom_schedule_enabled ? "clock.fill" : "building"} 
+                        size={16} 
+                        color={employee.custom_schedule_enabled ? Colors.light.primary : Colors.light.textSecondary} 
+                      />
+                      <Text style={styles.scheduleText}>
+                        {employee.custom_schedule_enabled ? 'Horario personalizado' : 'Horario del negocio'}
+                      </Text>
+                    </View>
+                    <Button
+                      title={employee.custom_schedule_enabled ? "Configurar" : "Personalizar"}
+                      onPress={() => handleManageSchedule(employee)}
+                      variant="outline"
+                      size="small"
+                      icon={<IconSymbol name="calendar" size={14} color={Colors.light.primary} />}
+                    />
                   </View>
 
                   {/* Employee Actions */}
@@ -418,5 +451,27 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderColor: Colors.light.error,
+  },
+  employeeSchedule: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.sm,
+    backgroundColor: Colors.light.surface,
+    paddingHorizontal: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  scheduleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  scheduleText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
 });
