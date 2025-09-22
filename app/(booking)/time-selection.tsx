@@ -96,6 +96,14 @@ export default function TimeSelectionScreen() {
     loadAvailableDates();
   }, []);
 
+  // Reload available dates when employee changes
+  useEffect(() => {
+    if (providerId) {
+      console.log('🔴 [TIME SELECTION] Employee changed, reloading available dates:', { employeeId });
+      loadAvailableDates();
+    }
+  }, [employeeId, providerId, serviceId]);
+
   // Cargar horarios disponibles cuando se selecciona una fecha
   useEffect(() => {
     if (selectedDate && providerId) {
@@ -133,23 +141,70 @@ export default function TimeSelectionScreen() {
 
   const loadAvailableDates = async () => {
     try {
-      // Generar fechas disponibles para los próximos 30 días
-      const dates = [];
+      console.log('🔴 [TIME SELECTION] Loading available dates for employee/provider:', { employeeId, providerId });
+      const availableDatesArray = [];
       const today = new Date();
       
+      // Check availability for the next 30 days
       for (let i = 0; i < 30; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
-        dates.push(date.toISOString().split('T')[0]);
+        const dateString = date.toISOString().split('T')[0];
+        
+        try {
+          let hasAvailability = false;
+          
+          // Check if employee or provider has availability for this date
+          if (employeeId && employeeId !== '') {
+            // Check employee-specific availability
+            const employeeSlots = await BookingService.getEmployeeAvailableSlots(
+              employeeId as string, 
+              providerId as string, 
+              dateString, 
+              serviceId as string
+            );
+            hasAvailability = employeeSlots.length > 0;
+          } else {
+            // Check provider availability
+            const providerSlots = await BookingService.getAvailableSlots(
+              providerId as string, 
+              dateString, 
+              serviceId as string
+            );
+            hasAvailability = providerSlots.length > 0;
+          }
+          
+          if (hasAvailability) {
+            availableDatesArray.push(dateString);
+          }
+        } catch (dateError) {
+          // If there's an error checking this specific date, log it but continue
+          console.warn('🔴 [TIME SELECTION] Error checking date availability:', dateString, dateError);
+        }
       }
       
-      setAvailableDates(dates);
+      console.log('🔴 [TIME SELECTION] Available dates found:', { 
+        totalDates: 30, 
+        availableDates: availableDatesArray.length, 
+        dates: availableDatesArray 
+      });
+      
+      setAvailableDates(availableDatesArray);
       
       // En una implementación real, aquí se cargarían las fechas ocupadas desde Supabase
       // const bookedDates = await BookingService.getBookedDates(providerId as string);
       // setBookedDates(bookedDates);
     } catch (error) {
-      console.error('Error loading available dates:', error);
+      console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
+      // Fallback: show all dates if there's an error
+      const fallbackDates = [];
+      const today = new Date();
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        fallbackDates.push(date.toISOString().split('T')[0]);
+      }
+      setAvailableDates(fallbackDates);
     }
   };
 
