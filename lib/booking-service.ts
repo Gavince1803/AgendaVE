@@ -1142,61 +1142,76 @@ export class BookingService {
     }
   }
 
-  // 📍 Actualizar rating promedio del proveedor
+  // 📍 Actualizar rating promedio del proveedor (usando función segura de DB)
   static async updateProviderRating(providerId: string): Promise<void> {
     try {
       console.log('🔴 [BOOKING SERVICE] Updating provider rating for:', providerId);
       
-      const { data: reviews, error } = await supabase
-        .from('reviews')
-        .select('rating')
-        .eq('provider_id', providerId);
+      // Use secure database function that bypasses RLS
+      const { data, error } = await supabase
+        .rpc('update_provider_rating_secure', {
+          provider_uuid: providerId
+        });
 
       if (error) {
-        console.error('🔴 [BOOKING SERVICE] Error fetching reviews:', error);
+        console.error('🔴 [BOOKING SERVICE] Error calling rating function:', error);
         throw error;
       }
       
-      console.log('🔴 [BOOKING SERVICE] Found reviews:', { count: reviews?.length, reviews });
-
-      // Calculate new rating (handle case with no reviews)
-      let newRating = 0;
-      let reviewCount = 0;
+      console.log('🔴 [BOOKING SERVICE] Rating function response:', data);
       
-      if (reviews && reviews.length > 0) {
-        const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
-        newRating = Math.round(averageRating * 100) / 100;
-        reviewCount = reviews.length;
-      }
-        
-      console.log('🔴 [BOOKING SERVICE] Calculated rating:', { 
-        newRating, 
-        reviewCount, 
-        providerId 
-      });
-      
-      // Update provider with new rating and review count
-      const { error: updateError } = await supabase
-        .from('providers')
-        .update({
-          rating: newRating,
-          total_reviews: reviewCount
-        })
-        .eq('id', providerId);
-        
-      if (updateError) {
-        console.error('🔴 [BOOKING SERVICE] Error updating provider:', updateError);
-        throw updateError;
+      if (data && !data.success) {
+        const errorMsg = data.error || 'Unknown error updating provider rating';
+        console.error('🔴 [BOOKING SERVICE] Rating function failed:', errorMsg);
+        throw new Error(errorMsg);
       }
       
       console.log('🎉 [BOOKING SERVICE] ✅ Provider rating updated successfully!', {
         providerId,
-        newRating,
-        reviewCount
+        newRating: data?.new_rating,
+        reviewCount: data?.review_count
       });
+      
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error updating provider rating:', error);
-      throw error;
+      // Fallback: Try direct update (will fail due to RLS but helps with debugging)
+      console.log('🔄 [BOOKING SERVICE] Attempting fallback direct update...');
+      try {
+        const { data: reviews, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('provider_id', providerId);
+          
+        if (reviewsError) throw reviewsError;
+        
+        let newRating = 0;
+        let reviewCount = 0;
+        
+        if (reviews && reviews.length > 0) {
+          const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+          newRating = Math.round(averageRating * 100) / 100;
+          reviewCount = reviews.length;
+        }
+        
+        const { error: updateError } = await supabase
+          .from('providers')
+          .update({
+            rating: newRating,
+            total_reviews: reviewCount
+          })
+          .eq('id', providerId);
+          
+        if (updateError) {
+          console.error('🔴 [BOOKING SERVICE] Fallback update also failed (likely RLS):', updateError);
+          throw updateError;
+        }
+        
+        console.log('🎉 [BOOKING SERVICE] ✅ Fallback update succeeded!');
+        
+      } catch (fallbackError) {
+        console.error('🔴 [BOOKING SERVICE] Fallback update failed:', fallbackError);
+        throw error; // Throw the original error
+      }
     }
   }
 

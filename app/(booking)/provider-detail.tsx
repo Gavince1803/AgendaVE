@@ -42,11 +42,11 @@ export default function ProviderDetailScreen() {
   // Refresh data when screen gains focus (e.g., returning from rating screen)
   useFocusEffect(
     useCallback(() => {
-      if (providerId && !loading) {
+      if (providerId) {
         log.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
         loadProviderData();
       }
-    }, [providerId, loading])
+    }, [providerId])
   );
 
 
