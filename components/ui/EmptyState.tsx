@@ -75,6 +75,6 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing['2xl'],
   },
   actionContainer: {
-    marginTop: DesignTokens.spacing.lg,
+    marginTop: 16,
   },
 });

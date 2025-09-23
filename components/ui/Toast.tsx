@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     right: DesignTokens.spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingHorizontal: 16,
     paddingVertical: DesignTokens.spacing.md,
     borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,

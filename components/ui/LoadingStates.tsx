@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   loadingCard: {
     backgroundColor: Colors.light.surface,
     padding: DesignTokens.spacing.xl,
-    borderRadius: DesignTokens.borderRadius.lg,
+    borderRadius: DesignTokens.radius.lg,
     alignItems: 'center',
     minWidth: 120,
     elevation: 8,
@@ -313,16 +313,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.border,
   },
   skeletonContainer: {
-    padding: DesignTokens.spacing.lg,
+    padding: 16,
   },
 
   // Provider Skeleton
   providerSkeletonCard: {
     flexDirection: 'row',
-    padding: DesignTokens.spacing.lg,
+    padding: 16,
     marginBottom: DesignTokens.spacing.md,
     backgroundColor: Colors.light.surface,
-    borderRadius: DesignTokens.borderRadius.lg,
+    borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
@@ -339,10 +339,10 @@ const styles = StyleSheet.create({
 
   // Appointment Skeleton
   appointmentSkeletonCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: 16,
     marginBottom: DesignTokens.spacing.md,
     backgroundColor: Colors.light.surface,
-    borderRadius: DesignTokens.borderRadius.lg,
+    borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
@@ -360,10 +360,10 @@ const styles = StyleSheet.create({
 
   // Service Skeleton
   serviceSkeletonCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: 16,
     marginBottom: DesignTokens.spacing.md,
     backgroundColor: Colors.light.surface,
-    borderRadius: DesignTokens.borderRadius.lg,
+    borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginTop: DesignTokens.spacing.lg,
+    marginTop: 16,
     marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
   },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginTop: DesignTokens.spacing.lg,
+    marginTop: 16,
     marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
   },

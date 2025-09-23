@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   
   // Tamaños
   small: {
-    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingHorizontal: 16,
     paddingVertical: DesignTokens.spacing.sm,
     minHeight: 36,
     borderRadius: DesignTokens.radius.md,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   large: {
     paddingHorizontal: DesignTokens.spacing['2xl'],
-    paddingVertical: DesignTokens.spacing.lg,
+    paddingVertical: 16,
     minHeight: 52,
     borderRadius: DesignTokens.radius.xl,
   },

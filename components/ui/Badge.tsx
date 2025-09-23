@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   large: {
-    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingHorizontal: 16,
     paddingVertical: DesignTokens.spacing.md,
     minHeight: 28,
   },

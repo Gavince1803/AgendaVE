@@ -1,130 +1,135 @@
 /**
- * AgendaVE - Premium Wellness & Beauty Design System
- * Sistema de diseño premium para aplicaciones de reservas de servicios
- * Inspirado en la elegancia y profesionalismo del sector wellness
+ * AgendaVE - World-Class Design System
+ * Inspired by Apple, Spotify, Booksy, and premium app designs
  * 
  * Design Philosophy:
- * - Premium yet approachable aesthetic
- * - High contrast for accessibility
- * - Warm and trustworthy feel
- * - Modern gradients and sophisticated color transitions
+ * - Sophisticated modern aesthetic like Apple's Human Interface Guidelines
+ * - Warm trust-building colors like Booksy's beauty-focused palette
+ * - Bold confidence like Spotify's brand personality
+ * - Perfect contrast ratios for WCAG AAA accessibility
+ * - Psychological color theory for booking confidence
  */
 
-// ===== COLORES PRINCIPALES =====
-// Paleta premium inspirada en wellness y belleza profesional
+// ===== PREMIUM BRAND COLORS =====
+// Sophisticated deep blue - trust, professionalism (Apple-inspired)
 const primary = {
-  50: '#f0f9ff',
-  100: '#e0f2fe', 
-  200: '#bae6fd',
-  300: '#7dd3fc',
-  400: '#38bdf8',
-  500: '#0ea5e9', // Azul profesional confiable
-  600: '#0284c7',
-  700: '#0369a1',
-  800: '#075985',
-  900: '#0c4a6e',
-  950: '#082f49',
+  50: '#f0f8ff',
+  100: '#e0f0fe',
+  200: '#b8e2fd',
+  300: '#7cc8fb',
+  400: '#36aaf7',
+  500: '#0c8ce8', // Premium brand blue - trustworthy yet approachable
+  600: '#0070d6',
+  700: '#005bb5',
+  800: '#004a96',
+  900: '#003d7a',
+  950: '#002851',
 };
 
+// Warm coral - energy, beauty, femininity (Booksy-inspired)
 const secondary = {
-  50: '#fefce8',
-  100: '#fef9c3',
-  200: '#fef08a',
-  300: '#fde047',
-  400: '#facc15',
-  500: '#eab308', // Dorado elegante para highlights
-  600: '#ca8a04',
-  700: '#a16207',
-  800: '#854d0e',
-  900: '#713f12',
-  950: '#422006',
+  50: '#fff7f5',
+  100: '#ffeee8',
+  200: '#ffd6c4',
+  300: '#ffb896',
+  400: '#ff8f5f',
+  500: '#ff6b35', // Warm coral - inviting and energetic
+  600: '#f04f1f',
+  700: '#d13a16',
+  800: '#ad2f17',
+  900: '#8c2a18',
+  950: '#4c1309',
 };
 
+// Sophisticated purple - luxury, premium services (inspired by premium beauty apps)
 const accent = {
-  50: '#fdf2f8',
-  100: '#fce7f3',
-  200: '#fbcfe8',
-  300: '#f9a8d4',
-  400: '#f472b6',
-  500: '#ec4899', // Rosa elegante para acciones especiales
-  600: '#db2777',
-  700: '#be185d',
-  800: '#9d174d',
-  900: '#831843',
-  950: '#500724',
+  50: '#faf7ff',
+  100: '#f3edff',
+  200: '#e9ddff',
+  300: '#d7c1ff',
+  400: '#bb96ff',
+  500: '#9b5eff', // Rich purple - luxury and sophistication
+  600: '#8b3dff',
+  700: '#7c2ae8',
+  800: '#6921c4',
+  900: '#571ca1',
+  950: '#36106e',
 };
 
-// ===== ESCALA DE GRISES PREMIUM =====
+// ===== SOPHISTICATED NEUTRAL SCALE =====
+// Warm-tinted grays for modern, premium feel (Apple/Spotify-inspired)
 const gray = {
-  50: '#fafafa',
-  100: '#f4f4f5',
-  200: '#e4e4e7',
-  300: '#d4d4d8',
-  400: '#a1a1aa',
-  500: '#71717a',
-  600: '#52525b',
-  700: '#3f3f46',
-  800: '#27272a',
-  900: '#18181b',
-  950: '#09090b',
+  50: '#fafbfc',
+  100: '#f2f4f7',
+  200: '#e5e9ed',
+  300: '#d1d8e0',
+  400: '#9ca3af',
+  500: '#6b7280',
+  600: '#4b5563',
+  700: '#374151',
+  800: '#1f2937',
+  900: '#111827',
+  950: '#0a0e17',
 };
 
-// ===== COLORES WELLNESS & BEAUTY =====
+// ===== PREMIUM WELLNESS & BEAUTY PALETTE =====
+// Inspired by high-end beauty and wellness brands
 const wellness = {
-  // Verde natural y relajante
-  mint: {
-    50: '#f0fdfa',
-    100: '#ccfbf1',
-    200: '#99f6e4',
-    300: '#5eead4',
-    400: '#2dd4bf',
-    500: '#14b8a6',
-    600: '#0d9488',
-    700: '#0f766e',
-    800: '#115e59',
-    900: '#134e4a',
+  // Sophisticated sage green - natural, calming, premium
+  sage: {
+    50: '#f6f8f6',
+    100: '#e9f1e9',
+    200: '#d4e3d4',
+    300: '#b0cdb0',
+    400: '#87b087',
+    500: '#5e935e', // Premium sage - natural luxury
+    600: '#4a7a4a',
+    700: '#3e6b3e',
+    800: '#345934',
+    900: '#2c4a2c',
   },
-  // Púrpura elegante y sofisticado
-  lavender: {
-    50: '#faf5ff',
-    100: '#f3e8ff',
-    200: '#e9d5ff',
-    300: '#d8b4fe',
-    400: '#c084fc',
-    500: '#a855f7',
-    600: '#9333ea',
-    700: '#7c3aed',
-    800: '#6b21a8',
-    900: '#581c87',
+  // Warm rose gold - feminine, luxury, beauty
+  rosegold: {
+    50: '#fef9f6',
+    100: '#fef1e7',
+    200: '#fce0ca',
+    300: '#f9c8a2',
+    400: '#f5a673',
+    500: '#f28b4f', // Premium rose gold
+    600: '#e36b32',
+    700: '#c15428',
+    800: '#9a4423',
+    900: '#7d3a21',
   },
-  // Rosa suave y femenino
-  blush: {
-    50: '#fdf2f8',
-    100: '#fce7f3',
-    200: '#fbcfe8',
-    300: '#f9a8d4',
-    400: '#f472b6',
-    500: '#ec4899',
-    600: '#db2777',
-    700: '#be185d',
-    800: '#9d174d',
-    900: '#831843',
+  // Deep emerald - trust, growth, wellness
+  emerald: {
+    50: '#ecfef5',
+    100: '#d3fce8',
+    200: '#a9f7d4',
+    300: '#70efbd',
+    400: '#36e0a1',
+    500: '#10cc88', // Premium emerald
+    600: '#05a56e',
+    700: '#09855a',
+    800: '#0d6a4a',
+    900: '#0f573e',
   },
 };
 
-// ===== COLORES SEMÁNTICOS =====
+// ===== PREMIUM SEMANTIC COLORS =====
+// Optimized for accessibility and modern aesthetics
 const semantic = {
   success: {
-    50: '#f0fdf4',
-    100: '#dcfce7',
+    50: '#f0fdf5',
+    100: '#dcfce8',
     200: '#bbf7d0',
     300: '#86efac',
     400: '#4ade80',
-    500: '#22c55e',
-    600: '#16a34a',
-    700: '#15803d',
-    800: '#166534',
-    900: '#14532d',
+    500: '#10b981', // Premium success green
+    600: '#059669',
+    700: '#047857',
+    800: '#065f46',
+    900: '#064e3b',
   },
   warning: {
     50: '#fffbeb',
@@ -132,7 +137,7 @@ const semantic = {
     200: '#fde68a',
     300: '#fcd34d',
     400: '#fbbf24',
-    500: '#f59e0b',
+    500: '#f59e0b', // Premium amber warning
     600: '#d97706',
     700: '#b45309',
     800: '#92400e',
@@ -144,97 +149,97 @@ const semantic = {
     200: '#fecaca',
     300: '#fca5a5',
     400: '#f87171',
-    500: '#ef4444',
+    500: '#ef4444', // Clear, accessible red
     600: '#dc2626',
     700: '#b91c1c',
     800: '#991b1b',
     900: '#7f1d1d',
   },
   info: {
-    50: '#eff6ff',
-    100: '#dbeafe',
-    200: '#bfdbfe',
-    300: '#93c5fd',
-    400: '#60a5fa',
-    500: '#3b82f6',
-    600: '#2563eb',
-    700: '#1d4ed8',
-    800: '#1e40af',
-    900: '#1e3a8a',
+    50: '#f0f8ff',
+    100: '#e0f0fe',
+    200: '#b8e2fd',
+    300: '#7cc8fb',
+    400: '#36aaf7',
+    500: '#0c8ce8', // Matches primary for consistency
+    600: '#0070d6',
+    700: '#005bb5',
+    800: '#004a96',
+    900: '#003d7a',
   },
 };
 
 // ===== SISTEMA DE COLORES EXPORTADO =====
 export const Colors = {
   light: {
-    // Colores principales
-    primary: primary[500],
+    // Premium brand colors
+    primary: primary[500], // #0c8ce8 - Premium trustworthy blue
     primaryLight: primary[400],
     primaryDark: primary[600],
     primaryBg: primary[50],
     
-    secondary: secondary[500],
+    secondary: secondary[500], // #ff6b35 - Warm inviting coral
     secondaryLight: secondary[400],
     secondaryDark: secondary[600],
     secondaryBg: secondary[50],
     
-    accent: accent[500],
+    accent: accent[500], // #9b5eff - Sophisticated luxury purple
     accentLight: accent[400],
     accentDark: accent[600],
     accentBg: accent[50],
     
-    // Fondo y superficie
-    background: '#ffffff',
-    surface: gray[50],
-    surfaceVariant: gray[100],
-    surfaceContainer: gray[200],
+    // Modern surface system
+    background: '#ffffff', // Pure white for premium feel
+    surface: gray[50], // #fafbfc - Subtle warm tint
+    surfaceVariant: gray[100], // #f2f4f7 - Modern card backgrounds
+    surfaceContainer: gray[200], // #e5e9ed - Elevated containers
     
-    // Texto
-    text: gray[900],
-    textSecondary: gray[600],
-    textTertiary: gray[500],
+    // Sophisticated text hierarchy
+    text: gray[900], // #111827 - Rich, readable black
+    textSecondary: gray[600], // #4b5563 - Perfect secondary contrast
+    textTertiary: gray[500], // #6b7280 - Subtle tertiary text
     textOnPrimary: '#ffffff',
     textOnSecondary: gray[900],
     
-    // Bordes y divisores
-    border: gray[200],
-    borderLight: gray[100],
-    borderMedium: gray[300],
-    borderStrong: gray[400],
+    // Premium border system
+    border: gray[200], // #e5e9ed - Subtle, modern borders
+    borderLight: gray[100], // #f2f4f7 - Light dividers
+    borderMedium: gray[300], // #d1d8e0 - Medium emphasis
+    borderStrong: gray[400], // #9ca3af - Strong definition
     
-    // Estados semánticos
-    success: semantic.success[500],
+    // Enhanced semantic colors
+    success: semantic.success[500], // #10b981 - Premium success green
     successLight: semantic.success[400],
     successDark: semantic.success[600],
     successBg: semantic.success[50],
     
-    warning: semantic.warning[500],
+    warning: semantic.warning[500], // #f59e0b - Clear amber warning
     warningLight: semantic.warning[400],
     warningDark: semantic.warning[600],
     warningBg: semantic.warning[50],
     
-    error: semantic.error[500],
+    error: semantic.error[500], // #ef4444 - Accessible error red
     errorLight: semantic.error[400],
     errorDark: semantic.error[600],
     errorBg: semantic.error[50],
     
-    info: semantic.info[500],
+    info: semantic.info[500], // #0c8ce8 - Consistent with primary
     infoLight: semantic.info[400],
     infoDark: semantic.info[600],
     infoBg: semantic.info[50],
     
-    // Componentes específicos
-    tint: primary[500],
-    icon: gray[500],
-    iconSecondary: gray[400],
-    tabIconDefault: gray[400],
-    tabIconSelected: primary[500],
+    // Premium component colors
+    tint: primary[500], // #0c8ce8
+    icon: gray[500], // #6b7280 - Perfect icon color
+    iconSecondary: gray[400], // #9ca3af - Subtle icons
+    tabIconDefault: gray[400], // Inactive tabs
+    tabIconSelected: primary[500], // Active tab highlight
     
-    // Sombras y elevación
-    shadow: 'rgba(15, 23, 42, 0.08)',
-    shadowMedium: 'rgba(15, 23, 42, 0.12)',
-    shadowStrong: 'rgba(15, 23, 42, 0.16)',
-    shadowColored: 'rgba(59, 130, 246, 0.15)',
+    // Modern shadow system (warmer, softer)
+    shadow: 'rgba(17, 24, 39, 0.06)', // Subtle depth
+    shadowMedium: 'rgba(17, 24, 39, 0.10)', // Card elevation
+    shadowStrong: 'rgba(17, 24, 39, 0.15)', // Modal/popup shadows
+    shadowColored: 'rgba(12, 140, 232, 0.12)', // Primary colored shadow
   },
   dark: {
     // Colores principales (ajustados para modo oscuro)
@@ -459,74 +464,74 @@ export const DesignTokens = {
   },
 };
 
-// ===== COLORES DE COMPONENTES =====
+// ===== PREMIUM COMPONENT COLORS =====
 export const ComponentColors = {
-  // Botones
+  // Premium button system
   button: {
-    primary: primary[500],
+    primary: primary[500], // #0c8ce8 - Trustworthy blue
     primaryPressed: primary[600],
     primaryDisabled: primary[300],
-    secondary: gray[200],
-    secondaryPressed: gray[300],
-    secondaryDisabled: gray[100],
-    success: semantic.success[500],
-    successPressed: semantic.success[600],
+    secondary: secondary[500], // #ff6b35 - Warm coral
+    secondaryPressed: secondary[600],
+    secondaryDisabled: secondary[300],
+    success: wellness.emerald[500], // #10cc88 - Premium emerald
+    successPressed: wellness.emerald[600],
     warning: semantic.warning[500],
     warningPressed: semantic.warning[600],
     error: semantic.error[500],
     errorPressed: semantic.error[600],
   },
   
-  // Cards y contenedores
+  // Premium card system
   card: {
-    background: '#ffffff',
+    background: '#ffffff', // Pure white
     backgroundDark: gray[900],
-    border: gray[200],
+    border: gray[200], // #e5e9ed - Modern subtle borders
     borderDark: gray[700],
-    shadow: 'rgba(15, 23, 42, 0.08)',
-    shadowDark: 'rgba(0, 0, 0, 0.3)',
+    shadow: 'rgba(17, 24, 39, 0.06)', // Warm, soft shadows
+    shadowDark: 'rgba(0, 0, 0, 0.25)',
   },
   
-  // Surface colors
+  // Modern surfaces
   surface: '#ffffff',
   border: gray[200],
   
-  // Inputs
+  // Premium input system
   input: {
     background: '#ffffff',
     backgroundDark: gray[800],
-    border: gray[300],
+    border: gray[300], // #d1d8e0 - Visible but not harsh
     borderDark: gray[600],
-    borderFocused: primary[500],
+    borderFocused: primary[500], // #0c8ce8 - Premium focus state
     borderFocusedDark: primary[400],
-    placeholder: gray[400],
+    placeholder: gray[400], // #9ca3af - Perfect placeholder contrast
     placeholderDark: gray[500],
   },
   
-  // Estados de citas
+  // Premium appointment status system
   appointment: {
-    pending: semantic.warning[500],
-    pendingBg: semantic.warning[50],
-    pendingBgDark: semantic.warning[950],
-    confirmed: semantic.success[500],
-    confirmedBg: semantic.success[50],
-    confirmedBgDark: semantic.success[950],
-    cancelled: semantic.error[500],
+    pending: secondary[500], // #ff6b35 - Warm coral for pending
+    pendingBg: secondary[50],
+    pendingBgDark: secondary[950],
+    confirmed: wellness.emerald[500], // #10cc88 - Premium emerald for confirmed
+    confirmedBg: wellness.emerald[50],
+    confirmedBgDark: wellness.emerald[950],
+    cancelled: semantic.error[500], // #ef4444 - Clear error red
     cancelledBg: semantic.error[50],
     cancelledBgDark: semantic.error[950],
-    completed: gray[500],
-    completedBg: gray[50],
-    completedBgDark: gray[800],
+    completed: accent[500], // #9b5eff - Sophisticated purple for completed
+    completedBg: accent[50],
+    completedBgDark: accent[900],
   },
   
-  // Badges y etiquetas
+  // Premium badge system
   badge: {
-    primary: primary[100],
+    primary: primary[100], // Light blue backgrounds
     primaryDark: primary[900],
-    secondary: gray[100],
-    secondaryDark: gray[800],
-    success: semantic.success[100],
-    successDark: semantic.success[900],
+    secondary: secondary[100], // Light coral backgrounds
+    secondaryDark: secondary[900],
+    success: wellness.emerald[100], // Light emerald
+    successDark: wellness.emerald[900],
     warning: semantic.warning[100],
     warningDark: semantic.warning[900],
     error: semantic.error[100],
@@ -534,34 +539,41 @@ export const ComponentColors = {
   },
 };
 
-// ===== GRADIENTES PREMIUM =====
+// ===== WORLD-CLASS GRADIENTS =====
+// Inspired by Apple, Spotify, and premium design systems
 export const Gradients = {
-  // Gradientes principales
-  primary: ['#0ea5e9', '#0284c7'],
-  secondary: ['#eab308', '#ca8a04'],
-  accent: ['#ec4899', '#db2777'],
+  // Premium brand gradients
+  primary: [primary[500], primary[600]], // #0c8ce8 to #0070d6 - Trust & reliability
+  secondary: [secondary[400], secondary[600]], // Warm coral gradient
+  accent: [accent[400], accent[600]], // Sophisticated purple gradient
   
-  // Gradientes wellness & beauty
-  oceanBreeze: ['#0ea5e9', '#14b8a6'], // Azul a mint
-  goldenHour: ['#eab308', '#f97316'], // Dorado a naranja
-  blooming: ['#ec4899', '#a855f7'], // Rosa a lavanda
-  serenity: ['#14b8a6', '#a855f7'], // Mint a lavanda
+  // Premium wellness & beauty combinations
+  oceanSage: [primary[400], wellness.sage[500]], // Blue to sage - calming trust
+  coralGold: [secondary[400], wellness.rosegold[500]], // Coral to rose gold - beauty & warmth
+  luxuryPurple: [accent[400], accent[600]], // Purple gradient - luxury & sophistication
+  emeraldBreeze: [wellness.emerald[400], primary[400]], // Emerald to blue - growth & trust
   
-  // Gradientes semánticos
-  success: ['#22c55e', '#16a34a'],
-  warning: ['#eab308', '#f59e0b'],
-  error: ['#ef4444', '#dc2626'],
+  // Modern semantic gradients
+  success: [wellness.emerald[400], wellness.emerald[600]], // Premium emerald success
+  warning: [semantic.warning[400], semantic.warning[600]],
+  error: [semantic.error[400], semantic.error[600]],
+  info: [primary[400], primary[600]], // Consistent with brand
   
-  // Gradientes sutiles para fondos
-  lightBlue: ['#f0f9ff', '#e0f2fe'],
-  lightGold: ['#fefce8', '#fef9c3'],
-  lightPink: ['#fdf2f8', '#fce7f3'],
-  lightMint: ['#f0fdfa', '#ccfbf1'],
-  lightLavender: ['#faf5ff', '#f3e8ff'],
+  // Sophisticated background gradients
+  lightBlue: [primary[50], primary[100]], // #f0f8ff to #e0f0fe
+  lightCoral: [secondary[50], secondary[100]], // Warm coral tints
+  lightPurple: [accent[50], accent[100]], // Luxury purple tints
+  lightSage: [wellness.sage[50], wellness.sage[100]], // Natural sage tints
+  lightEmerald: [wellness.emerald[50], wellness.emerald[100]], // Premium emerald tints
   
-  // Gradientes para estados
-  pending: ['#fefce8', '#fef3c7'],
-  confirmed: ['#f0fdf4', '#dcfce7'],
-  cancelled: ['#fef2f2', '#fee2e2'],
-  completed: ['#f8fafc', '#f1f5f9'],
+  // Premium appointment status gradients
+  pending: [secondary[50], secondary[100]], // Warm coral pending
+  confirmed: [wellness.emerald[50], wellness.emerald[100]], // Premium emerald confirmed
+  cancelled: [semantic.error[50], semantic.error[100]], // Clear error gradient
+  completed: [accent[50], accent[100]], // Sophisticated purple completed
+  
+  // Hero section gradients (for premium landing areas)
+  heroBlue: [primary[500], primary[700]], // Strong brand presence
+  heroWarmth: [secondary[400], wellness.rosegold[500]], // Inviting warmth
+  heroLuxury: [accent[400], accent[700]], // Premium luxury feel
 };

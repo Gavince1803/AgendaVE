@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   paddingSmall: {
-    padding: DesignTokens.spacing.lg,
+    padding: 16,
   },
   paddingMedium: {
     padding: DesignTokens.spacing.xl,

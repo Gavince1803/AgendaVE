@@ -475,9 +475,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: DesignTokens.spacing.xl,
-    paddingTop: DesignTokens.spacing.lg, // Safe Area ya maneja el padding superior
-    paddingBottom: DesignTokens.spacing.lg,
+    padding: 20, // DesignTokens.spacing.xl
+    paddingTop: 16, // DesignTokens.spacing.lg
+    paddingBottom: 16, // DesignTokens.spacing.lg
   },
   title: {
     fontSize: 28,
@@ -516,10 +516,10 @@ const styles = StyleSheet.create({
   },
   bookingsSection: {
     flex: 1,
-    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingHorizontal: 20, // DesignTokens.spacing.xl
   },
   scrollContent: {
-    paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
+    paddingBottom: 64, // DesignTokens.spacing['6xl'] - Espacio extra para el TabBar
   },
   emptyState: {
     alignItems: 'center',
