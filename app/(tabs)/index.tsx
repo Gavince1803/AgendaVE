@@ -252,21 +252,24 @@ function ClientHomeScreen() {
                 
                 <View style={styles.providerFooter}>
                   <View style={styles.providerDetails}>
-                    <ThemedText style={styles.distance}>{provider.address || 'Ubicación no disponible'}</ThemedText>
+                    <ThemedText style={styles.distance} numberOfLines={1}>{provider.address || 'Ubicación no disponible'}</ThemedText>
                     <ThemedText style={styles.price}>Desde $25</ThemedText>
                   </View>
-                  <Button
-                    title="Reservar"
-                    size="small"
-                    onPress={() => {
-                      log.userAction('Start booking flow', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
-                      log.navigation('ClientHome', 'ProviderDetail');
-                      router.push({
-                        pathname: '/(booking)/provider-detail',
-                        params: { providerId: provider.id }
-                      });
-                    }}
-                  />
+                  <View style={styles.reserveButtonContainer}>
+                    <Button
+                      title="Reservar"
+                      size="small"
+                      onPress={() => {
+                        log.userAction('Start booking flow', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
+                        log.navigation('ClientHome', 'ProviderDetail');
+                        router.push({
+                          pathname: '/(booking)/provider-detail',
+                          params: { providerId: provider.id }
+                        });
+                      }}
+                      style={styles.reserveButton}
+                    />
+                  </View>
                 </View>
               </Card>
             ))
@@ -801,11 +804,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: DesignTokens.spacing.sm,
   },
   providerDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.md,
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: DesignTokens.spacing.xs,
+    marginRight: DesignTokens.spacing.md,
+  },
+  reserveButtonContainer: {
+    flexShrink: 0,
+  },
+  reserveButton: {
+    minWidth: 80,
   },
   distance: {
     fontSize: DesignTokens.typography.fontSizes.sm,

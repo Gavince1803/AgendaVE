@@ -36,25 +36,18 @@ export function Input({
   ...props
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const [labelAnimation] = useState(new Animated.Value(props.value ? 1 : 0));
 
-  const handleFocus = () => {
+  const handleFocus = (e: any) => {
     setIsFocused(true);
-    Animated.timing(labelAnimation, {
-      toValue: 1,
-      duration: DesignTokens.transitions.fast,
-      useNativeDriver: false,
-    }).start();
+    if (props.onFocus) {
+      props.onFocus(e);
+    }
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e: any) => {
     setIsFocused(false);
-    if (!props.value) {
-      Animated.timing(labelAnimation, {
-        toValue: 0,
-        duration: DesignTokens.transitions.fast,
-        useNativeDriver: false,
-      }).start();
+    if (props.onBlur) {
+      props.onBlur(e);
     }
   };
 

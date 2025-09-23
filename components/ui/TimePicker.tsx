@@ -28,10 +28,28 @@ export function TimePicker({
 
   // Convert time string to Date object
   const timeToDate = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
+    try {
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) {
+        throw new Error('Invalid time format');
+      }
+      
+      const [hours, minutes] = parts.map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        throw new Error('Invalid time values');
+      }
+      
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch (error) {
+      console.warn('Invalid time string:', timeStr, error);
+      // Return default time (9:00 AM) if parsing fails
+      const date = new Date();
+      date.setHours(9, 0, 0, 0);
+      return date;
+    }
   };
 
   // Convert Date object to time string
@@ -53,10 +71,25 @@ export function TimePicker({
   };
 
   const formatTimeDisplay = (timeStr: string): string => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const hour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const period = hours >= 12 ? 'PM' : 'AM';
-    return `${hour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    try {
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) {
+        return '9:00 AM';
+      }
+      
+      const [hours, minutes] = parts.map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        return '9:00 AM';
+      }
+      
+      const hour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const period = hours >= 12 ? 'PM' : 'AM';
+      return `${hour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    } catch (error) {
+      console.warn('Error formatting time display:', timeStr, error);
+      return '9:00 AM';
+    }
   };
 
   return (

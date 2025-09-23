@@ -72,52 +72,33 @@ export default function FavoritesScreen() {
             prevFavorites.filter(fav => fav.id !== provider.id)
           );
           
-          if (Platform.OS === 'web') {
-            window.alert(`${provider.business_name} ha sido removido de tus favoritos`);
-          } else {
-            Alert.alert('Removido de Favoritos', `${provider.business_name} ha sido removido de tus favoritos`);
-          }
+          Alert.alert('Removido de Favoritos', `${provider.business_name} ha sido removido de tus favoritos`);
         } catch (error) {
           console.error('🔴 [FAVORITES] Error removing provider from favorites:', error);
           const errorMsg = 'No se pudo remover de favoritos';
-          if (Platform.OS === 'web') {
-            window.alert(errorMsg);
-          } else {
-            Alert.alert('Error', errorMsg);
-          }
+          Alert.alert('Error', errorMsg);
         }
       };
 
-      if (Platform.OS === 'web') {
-        const confirmed = window.confirm(`¿Estás seguro de que quieres remover ${provider.business_name} de tus favoritos?`);
-        if (confirmed) {
-          await removeProvider();
-        }
-      } else {
-        Alert.alert(
-          'Remover de Favoritos',
-          `¿Estás seguro de que quieres remover ${provider.business_name} de tus favoritos?`,
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Remover',
-              style: 'destructive',
-              onPress: removeProvider
-            }
-          ]
-        );
-      }
+      Alert.alert(
+        'Remover de Favoritos',
+        `¿Estás seguro de que quieres remover ${provider.business_name} de tus favoritos?`,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Remover',
+            style: 'destructive',
+            onPress: removeProvider
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error removing from favorites', error);
       const errorMsg = 'No se pudo remover de favoritos';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      Alert.alert('Error', errorMsg);
     }
   };
 

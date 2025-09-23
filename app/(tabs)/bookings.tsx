@@ -94,52 +94,33 @@ export default function BookingsScreen() {
           await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
           await loadAppointments();
           
-          if (Platform.OS === 'web') {
-            window.alert('Tu cita ha sido cancelada exitosamente');
-          } else {
-            Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
-          }
+          Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
         } catch (error) {
           console.error('🔴 [BOOKINGS] Error cancelling appointment:', error);
           const errorMsg = 'No se pudo cancelar la cita';
-          if (Platform.OS === 'web') {
-            window.alert(errorMsg);
-          } else {
-            Alert.alert('Error', errorMsg);
-          }
+          Alert.alert('Error', errorMsg);
         }
       };
 
-      if (Platform.OS === 'web') {
-        const confirmed = window.confirm('¿Estás seguro de que quieres cancelar esta cita?');
-        if (confirmed) {
-          await cancelAppointment();
-        }
-      } else {
-        Alert.alert(
-          'Cancelar Cita',
-          '¿Estás seguro de que quieres cancelar esta cita?',
-          [
-            {
-              text: 'No',
-              style: 'cancel'
-            },
-            {
-              text: 'Sí, Cancelar',
-              style: 'destructive',
-              onPress: cancelAppointment
-            }
-          ]
-        );
-      }
+      Alert.alert(
+        'Cancelar Cita',
+        '¿Estás seguro de que quieres cancelar esta cita?',
+        [
+          {
+            text: 'No',
+            style: 'cancel'
+          },
+          {
+            text: 'Sí, Cancelar',
+            style: 'destructive',
+            onPress: cancelAppointment
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error canceling booking', error);
       const errorMsg = 'No se pudo cancelar la cita';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      Alert.alert('Error', errorMsg);
     }
   };
 
@@ -169,35 +150,24 @@ export default function BookingsScreen() {
 
       const message = `¿Quieres reprogramar tu cita de "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
       
-      if (Platform.OS === 'web') {
-        const confirmed = window.confirm(message);
-        if (confirmed) {
-          navigateToReschedule();
-        }
-      } else {
-        Alert.alert(
-          'Reprogramar Cita',
-          message,
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Reprogramar',
-              onPress: navigateToReschedule
-            }
-          ]
-        );
-      }
+      Alert.alert(
+        'Reprogramar Cita',
+        message,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Reprogramar',
+            onPress: navigateToReschedule
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error starting reschedule process', error);
       const errorMsg = 'No se pudo iniciar el proceso de reprogramación';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      Alert.alert('Error', errorMsg);
     }
   };
 

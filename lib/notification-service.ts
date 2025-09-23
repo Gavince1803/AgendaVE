@@ -49,13 +49,16 @@ export class NotificationService {
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'ldgxxrgdcerftlmeyrmi', // Project ID de Supabase
-      });
+      // Skip push token generation in Expo Go since it requires EAS project setup
+      if (__DEV__) {
+        console.log('Skipping push token generation in development');
+        return null;
+      }
 
+      const token = await Notifications.getExpoPushTokenAsync();
       return token.data;
     } catch (error) {
-      console.error('Error getting device token:', error);
+      console.log('Push notifications not available in Expo Go');
       return null;
     }
   }

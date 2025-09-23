@@ -165,31 +165,21 @@ export default function BookServiceScreen() {
     // Show confirmation dialog before booking
     const bookingDetails = `Servicio: ${service.name}\nProveedor: ${provider.business_name}\nFecha: ${formatDate(selectedDate)}\nHora: ${selectedTime}\nDuración: ${formatDuration(service.duration_minutes)}\nPrecio: ${formatPrice(service.price_amount)}`;
     
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Confirmar esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`
-      );
-      
-      if (confirmed) {
-        createAppointment();
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Reserva',
-        `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Confirmar Reserva',
-            style: 'default',
-            onPress: createAppointment
-          }
-        ]
-      );
-    }
+    Alert.alert(
+      'Confirmar Reserva',
+      `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Confirmar Reserva',
+          style: 'default',
+          onPress: createAppointment
+        }
+      ]
+    );
   };
 
   const createAppointment = async () => {
@@ -232,30 +222,25 @@ export default function BookServiceScreen() {
         ? `Tu cita ha sido reprogramada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor confirmará el nuevo horario pronto.`
         : `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`;
 
-      if (Platform.OS === 'web') {
-        window.alert(`${successTitle}\n\n${successMessage}`);
-        router.push('/(tabs)/bookings');
-      } else {
-        Alert.alert(
-          successTitle,
-          successMessage,
-          [
-            {
-              text: 'Ver Mis Citas',
-              onPress: () => router.push('/(tabs)/bookings')
-            },
-            {
-              text: 'Continuar',
-              onPress: () => router.back()
-            }
-          ]
-        );
-      }
+      Alert.alert(
+        successTitle,
+        successMessage,
+        [
+          {
+            text: 'Ver Mis Citas',
+            onPress: () => router.push('/(tabs)/bookings')
+          },
+          {
+            text: 'Continuar',
+            onPress: () => router.back()
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
       
       const errorMessage = error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtalo de nuevo.';
-      Platform.OS === 'web' ? window.alert(`Error: ${errorMessage}`) : Alert.alert('Error', errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setBooking(false);
     }
@@ -422,13 +407,27 @@ export default function BookServiceScreen() {
 
       {/* Date Picker - Native Only */}
       {Platform.OS !== 'web' && showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          minimumDate={new Date()}
-          onChange={handleDateChange}
-        />
+        Platform.OS === 'ios' ? (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="spinner"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+            style={{
+              backgroundColor: Colors.light.surface,
+            }}
+            textColor={Colors.light.text}
+          />
+        ) : (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+          />
+        )
       )}
     </TabSafeAreaView>
   );
@@ -545,25 +544,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: DesignTokens.spacing.sm,
+    justifyContent: 'flex-start',
   },
   timeSlot: {
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
     backgroundColor: Colors.light.surface,
     borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    minWidth: 80,
+    minWidth: 70,
+    flex: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedTimeSlot: {
     backgroundColor: Colors.light.primary,
     borderColor: Colors.light.primary,
   },
   timeSlotText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    textAlign: 'center',
   },
   selectedTimeSlotText: {
     color: Colors.light.surface,

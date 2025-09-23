@@ -81,41 +81,28 @@ export default function BookingConfirmationScreen() {
         notes
       );
 
-      if (Platform.OS === 'web') {
-        const action = window.confirm('¡Reserva Confirmada!\n\nTu cita ha sido reservada exitosamente. ¿Quieres ver tus citas o volver al inicio?\n\nPresiona OK para ver tus citas o Cancelar para volver al inicio.');
-        if (action) {
-          router.push('/(tabs)/bookings');
-        } else {
-          router.push('/(tabs)');
-        }
-      } else {
-        Alert.alert(
-          '¡Reserva Confirmada!',
-          'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
-          [
-            {
-              text: 'Ver Mis Citas',
-              onPress: () => {
-                router.push('/(tabs)/bookings');
-              },
+      Alert.alert(
+        '¡Reserva Confirmada!',
+        'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
+        [
+          {
+            text: 'Ver Mis Citas',
+            onPress: () => {
+              router.push('/(tabs)/bookings');
             },
-            {
-              text: 'Volver al Inicio',
-              onPress: () => {
-                router.push('/(tabs)');
-              },
+          },
+          {
+            text: 'Volver al Inicio',
+            onPress: () => {
+              router.push('/(tabs)');
             },
-          ]
-        );
-      }
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.';
-      if (Platform.OS === 'web') {
-        window.alert(`Error\n\n${errorMessage}`);
-      } else {
-        Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
-      }
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }

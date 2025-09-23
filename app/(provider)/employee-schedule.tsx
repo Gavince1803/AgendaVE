@@ -77,10 +77,17 @@ export default function EmployeeScheduleScreen() {
       employeeAvailabilities.forEach((avail: EmployeeAvailability) => {
         const weekday = WEEKDAYS.find(w => w.dayOfWeek === avail.day_of_week);
         if (weekday) {
+          // Convert database time format (HH:MM:SS) to picker format (HH:MM)
+          const convertTimeFormat = (timeStr: string) => {
+            if (!timeStr) return '09:00';
+            const parts = timeStr.split(':');
+            return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
+          };
+          
           newAvailability[weekday.key] = {
             enabled: avail.is_available,
-            startTime: avail.start_time,
-            endTime: avail.end_time,
+            startTime: convertTimeFormat(avail.start_time),
+            endTime: convertTimeFormat(avail.end_time),
           };
         }
       });

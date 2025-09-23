@@ -142,10 +142,10 @@ export default function AppointmentsScreen() {
         </View>
         <View style={styles.clientInfo}>
           <ThemedText style={styles.clientName}>
-            {appointment.profiles?.display_name || 'Cliente'}
+            {(appointment as any).profiles?.display_name || 'Cliente'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
-            {appointment.services?.name || 'Servicio'}
+            {appointment.service?.name || 'Servicio'}
           </ThemedText>
           <ThemedText style={styles.appointmentDate}>
             {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
@@ -166,21 +166,21 @@ export default function AppointmentsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="timer" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.services?.duration_minutes ? `${appointment.services.duration_minutes} min` : 'N/A'}
+            {appointment.service?.duration_minutes ? `${appointment.service.duration_minutes} min` : 'N/A'}
           </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.services?.price_amount ? `$${appointment.services.price_amount} ${appointment.services.price_currency}` : 'N/A'}
+            {appointment.service?.price_amount ? `$${appointment.service.price_amount} ${appointment.service.price_currency}` : 'N/A'}
           </ThemedText>
         </View>
       </View>
 
-      {appointment.profiles?.phone && (
+      {(appointment as any).profiles?.phone && (
         <View style={styles.contactInfo}>
           <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.phoneText}>{appointment.profiles.phone}</ThemedText>
+          <ThemedText style={styles.phoneText}>{(appointment as any).profiles.phone}</ThemedText>
         </View>
       )}
 

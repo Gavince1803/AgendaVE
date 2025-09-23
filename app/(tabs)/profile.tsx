@@ -33,37 +33,48 @@ export default function ProfileScreen() {
     
     console.log('🔴 [PROFILE] Mostrando confirmación...');
     
-    // Usar confirm() en lugar de Alert.alert para mejor compatibilidad con web
-    const confirmed = window.confirm('¿Estás seguro de que quieres cerrar sesión?');
-    
-    if (confirmed) {
-      console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
-      setIsSigningOut(true);
-      
-      try {
-        console.log('🔴 [PROFILE] Llamando a signOut()...');
-        await signOut();
-        console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
-        
-        setToastMessage('Sesión cerrada exitosamente');
-        setToastType('success');
-        setShowToast(true);
-        
-        setTimeout(() => {
-          console.log('🔴 [PROFILE] Navegando a login...');
-          router.replace('/(auth)/login');
-        }, 1000);
-        
-      } catch (error) {
-        console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
-        setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
-        setToastType('error');
-        setShowToast(true);
-        setIsSigningOut(false);
-      }
-    } else {
-      console.log('🔴 [PROFILE] Usuario canceló cerrar sesión');
-    }
+    // Use React Native Alert for mobile compatibility
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => console.log('🔴 [PROFILE] Usuario canceló cerrar sesión')
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
+            setIsSigningOut(true);
+            
+            try {
+              console.log('🔴 [PROFILE] Llamando a signOut()...');
+              await signOut();
+              console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
+              
+              setToastMessage('Sesión cerrada exitosamente');
+              setToastType('success');
+              setShowToast(true);
+              
+              setTimeout(() => {
+                console.log('🔴 [PROFILE] Navegando a login...');
+                router.replace('/(auth)/login');
+              }, 1000);
+              
+            } catch (error) {
+              console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
+              setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
+              setToastType('error');
+              setShowToast(true);
+              setIsSigningOut(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const menuItems = [

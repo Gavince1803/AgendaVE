@@ -84,7 +84,7 @@ export function EmployeeSelector({
               <View style={styles.employeeContent}>
                 <Avatar 
                   name={employee.name}
-                  size="lg"
+                  size="medium"
                   style={styles.employeeAvatar}
                   imageUrl={employee.profile_image_url}
                 />
@@ -196,12 +196,15 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.md,
   },
   employeeCardWrapper: {
-    width: 280,
-    minWidth: 200, // Minimum width for readability
-    maxWidth: 320, // Maximum width to prevent stretching
+    width: 160,
+    minWidth: 140,
+    maxWidth: 180,
   },
   employeeCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing.md,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedEmployeeCard: {
     borderColor: Colors.light.primary,
@@ -223,7 +226,7 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing.xs,
   },
   employeeName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     textAlign: 'center',
@@ -244,7 +247,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   employeePosition: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primary,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     marginBottom: DesignTokens.spacing.xs,

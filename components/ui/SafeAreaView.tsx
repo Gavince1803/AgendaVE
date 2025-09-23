@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/Colors';
 import React from 'react';
 import { Platform, StatusBar, useColorScheme, View, ViewStyle } from 'react-native';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SafeAreaViewProps {
@@ -83,11 +84,16 @@ export function TabSafeAreaView({ children, style }: { children: React.ReactNode
   const colorScheme = useColorScheme();
   return (
     <SafeAreaView
-      backgroundColor={Colors[colorScheme ?? 'light'].surface}
+      backgroundColor={Colors[colorScheme ?? 'light'].background}
       statusBarStyle="dark"
-      edges={['top', 'left', 'right']} // No incluir bottom porque los tabs manejan su propio espacio
-      style={style}
+      edges={['left', 'right']} // Remover top para evitar espaciado extra
+      style={[{ paddingTop: 0 }, style]}
     >
+      <ExpoStatusBar
+        style="dark"
+        backgroundColor={Colors[colorScheme ?? 'light'].background}
+        translucent={false}
+      />
       {children}
     </SafeAreaView>
   );
@@ -98,12 +104,17 @@ export function BookingSafeAreaView({ children, style }: { children: React.React
   const colorScheme = useColorScheme();
   return (
     <SafeAreaView
-      backgroundColor={Colors[colorScheme ?? 'light'].surface}
-      statusBarStyle="light"
-      statusBarBackgroundColor={Colors[colorScheme ?? 'light'].primary}
-      edges={['top', 'left', 'right', 'bottom']}
-      style={style}
+      backgroundColor={Colors[colorScheme ?? 'light'].background}
+      statusBarStyle="dark"
+      statusBarBackgroundColor={Colors[colorScheme ?? 'light'].background}
+      edges={['left', 'right', 'bottom']}
+      style={[{ paddingTop: 0 }, style]}
     >
+      <ExpoStatusBar
+        style="dark"
+        backgroundColor={Colors[colorScheme ?? 'light'].background}
+        translucent={false}
+      />
       {children}
     </SafeAreaView>
   );

@@ -17,6 +17,7 @@ interface ButtonProps extends TouchableOpacityProps {
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
+  leftIcon?: React.ReactNode; // Alias for icon with left position
   iconPosition?: 'left' | 'right';
   gradient?: boolean | 'primary' | 'wellness' | 'premium' | 'soft';
   rounded?: boolean;
@@ -31,6 +32,7 @@ export function Button({
   disabled = false,
   fullWidth = false,
   icon,
+  leftIcon,
   iconPosition = 'left',
   gradient = false,
   rounded = false,
@@ -38,6 +40,8 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
+  // Use leftIcon as icon if provided
+  const actualIcon = leftIcon || icon;
   const [scaleValue] = useState(new Animated.Value(1));
   const [isPressed, setIsPressed] = useState(false);
 
@@ -102,12 +106,12 @@ export function Button({
           />
         ) : (
           <>
-            {icon && iconPosition === 'left' && (
-              <>{icon}</>
+            {actualIcon && iconPosition === 'left' && (
+              <>{actualIcon}</>
             )}
             <Text style={textStyle}>{title}</Text>
-            {icon && iconPosition === 'right' && (
-              <>{icon}</>
+            {actualIcon && iconPosition === 'right' && (
+              <>{actualIcon}</>
             )}
           </>
         )}

@@ -16,6 +16,8 @@ export enum LogCategory {
   UI = 'UI',
   API = 'API',
   DATABASE = 'DB',
+  DATA = 'DATA',
+  ERROR = 'ERROR',
   BOOKING = 'BOOKING',
   SERVICE = 'SERVICE',
   USER_ACTION = 'ACTION',

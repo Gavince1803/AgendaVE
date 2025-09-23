@@ -249,29 +249,34 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     width: '14.28%',
-    aspectRatio: 1,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    marginVertical: 2,
   },
   dayButtonInactive: {
     opacity: 0.3,
   },
   dayButtonToday: {
     backgroundColor: Colors.light.primary + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonSelected: {
     backgroundColor: Colors.light.primary,
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonAvailable: {
     backgroundColor: Colors.light.success + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonBooked: {
     backgroundColor: Colors.light.error + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonPast: {
     opacity: 0.5,
