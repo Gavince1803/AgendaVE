@@ -39,6 +39,16 @@ export default function ProviderDetailScreen() {
     }
   }, [providerId]);
 
+  // Refresh data when screen gains focus (e.g., returning from rating screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (providerId && !loading) {
+        log.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
+        loadProviderData();
+      }
+    }, [providerId, loading])
+  );
+
 
   const loadProviderData = async () => {
     if (!providerId) return;

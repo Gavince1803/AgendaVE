@@ -1043,7 +1043,14 @@ export class BookingService {
 
       if (appointment) {
         // Update provider rating
-        await this.updateProviderRating(appointment.provider_id);
+        try {
+          await this.updateProviderRating(appointment.provider_id);
+          console.log('🎉 [BOOKING SERVICE] Provider rating updated after review update');
+        } catch (ratingError) {
+          console.error('🔴 [BOOKING SERVICE] Error updating provider rating after review update:', ratingError);
+          // Don't fail the review update if rating update fails
+          // The database trigger should handle this as fallback
+        }
 
         // Send notification about updated review
         try {
@@ -1103,7 +1110,14 @@ export class BookingService {
       if (error) throw error;
 
       // Actualizar rating promedio del proveedor
-      await this.updateProviderRating(appointment.provider_id);
+      try {
+        await this.updateProviderRating(appointment.provider_id);
+        console.log('🎉 [BOOKING SERVICE] Provider rating updated after review creation');
+      } catch (ratingError) {
+        console.error('🔴 [BOOKING SERVICE] Error updating provider rating after review creation:', ratingError);
+        // Don't fail the review creation if rating update fails
+        // The database trigger should handle this as fallback
+      }
 
       // Enviar notificación al proveedor sobre la nueva calificación
       try {
@@ -1138,33 +1152,93 @@ export class BookingService {
         .select('rating')
         .eq('provider_id', providerId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error fetching reviews:', error);
+        throw error;
+      }
       
       console.log('🔴 [BOOKING SERVICE] Found reviews:', { count: reviews?.length, reviews });
 
+      // Calculate new rating (handle case with no reviews)
+      let newRating = 0;
+      let reviewCount = 0;
+      
       if (reviews && reviews.length > 0) {
         const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
-        const roundedRating = Math.round(averageRating * 100) / 100;
-        
-        console.log('🔴 [BOOKING SERVICE] Calculated rating:', { averageRating, roundedRating, totalReviews: reviews.length });
-        
-        const { error: updateError } = await supabase
-          .from('providers')
-          .update({
-            rating: roundedRating,
-            total_reviews: reviews.length
-          })
-          .eq('id', providerId);
-          
-        if (updateError) {
-          console.error('🔴 [BOOKING SERVICE] Error updating provider:', updateError);
-          throw updateError;
-        }
-        
-        console.log('🎉 [BOOKING SERVICE] ✅ Provider rating updated successfully!');
+        newRating = Math.round(averageRating * 100) / 100;
+        reviewCount = reviews.length;
       }
+        
+      console.log('🔴 [BOOKING SERVICE] Calculated rating:', { 
+        newRating, 
+        reviewCount, 
+        providerId 
+      });
+      
+      // Update provider with new rating and review count
+      const { error: updateError } = await supabase
+        .from('providers')
+        .update({
+          rating: newRating,
+          total_reviews: reviewCount
+        })
+        .eq('id', providerId);
+        
+      if (updateError) {
+        console.error('🔴 [BOOKING SERVICE] Error updating provider:', updateError);
+        throw updateError;
+      }
+      
+      console.log('🎉 [BOOKING SERVICE] ✅ Provider rating updated successfully!', {
+        providerId,
+        newRating,
+        reviewCount
+      });
     } catch (error) {
-      console.error('Error updating provider rating:', error);
+      console.error('🔴 [BOOKING SERVICE] Error updating provider rating:', error);
+      throw error;
+    }
+  }
+
+  // 🔄 Recalcular ratings de todos los proveedores
+  static async recalculateAllProviderRatings(): Promise<void> {
+    try {
+      console.log('🔄 [BOOKING SERVICE] Recalculating all provider ratings...');
+      
+      // Get all providers
+      const { data: providers, error: providersError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('is_active', true);
+        
+      if (providersError) throw providersError;
+      
+      if (!providers || providers.length === 0) {
+        console.log('🚨 [BOOKING SERVICE] No providers found');
+        return;
+      }
+      
+      console.log(`🔴 [BOOKING SERVICE] Found ${providers.length} providers to update`);
+      
+      // Update each provider
+      let updated = 0;
+      let errors = 0;
+      
+      for (const provider of providers) {
+        try {
+          await this.updateProviderRating(provider.id);
+          updated++;
+          console.log(`🎉 [BOOKING SERVICE] Updated provider ${provider.id} (${updated}/${providers.length})`);
+        } catch (error) {
+          errors++;
+          console.error(`🔴 [BOOKING SERVICE] Error updating provider ${provider.id}:`, error);
+        }
+      }
+      
+      console.log(`🎉 [BOOKING SERVICE] ✅ Recalculation complete! Updated: ${updated}, Errors: ${errors}`);
+      
+    } catch (error) {
+      console.error('🔴 [BOOKING SERVICE] Error recalculating all provider ratings:', error);
       throw error;
     }
   }
