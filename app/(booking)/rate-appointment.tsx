@@ -4,6 +4,7 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
+import { supabase } from '@/lib/supabase';
 // import { ReviewService } from '@/lib/review-service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +16,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
+    TouchableOpacity,
     View,
 } from 'react-native';
 
@@ -27,6 +29,8 @@ export default function RateAppointmentScreen() {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     loadAppointment();
@@ -38,6 +42,17 @@ export default function RateAppointmentScreen() {
       const appointments = await BookingService.getClientAppointments();
       const apt = appointments.find(a => a.id === appointmentId);
       setAppointment(apt);
+      
+      // Check if there's already a review for this appointment
+      if (apt) {
+        const review = await BookingService.getExistingReview(apt.id);
+        if (review) {
+          setExistingReview(review);
+          setIsUpdating(true);
+          setRating(review.rating);
+          setComment(review.comment || '');
+        }
+      }
     } catch (error) {
       console.error('Error loading appointment:', error);
       Alert.alert('Error', 'No se pudo cargar la información de la cita');
@@ -47,46 +62,144 @@ export default function RateAppointmentScreen() {
   };
 
   const handleSubmitRating = async () => {
+    console.log('🔴 [RATE APPOINTMENT] Button pressed!', { rating, isUpdating, existingReview });
+    
     if (rating === 0) {
       Alert.alert('Error', 'Por favor selecciona una calificación');
       return;
     }
 
     if (!appointment || !user) {
+      console.log('🔴 [RATE APPOINTMENT] Missing data:', { appointment: !!appointment, user: !!user });
       Alert.alert('Error', 'Información de cita o usuario no disponible');
       return;
     }
 
+    console.log('🔴 [RATE APPOINTMENT] Starting submission...');
     setLoading(true);
     
     try {
-      await BookingService.createReview(
-        appointment.id,
-        rating,
-        comment.trim() || undefined
-      );
+      if (isUpdating && existingReview) {
+        console.log('🔴 [RATE APPOINTMENT] Updating existing review...', { existingReview });
+        
+        // Use a direct approach to update the review without the problematic updateReview function
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('Usuario no autenticado');
 
-      Alert.alert(
-        '¡Calificación Enviada!',
-        'Gracias por tu calificación. Tu opinión es muy importante para nosotros.',
-        [
-          {
-            text: 'Ver Mis Citas',
-            onPress: () => router.push('/(tabs)/bookings'),
-          },
-          {
-            text: 'Volver al Inicio',
-            onPress: () => router.push('/(tabs)'),
-          },
-        ]
-      );
+        console.log('🔴 [RATE APPOINTMENT] Performing direct update...');
+        
+        // Direct update using supabase client
+        const { error: updateError } = await supabase
+          .from('reviews')
+          .update({
+            rating,
+            comment: comment.trim() || null
+          })
+          .eq('id', existingReview.id)
+          .eq('client_id', authUser.id);
+
+        console.log('🔴 [RATE APPOINTMENT] Update result:', { error: updateError });
+        
+        if (updateError) throw updateError;
+        
+        console.log('🔴 [RATE APPOINTMENT] Update successful, proceeding to provider rating update...');
+
+        // Update provider rating after successful review update
+        try {
+          if (appointment?.providers?.id || appointment?.provider_id) {
+            const providerId = appointment.providers?.id || appointment.provider_id;
+            await BookingService.updateProviderRating(providerId);
+          }
+        } catch (ratingError) {
+          console.error('Error updating provider rating:', ratingError);
+        }
+        
+        console.log('🔴 [RATE APPOINTMENT] About to show success alert...');
+        
+        // For web compatibility, use console log and direct navigation
+        console.log('🎉 [SUCCESS] ¡Calificación Actualizada! Tu calificación ha sido actualizada exitosamente.');
+        
+        try {
+          Alert.alert(
+            '¡Calificación Actualizada!',
+            'Tu calificación ha sido actualizada exitosamente.',
+            [
+              {
+                text: 'Ver Mis Citas',
+                onPress: () => router.push('/(tabs)/bookings'),
+              },
+              {
+                text: 'Volver al Inicio',
+                onPress: () => router.push('/(tabs)'),
+              },
+            ]
+          );
+        } catch (alertError) {
+          console.error('Alert failed, navigating directly:', alertError);
+          // Fallback: navigate directly to bookings after a short delay
+          setTimeout(() => {
+            router.push('/(tabs)/bookings');
+          }, 1000);
+        }
+      } else {
+        console.log('🔴 [RATE APPOINTMENT] Creating new review...');
+        
+        // Create new review
+        await BookingService.createReview(
+          appointment.id,
+          rating,
+          comment.trim() || undefined
+        );
+        
+        console.log('🔴 [RATE APPOINTMENT] New review created successfully');
+        console.log('🎉 [SUCCESS] ¡Calificación Enviada! Gracias por tu calificación.');
+
+        try {
+          Alert.alert(
+            '¡Calificación Enviada!',
+            'Gracias por tu calificación. Tu opinión es muy importante para nosotros.',
+            [
+              {
+                text: 'Ver Mis Citas',
+                onPress: () => router.push('/(tabs)/bookings'),
+              },
+              {
+                text: 'Volver al Inicio',
+                onPress: () => router.push('/(tabs)'),
+              },
+            ]
+          );
+        } catch (alertError) {
+          console.error('Alert failed, navigating directly:', alertError);
+          // Fallback: navigate directly to bookings after a short delay
+          setTimeout(() => {
+            router.push('/(tabs)/bookings');
+          }, 1000);
+        }
+      }
     } catch (error) {
       console.error('Error submitting rating:', error);
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'No se pudo enviar la calificación. Inténtalo de nuevo.',
-        [{ text: 'OK' }]
-      );
+      
+      // Handle the specific duplicate constraint error
+      if (error instanceof Error && error.message.includes('unique_review_per_appointment')) {
+        Alert.alert(
+          'Calificación ya Existe',
+          'Ya has calificado esta cita anteriormente. Si deseas cambiar tu calificación, por favor recarga la pantalla.',
+          [
+            { 
+              text: 'Recargar', 
+              onPress: () => loadAppointment() 
+            },
+            { text: 'OK' }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          error instanceof Error ? error.message : 'No se pudo enviar la calificación. Inténtalo de nuevo.',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -96,19 +209,18 @@ export default function RateAppointmentScreen() {
     return (
       <View style={styles.starsContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Button
+          <TouchableOpacity
             key={star}
-            title=""
             onPress={() => setRating(star)}
-            variant="ghost"
             style={styles.starButton}
+            activeOpacity={0.7}
           >
             <MaterialIcons
               name={star <= rating ? 'star' : 'star-border'}
               size={40}
-              color={star <= rating ? Colors.light.warning : Colors.light.border}
+              color={star <= rating ? '#FFD700' : '#D1D5DB'}
             />
-          </Button>
+          </TouchableOpacity>
         ))}
       </View>
     );
@@ -148,8 +260,15 @@ export default function RateAppointmentScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Califica tu Experiencia</Text>
-          <Text style={styles.subtitle}>Tu opinión nos ayuda a mejorar</Text>
+          <Text style={styles.title}>
+            {isUpdating ? 'Actualiza tu Calificación' : 'Califica tu Experiencia'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isUpdating 
+              ? 'Puedes cambiar tu calificación anterior' 
+              : 'Tu opinión nos ayuda a mejorar'
+            }
+          </Text>
         </View>
 
         {/* Información de la cita */}
@@ -205,7 +324,10 @@ export default function RateAppointmentScreen() {
         <Card variant="elevated" padding="medium" style={styles.commentCard}>
           <Text style={styles.cardTitle}>Comentario (Opcional)</Text>
           <Text style={styles.commentSubtitle}>
-            Comparte tu experiencia para ayudar a otros clientes
+            {isUpdating 
+              ? 'Actualiza tu comentario si lo deseas' 
+              : 'Comparte tu experiencia para ayudar a otros clientes'
+            }
           </Text>
           
           <TextInput
@@ -233,7 +355,10 @@ export default function RateAppointmentScreen() {
               <Text style={styles.termsText}>
                 • Tu calificación será visible públicamente{'\n'}
                 • Los comentarios ayudan a otros clientes{'\n'}
-                • Puedes editar tu calificación más tarde{'\n'}
+                {isUpdating 
+                  ? '• Esto actualizará tu calificación anterior\n' 
+                  : '• Puedes editar tu calificación más tarde\n'
+                }
                 • Mantén un tono respetuoso y constructivo
               </Text>
             </View>
@@ -252,7 +377,7 @@ export default function RateAppointmentScreen() {
             style={styles.cancelButton}
           />
           <Button
-            title="Enviar Calificación"
+            title={isUpdating ? "Actualizar Calificación" : "Enviar Calificación"}
             onPress={handleSubmitRating}
             variant="primary"
             size="large"
@@ -362,7 +487,10 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing.md,
   },
   starButton: {
-    padding: DesignTokens.spacing.xs,
+    padding: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ratingText: {
     fontSize: DesignTokens.typography.fontSizes.base,

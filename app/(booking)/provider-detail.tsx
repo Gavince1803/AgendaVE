@@ -1,8 +1,8 @@
 // 📱 Pantalla de Detalles del Proveedor
 // Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
 
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import {
     Alert,
     RefreshControl,
@@ -39,6 +39,7 @@ export default function ProviderDetailScreen() {
     }
   }, [providerId]);
 
+
   const loadProviderData = async () => {
     if (!providerId) return;
     
@@ -66,7 +67,9 @@ export default function ProviderDetailScreen() {
         provider: providerData?.business_name,
         servicesCount: servicesData.length,
         availabilityCount: availabilityData.length,
-        reviewsCount: reviewsData.length
+        reviewsCount: reviewsData.length,
+        providerRating: providerData?.rating,
+        totalReviews: providerData?.total_reviews
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading provider data', error);

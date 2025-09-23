@@ -968,6 +968,106 @@ export class BookingService {
     }
   }
 
+  // 📍 Verificar si existe una reseña para una cita
+  static async getExistingReview(appointmentId: string): Promise<Review | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('appointment_id', appointmentId)
+        .eq('client_id', user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows found - no existing review
+          return null;
+        }
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error checking existing review:', error);
+      return null;
+    }
+  }
+
+  // 📍 Actualizar reseña existente
+  static async updateReview(
+    reviewId: string,
+    rating: number,
+    comment?: string
+  ): Promise<Review> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      console.log('🔴 [BOOKING SERVICE] Updating review:', { reviewId, rating, comment });
+      
+      const updateData: any = {
+        rating,
+        comment: comment || null
+      };
+      
+      console.log('🔴 [BOOKING SERVICE] Update data:', updateData);
+
+      const { data, error } = await supabase
+        .from('reviews')
+        .update(updateData)
+        .eq('id', reviewId)
+        .eq('client_id', user.id) // Ensure user owns the review
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Supabase update error:', error);
+        console.error('🔴 [BOOKING SERVICE] Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+
+      // Get the appointment info to update provider rating and send notification
+      const { data: appointment } = await supabase
+        .from('appointments')
+        .select('provider_id')
+        .eq('id', data.appointment_id)
+        .single();
+
+      if (appointment) {
+        // Update provider rating
+        await this.updateProviderRating(appointment.provider_id);
+
+        // Send notification about updated review
+        try {
+          await NotificationService.sendPushNotification(appointment.provider_id, {
+            title: 'Calificación Actualizada ⭐',
+            body: `Un cliente actualizó su calificación a ${rating} estrellas`,
+            data: {
+              type: 'updated_review',
+              appointment_id: data.appointment_id,
+              rating,
+            },
+          });
+        } catch (notificationError) {
+          console.error('Error sending updated review notification:', notificationError);
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating review:', error);
+      throw error;
+    }
+  }
+
   // 📍 Crear reseña
   static async createReview(
     appointmentId: string,
@@ -997,10 +1097,7 @@ export class BookingService {
           rating,
           comment: comment || null
         })
-        .select(`
-          *,
-          client:profiles(id, display_name)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
@@ -1034,23 +1131,37 @@ export class BookingService {
   // 📍 Actualizar rating promedio del proveedor
   static async updateProviderRating(providerId: string): Promise<void> {
     try {
+      console.log('🔴 [BOOKING SERVICE] Updating provider rating for:', providerId);
+      
       const { data: reviews, error } = await supabase
         .from('reviews')
         .select('rating')
         .eq('provider_id', providerId);
 
       if (error) throw error;
+      
+      console.log('🔴 [BOOKING SERVICE] Found reviews:', { count: reviews?.length, reviews });
 
       if (reviews && reviews.length > 0) {
         const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+        const roundedRating = Math.round(averageRating * 100) / 100;
         
-        await supabase
+        console.log('🔴 [BOOKING SERVICE] Calculated rating:', { averageRating, roundedRating, totalReviews: reviews.length });
+        
+        const { error: updateError } = await supabase
           .from('providers')
           .update({
-            rating: Math.round(averageRating * 100) / 100,
+            rating: roundedRating,
             total_reviews: reviews.length
           })
           .eq('id', providerId);
+          
+        if (updateError) {
+          console.error('🔴 [BOOKING SERVICE] Error updating provider:', updateError);
+          throw updateError;
+        }
+        
+        console.log('🎉 [BOOKING SERVICE] ✅ Provider rating updated successfully!');
       }
     } catch (error) {
       console.error('Error updating provider rating:', error);
