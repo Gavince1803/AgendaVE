@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import {
+  AppointmentListSkeleton,
+  EmptyState,
+  ErrorState,
+  createRefreshControl,
+  ScreenLoading
+} from '@/components/ui/LoadingStates';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
@@ -24,6 +31,7 @@ export default function BookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const log = useLogger();
 
   useEffect(() => {
@@ -33,6 +41,7 @@ export default function BookingsScreen() {
   const loadAppointments = async () => {
     try {
       setLoading(true);
+      setError(null);
       log.info(LogCategory.DATA, 'Loading client appointments', { screen: 'Bookings' });
       
       const appointmentsData = await BookingService.getClientAppointments();
@@ -44,16 +53,22 @@ export default function BookingsScreen() {
       });
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error loading client appointments', error);
+      setError('No se pudieron cargar tus citas. Verifica tu conexión a internet.');
       setAppointments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const onRefresh = async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
     await loadAppointments();
     setRefreshing(false);
+  };
+
+  const handleRetry = () => {
+    log.userAction('Retry loading appointments', { screen: 'Bookings' });
+    loadAppointments();
   };
 
   // Filtrar citas por estado
@@ -419,48 +434,36 @@ export default function BookingsScreen() {
       <ScrollView 
         style={styles.bookingsSection}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.light.primary]}
-            tintColor={Colors.light.primary}
-          />
-        }
+        refreshControl={createRefreshControl(refreshing, handleRefresh)}
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <View style={styles.loadingState}>
-            <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
-          </View>
-        ) : currentBookings.length === 0 ? (
-          <View style={styles.emptyState}>
-            <IconSymbol name="calendar" size={64} color={Colors.light.textTertiary} />
-            <ThemedText style={styles.emptyStateText}>
-              {selectedTab === 'upcoming' 
-                ? 'No tienes citas próximas' 
-                : 'No tienes citas anteriores'}
-            </ThemedText>
-            <ThemedText style={styles.emptyStateSubtext}>
-              {selectedTab === 'upcoming' 
-                ? 'Explora servicios y reserva tu próxima cita' 
-                : 'Tus citas completadas aparecerán aquí'}
-            </ThemedText>
-            {selectedTab === 'upcoming' && (
-              <Button
-                title="Explorar Servicios"
-                variant="primary"
-                size="medium"
-                onPress={handleExploreServices}
-                style={styles.exploreButton}
-              />
-            )}
-          </View>
-        ) : (
-          <View style={styles.bookingsList}>
-            {currentBookings.map((booking) => renderBookingCard(booking))}
-          </View>
-        )}
+        <ScreenLoading
+          loading={loading}
+          skeleton={<AppointmentListSkeleton />}
+          error={error}
+          onRetry={handleRetry}
+        >
+          {currentBookings.length === 0 ? (
+            <EmptyState
+              title={selectedTab === 'upcoming' ? 'No tienes citas próximas' : 'No tienes citas anteriores'}
+              message={
+                selectedTab === 'upcoming' 
+                  ? 'Explora servicios y reserva tu próxima cita en nuestra plataforma.' 
+                  : 'Tus citas completadas y canceladas aparecerán aquí para tu referencia.'
+              }
+              icon={selectedTab === 'upcoming' ? 'calendar.badge.plus' : 'calendar'}
+              actionText={selectedTab === 'upcoming' ? 'Explorar Servicios' : undefined}
+              onAction={selectedTab === 'upcoming' ? () => {
+                log.userAction('Navigate to explore from empty bookings', { screen: 'Bookings' });
+                router.push('/(tabs)/explore');
+              } : undefined}
+            />
+          ) : (
+            <View style={styles.bookingsList}>
+              {currentBookings.map((booking) => renderBookingCard(booking))}
+            </View>
+          )}
+        </ScreenLoading>
       </ScrollView>
     </TabSafeAreaView>
   );

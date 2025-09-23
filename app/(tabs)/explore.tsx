@@ -5,6 +5,13 @@ import { Card } from '@/components/ui/Card';
 import { FiltersModal, FilterOptions } from '@/components/ui/FiltersModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
+import {
+  ProviderListSkeleton,
+  EmptyState,
+  ErrorState,
+  createRefreshControl,
+  ScreenLoading
+} from '@/components/ui/LoadingStates';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
@@ -27,6 +34,7 @@ export default function ExploreScreen() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({});
   const [filters, setFilters] = useState<FilterOptions>({
@@ -69,6 +77,7 @@ export default function ExploreScreen() {
   const loadProviders = async () => {
     try {
       setLoading(true);
+      setError(null);
       log.info(LogCategory.DATA, 'Loading providers', { category: selectedCategory, searchQuery });
 
       let providersData: Provider[];
@@ -109,7 +118,7 @@ export default function ExploreScreen() {
       log.info(LogCategory.DATA, 'Providers loaded successfully', { count: providersData.length });
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error loading providers', error);
-      // Mantener datos de ejemplo en caso de error
+      setError('No se pudieron cargar los proveedores. Verifica tu conexión a internet.');
       setProviders([]);
     } finally {
       setLoading(false);
@@ -165,6 +174,17 @@ export default function ExploreScreen() {
     log.userAction('Open filters modal', { screen: 'Explore' });
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadProviders();
+    setRefreshing(false);
+  };
+
+  const handleRetry = () => {
+    log.userAction('Retry loading providers', { screen: 'Explore' });
+    loadProviders();
+  };
+
   const loadFavoriteStatuses = async () => {
     try {
       if (filteredProviders.length === 0) return;
@@ -208,11 +228,6 @@ export default function ExploreScreen() {
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadProviders();
-    setRefreshing(false);
-  };
 
   const renderProviderCard = (provider: Provider) => (
     <Card key={provider.id} variant="elevated" style={styles.providerCard}>
@@ -324,14 +339,7 @@ export default function ExploreScreen() {
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.light.primary]}
-            tintColor={Colors.light.primary}
-          />
-        }
+        refreshControl={createRefreshControl(refreshing, handleRefresh)}
       >
         {/* Categorías */}
         <ThemedView style={styles.section}>
@@ -392,19 +400,43 @@ export default function ExploreScreen() {
             />
           </View>
           
-          {loading ? (
-            <ThemedView style={styles.loadingContainer}>
-              <ThemedText style={[styles.loadingText, { color: textSecondaryColor }]}>Cargando proveedores...</ThemedText>
-            </ThemedView>
-          ) : filteredProviders.length > 0 ? (
-            filteredProviders.map((provider) => renderProviderCard(provider))
-          ) : (
-            <ThemedView style={styles.emptyContainer}>
-              <ThemedText style={[styles.emptyText, { color: textSecondaryColor }]}>
-                {providers.length > 0 ? 'No se encontraron proveedores con estos filtros' : 'No se encontraron proveedores en esta categoría'}
-              </ThemedText>
-            </ThemedView>
-          )}
+          <ScreenLoading
+            loading={loading}
+            skeleton={<ProviderListSkeleton />}
+            error={error}
+            onRetry={handleRetry}
+          >
+            {filteredProviders.length > 0 ? (
+              filteredProviders.map((provider) => renderProviderCard(provider))
+            ) : (
+              <EmptyState
+                title="No hay proveedores"
+                message={
+                  providers.length > 0 
+                    ? 'No se encontraron proveedores con estos filtros. Intenta ajustar tus criterios de búsqueda.' 
+                    : searchQuery.trim() 
+                      ? `No se encontraron proveedores para "${searchQuery}". Intenta con otro término.`
+                      : 'No hay proveedores disponibles en esta categoría por el momento.'
+                }
+                icon="magnifyingglass"
+                actionText={providers.length > 0 ? "Limpiar filtros" : "Explorar todo"}
+                onAction={() => {
+                  if (providers.length > 0) {
+                    setFilters({
+                      priceRange: { min: 0, max: 1000 },
+                      rating: 0,
+                      distance: 50,
+                      availability: 'all',
+                      sortBy: 'distance',
+                    });
+                  } else {
+                    setSelectedCategory('all');
+                    setSearchQuery('');
+                  }
+                }}
+              />
+            )}
+          </ScreenLoading>
         </ThemedView>
 
         {/* Espacio adicional al final */}
