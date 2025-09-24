@@ -149,9 +149,14 @@ export default function ServiceSelectionScreen() {
             <Text style={styles.providerSubtitle}>Servicios Profesionales</Text>
           </View>
           <View style={styles.stepIndicator}>
-            <Text style={styles.stepText}>Paso 1 de 3</Text>
+            <Text style={styles.stepText}>Paso 1 de 3 • Selección</Text>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: '33%' }]} />
+            </View>
+            <View style={styles.progressSteps}>
+              <View style={[styles.progressDot, styles.progressDotActive]} />
+              <View style={styles.progressDot} />
+              <View style={styles.progressDot} />
             </View>
           </View>
         </View>
@@ -339,6 +344,21 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.light.primary,
     borderRadius: 2,
+  },
+  progressSteps: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 120,
+    marginTop: 8,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.borderLight,
+  },
+  progressDotActive: {
+    backgroundColor: Colors.light.primary,
   },
   welcomeSection: {
     paddingHorizontal: 20,

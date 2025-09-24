@@ -287,9 +287,14 @@ export default function TimeSelectionScreen() {
             <Text style={styles.providerSubtitle}>Selecciona tu horario</Text>
           </View>
           <View style={styles.stepIndicator}>
-            <Text style={styles.stepText}>Paso 2 de 3</Text>
+            <Text style={styles.stepText}>Paso 2 de 3 • Fecha y Hora</Text>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: '66%' }]} />
+            </View>
+            <View style={styles.progressSteps}>
+              <View style={[styles.progressDot, styles.progressDotCompleted]} />
+              <View style={[styles.progressDot, styles.progressDotActive]} />
+              <View style={styles.progressDot} />
             </View>
           </View>
         </View>

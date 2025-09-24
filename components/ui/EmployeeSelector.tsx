@@ -90,15 +90,13 @@ export function EmployeeSelector({
                 />
                 
                 <View style={styles.employeeInfo}>
-                  <View style={styles.employeeNameRow}>
-                    <Text style={styles.employeeName}>{employee.name}</Text>
-                    {employee.is_owner && (
-                      <View style={styles.ownerBadge}>
-                        <IconSymbol name="crown" size={12} color={Colors.light.warning} />
-                        <Text style={styles.ownerText}>Dueño</Text>
-                      </View>
-                    )}
-                  </View>
+                  <Text style={styles.employeeName}>{employee.name}</Text>
+                  {employee.is_owner && (
+                    <View style={styles.ownerBadge}>
+                      <IconSymbol name="crown" size={10} color={Colors.light.warning} />
+                      <Text style={styles.ownerText}>Dueño</Text>
+                    </View>
+                  )}
                   
                   {employee.position && (
                     <Text style={styles.employeePosition}>{employee.position}</Text>
@@ -220,28 +218,25 @@ const styles = StyleSheet.create({
   employeeInfo: {
     alignItems: 'center',
   },
-  employeeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: DesignTokens.spacing.xs,
-  },
   employeeName: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     textAlign: 'center',
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: Colors.light.warning + '20',
     paddingHorizontal: DesignTokens.spacing.xs,
     paddingVertical: 2,
     borderRadius: DesignTokens.radius.sm,
-    marginLeft: DesignTokens.spacing.xs,
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.warning,
     marginLeft: 2,

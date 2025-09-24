@@ -82,12 +82,13 @@ export function AuthSafeAreaView({ children, style }: { children: React.ReactNod
 // Componente especializado para pantallas principales con tabs
 export function TabSafeAreaView({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView
       backgroundColor={Colors[colorScheme ?? 'light'].background}
       statusBarStyle="dark"
-      edges={['left', 'right']} // Remover top para evitar espaciado extra
-      style={[{ paddingTop: 0 }, style]}
+      edges={['left', 'right']} // Keep only left and right
+      style={[{ paddingTop: insets.top }, style]} // Add manual top padding
     >
       <ExpoStatusBar
         style="dark"

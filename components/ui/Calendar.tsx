@@ -183,6 +183,10 @@ export function Calendar({
       {/* Leyenda */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
+          <View style={[styles.legendColor, styles.legendToday]} />
+          <Text style={styles.legendText}>Hoy</Text>
+        </View>
+        <View style={styles.legendItem}>
           <View style={[styles.legendColor, styles.legendAvailable]} />
           <Text style={styles.legendText}>Disponible</Text>
         </View>
@@ -343,6 +347,9 @@ const styles = StyleSheet.create({
   },
   legendSelected: {
     backgroundColor: Colors.light.primary,
+  },
+  legendToday: {
+    backgroundColor: Colors.light.primary + '60',
   },
   legendText: {
     fontSize: 12,

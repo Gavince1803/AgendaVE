@@ -343,7 +343,30 @@ export default function ProviderDetailScreen() {
         {/* Reseñas */}
         {reviews.length > 0 && (
           <ThemedView style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Reseñas ({reviews.length})</ThemedText>
+            <ThemedView style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Reseñas ({reviews.length})</ThemedText>
+              {reviews.length > 3 && (
+                <Button
+                  title="Ver todas"
+                  variant="ghost"
+                  size="small"
+                  onPress={() => {
+                    log.userAction('View all reviews', { 
+                      providerId,
+                      totalReviews: reviews.length,
+                      screen: 'ProviderDetail'
+                    });
+                    router.push({
+                      pathname: '/(booking)/reviews',
+                      params: {
+                        providerId: providerId!,
+                        providerName: provider.business_name
+                      }
+                    });
+                  }}
+                />
+              )}
+            </ThemedView>
             {reviews.slice(0, 3).map((review) => (
               <Card key={review.id} variant="outlined" style={styles.reviewCard}>
                 <ThemedView style={styles.reviewHeader}>
@@ -362,6 +385,29 @@ export default function ProviderDetailScreen() {
                 </ThemedText>
               </Card>
             ))}
+            {reviews.length > 3 && (
+              <ThemedView style={styles.viewAllContainer}>
+                <Button
+                  title={`Ver las ${reviews.length - 3} reseñas restantes`}
+                  variant="outline"
+                  size="medium"
+                  onPress={() => {
+                    log.userAction('View all reviews', { 
+                      providerId,
+                      totalReviews: reviews.length,
+                      screen: 'ProviderDetail'
+                    });
+                    router.push({
+                      pathname: '/(booking)/reviews',
+                      params: {
+                        providerId: providerId!,
+                        providerName: provider.business_name
+                      }
+                    });
+                  }}
+                />
+              </ThemedView>
+            )}
           </ThemedView>
         )}
       </ScrollView>
@@ -468,11 +514,20 @@ const styles = StyleSheet.create({
     marginHorizontal: DesignTokens.spacing.lg,
     marginBottom: DesignTokens.spacing.xl,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.md,
+  },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.md,
+  },
+  viewAllContainer: {
+    marginTop: DesignTokens.spacing.md,
+    alignItems: 'center',
   },
   serviceCard: {
     marginBottom: DesignTokens.spacing.md,
