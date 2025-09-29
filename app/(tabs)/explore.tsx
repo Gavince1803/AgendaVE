@@ -2,29 +2,28 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { FiltersModal, FilterOptions } from '@/components/ui/FiltersModal';
+import { FilterOptions, FiltersModal } from '@/components/ui/FiltersModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
 import {
-  ProviderListSkeleton,
-  EmptyState,
-  ErrorState,
   createRefreshControl,
+  EmptyState,
+  ProviderListSkeleton,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function ExploreScreen() {
@@ -91,10 +90,10 @@ export default function ExploreScreen() {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         providersData = providersData.filter(provider => {
-          const businessName = provider.business_name.toLowerCase();
-          const providerName = provider.name.toLowerCase();
-          const category = provider.category.toLowerCase();
-          const address = provider.address.toLowerCase();
+          const businessName = (provider.business_name || '').toLowerCase();
+          const providerName = (provider.name || '').toLowerCase();
+          const category = (provider.category || '').toLowerCase();
+          const address = (provider.address || '').toLowerCase();
           
           // Búsqueda directa
           if (businessName.includes(query) || providerName.includes(query) || 
@@ -145,14 +144,14 @@ export default function ExploreScreen() {
         case 'rating':
           return b.rating - a.rating;
         case 'name':
-          return a.business_name.localeCompare(b.business_name);
+          return (a.business_name || '').localeCompare(b.business_name || '');
         case 'price':
           // In a real app, this would sort by actual service prices
-          return a.business_name.localeCompare(b.business_name); // Placeholder
+          return (a.business_name || '').localeCompare(b.business_name || ''); // Placeholder
         case 'distance':
         default:
           // In a real app, this would sort by actual distance
-          return a.business_name.localeCompare(b.business_name); // Placeholder
+          return (a.business_name || '').localeCompare(b.business_name || ''); // Placeholder
       }
     });
 
@@ -242,8 +241,17 @@ export default function ExploreScreen() {
         style={styles.providerCardContent}
       >
         <View style={styles.providerHeader}>
-          <View style={[styles.providerImage, { backgroundColor: surfaceColor }]}>
-            <IconSymbol name="building.2" size={32} color={primaryColor} />
+          <View style={[styles.providerImage, { backgroundColor: surfaceColor }] }>
+            {provider.logo_url ? (
+              <Image
+                source={{ uri: provider.logo_url! }}
+                style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <IconSymbol name="building.2" size={32} color={primaryColor} />
+            )}
           </View>
           <View style={styles.providerMainInfo}>
             <ThemedText style={styles.providerName} numberOfLines={1}>
@@ -342,7 +350,7 @@ export default function ExploreScreen() {
         refreshControl={createRefreshControl(refreshing, handleRefresh)}
       >
         {/* Categorías */}
-        <ThemedView style={styles.section}>
+        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing['2xl'] }]}> 
           <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
             Categorías
           </ThemedText>

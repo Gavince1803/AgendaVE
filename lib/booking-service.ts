@@ -793,6 +793,78 @@ export class BookingService {
     }
   }
 
+  // 💹 Obtener ingresos del proveedor para el mes actual (sumatoria de servicios de citas completadas)
+  static async getProviderRevenueThisMonth(userId?: string): Promise<{ currency: string; amount: number }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const provider = await this.getProviderById(userId || user.id);
+      if (!provider) {
+        return { currency: 'USD', amount: 0 };
+      }
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Obtener citas completadas de este mes con el servicio asociado
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select(`appointment_date, status, services(price_amount, price_currency)`) 
+        .eq('provider_id', provider.id)
+        .gte('appointment_date', startOfMonth)
+        .lte('appointment_date', endOfMonth)
+        .eq('status', 'done');
+
+      if (error) throw error;
+
+      let total = 0;
+      let currency = 'USD';
+      (appointments || []).forEach((apt: any) => {
+        const price = apt?.services?.price_amount || 0;
+        total += price;
+        currency = apt?.services?.price_currency || currency;
+      });
+
+      return { currency, amount: total };
+    } catch (e) {
+      console.error('Error calculating provider revenue:', e);
+      return { currency: 'USD', amount: 0 };
+    }
+  }
+
+  // 🗓️ Obtener conteo de citas del mes actual (todas excepto canceladas)
+  static async getMonthlyAppointmentsCount(userId?: string): Promise<number> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const provider = await this.getProviderById(userId || user.id);
+      if (!provider) {
+        return 0;
+      }
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      const { data, error, count } = await supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('provider_id', provider.id)
+        .gte('appointment_date', startOfMonth)
+        .lte('appointment_date', endOfMonth)
+        .in('status', ['pending', 'confirmed', 'done']);
+
+      if (error) throw error;
+      return count || 0;
+    } catch (e) {
+      console.error('Error getting monthly appointments count:', e);
+      return 0;
+    }
+  }
+
   // 📍 Actualizar estado de cita (confirmar/rechazar)
   static async updateAppointmentStatus(
     appointmentId: string,
@@ -1360,6 +1432,7 @@ export class BookingService {
       address?: string;
       phone?: string;
       email?: string;
+      logo_url?: string;
     }
   ): Promise<Provider | null> {
     try {
@@ -1374,6 +1447,7 @@ export class BookingService {
           address: updateData.address,
           phone: updateData.phone,
           email: updateData.email,
+          logo_url: updateData.logo_url,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)

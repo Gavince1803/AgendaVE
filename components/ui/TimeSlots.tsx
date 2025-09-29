@@ -1,5 +1,4 @@
 import { Colors } from '@/constants/Colors';
-import React from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -127,21 +126,7 @@ export function TimeSlots({
         )}
       </ScrollView>
 
-      {/* Leyenda */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendAvailable]} />
-          <Text style={styles.legendText}>Disponible</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendBooked]} />
-          <Text style={styles.legendText}>Ocupado</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendSelected]} />
-          <Text style={styles.legendText}>Seleccionado</Text>
-        </View>
-      </View>
+      {/* Leyenda removida para evitar duplicación con la guía del calendario */}
     </View>
   );
 }

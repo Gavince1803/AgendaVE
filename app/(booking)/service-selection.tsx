@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EmployeeSelector } from '@/components/ui/EmployeeSelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { BookingService, Employee } from '@/lib/booking-service';
-import { EmployeeSelector } from '@/components/ui/EmployeeSelector';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Platform,
     RefreshControl,
@@ -24,6 +24,11 @@ export default function ServiceSelectionScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [employeesLoading, setEmployeesLoading] = useState(true);
+
+  // Smooth auto-scroll handling
+  const scrollRef = useRef<ScrollView | null>(null);
+  const servicesSectionYRef = useRef<number>(0);
+  const bottomSectionYRef = useRef<number>(0);
 
   // Cargar servicios del proveedor
   useEffect(() => {
@@ -107,6 +112,12 @@ export default function ServiceSelectionScreen() {
 
   const handleServiceSelect = (serviceId: number) => {
     setSelectedService(serviceId);
+    // Smooth scroll to bottom section (continue button) once a service is selected
+    setTimeout(() => {
+      if (scrollRef.current && bottomSectionYRef.current > 0) {
+        scrollRef.current.scrollTo({ y: bottomSectionYRef.current - 12, animated: true });
+      }
+    }, 120);
   };
 
   const handleContinue = () => {
@@ -137,6 +148,7 @@ export default function ServiceSelectionScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -182,7 +194,15 @@ export default function ServiceSelectionScreen() {
         <EmployeeSelector
           employees={employees}
           selectedEmployee={selectedEmployee}
-          onEmployeeSelect={setSelectedEmployee}
+          onEmployeeSelect={(emp) => {
+            setSelectedEmployee(emp);
+            // Smooth scroll to services list after choosing employee
+            setTimeout(() => {
+              if (scrollRef.current && servicesSectionYRef.current > 0) {
+                scrollRef.current.scrollTo({ y: servicesSectionYRef.current - 12, animated: true });
+              }
+            }, 120);
+          }}
           loading={employeesLoading}
           selectedService={selectedServiceData ? {
             name: selectedServiceData.name,
@@ -192,7 +212,12 @@ export default function ServiceSelectionScreen() {
         />
 
         {/* Lista de servicios */}
-        <View style={styles.servicesSection}>
+        <View
+          style={styles.servicesSection}
+          onLayout={(e) => {
+            servicesSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionTitle}>Servicios Disponibles</Text>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -269,7 +294,12 @@ export default function ServiceSelectionScreen() {
       </ScrollView>
 
       {/* Botón de continuar */}
-      <View style={styles.bottomSection}>
+      <View
+        style={styles.bottomSection}
+        onLayout={(e) => {
+          bottomSectionYRef.current = e.nativeEvent.layout.y;
+        }}
+      >
         <Button
           title="Seleccionar Horario"
           onPress={handleContinue}

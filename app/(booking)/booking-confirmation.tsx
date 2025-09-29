@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
+import { NotificationService } from '@/lib/notification-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -72,7 +73,7 @@ export default function BookingConfirmationScreen() {
         notes: notes || undefined,
       };
 
-      await BookingService.createAppointment(
+      const created = await BookingService.createAppointment(
         providerId as string,
         serviceId as string,
         selectedDate as string,
@@ -80,6 +81,40 @@ export default function BookingConfirmationScreen() {
         (employeeId as string) || undefined,
         notes
       );
+
+      // Intentar enviar notificaciones (no bloquear la UX si falla)
+      try {
+        // Notificar al cliente (confirmación/local)
+        await NotificationService.sendLocalNotification({
+          title: 'Reserva creada',
+          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
+          data: { type: 'booking_created', appointment_id: created.id },
+        });
+
+        if (user?.id) {
+          await NotificationService.notifyAppointmentConfirmation(user.id, {
+            id: created.id,
+            provider_name: providerName,
+            appointment_date: selectedDate,
+          });
+        }
+
+        // Notificar al proveedor sobre nueva reserva
+        try {
+          const providerDetails = await BookingService.getProviderDetails(providerId as string);
+          if (providerDetails?.user_id) {
+            await NotificationService.notifyNewAppointment(providerDetails.user_id, {
+              id: created.id,
+              client_name: user?.profile?.display_name || user?.email || 'Cliente',
+              service_name: serviceName,
+            });
+          }
+        } catch (e) {
+          console.warn('Provider notification skipped:', e);
+        }
+      } catch (notifyErr) {
+        console.warn('Push notifications failed or unavailable:', notifyErr);
+      }
 
       Alert.alert(
         '¡Reserva Confirmada!',

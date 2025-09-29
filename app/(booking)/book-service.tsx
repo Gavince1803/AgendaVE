@@ -3,7 +3,7 @@
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -15,7 +15,6 @@ import {
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -53,6 +52,10 @@ export default function BookServiceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const log = useLogger();
+
+  // Smooth auto-scroll handling
+  const scrollRef = useRef<ScrollView | null>(null);
+  const timeSectionYRef = useRef<number>(0);
 
   useEffect(() => {
     if (providerId && serviceId) {
@@ -142,6 +145,12 @@ export default function BookServiceScreen() {
     if (selectedDate) {
       setSelectedDate(selectedDate);
       setSelectedTime(''); // Reset selected time when date changes
+      // Smooth scroll to time slots section shortly after selecting the date
+      setTimeout(() => {
+        if (scrollRef.current && timeSectionYRef.current > 0) {
+          scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
+        }
+      }, 120);
     }
   };
 
@@ -149,6 +158,12 @@ export default function BookServiceScreen() {
     const selectedDate = new Date(event.target.value);
     setSelectedDate(selectedDate);
     setSelectedTime(''); // Reset selected time when date changes
+    // Smooth scroll to time slots on web as well
+    setTimeout(() => {
+      if (scrollRef.current && timeSectionYRef.current > 0) {
+        scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
+      }
+    }, 120);
   };
 
   const handleTimeSelect = (time: string) => {
@@ -300,6 +315,7 @@ export default function BookServiceScreen() {
   return (
     <TabSafeAreaView style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -327,7 +343,12 @@ export default function BookServiceScreen() {
         </Card>
 
         {/* Selección de Fecha */}
-        <ThemedView style={styles.section}>
+        <ThemedView
+          style={styles.section}
+          onLayout={(e) => {
+            // Date section position is not used currently, but retained for extensibility
+          }}
+        >
           <ThemedText style={styles.sectionTitle}>Selecciona la Fecha</ThemedText>
           {Platform.OS === 'web' ? (
             // Web date input
@@ -362,7 +383,12 @@ export default function BookServiceScreen() {
         </ThemedView>
 
         {/* Selección de Hora */}
-        <ThemedView style={styles.section}>
+        <ThemedView
+          style={styles.section}
+          onLayout={(e) => {
+            timeSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
           <ThemedText style={styles.sectionTitle}>Selecciona la Hora</ThemedText>
           {availableSlots.length > 0 ? (
             <ThemedView style={styles.timeSlotsContainer}>

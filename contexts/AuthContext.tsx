@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('🔴 [AUTH CONTEXT] ❌ Error en signOut:', error);
       console.error('🔴 [AUTH CONTEXT] ❌ Tipo de error:', typeof error);
-      console.error('🔴 [AUTH CONTEXT] ❌ Mensaje de error:', error?.message || 'Sin mensaje');
+      console.error('🔴 [AUTH CONTEXT] ❌ Mensaje de error:', (error as any)?.message || String(error) || 'Sin mensaje');
       throw error;
     }
   };

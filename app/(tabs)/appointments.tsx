@@ -306,9 +306,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 20 : 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 28,

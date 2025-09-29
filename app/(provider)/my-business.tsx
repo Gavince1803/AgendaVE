@@ -12,6 +12,8 @@ import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -26,6 +28,9 @@ export default function MyBusinessScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showInactiveServices, setShowInactiveServices] = useState(false);
+  const [revenueThisMonth, setRevenueThisMonth] = useState<{ currency: string; amount: number } | null>(null);
+  const [monthlyAppointments, setMonthlyAppointments] = useState<number>(0);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Estados para edición
   const [editingBusiness, setEditingBusiness] = useState(false);
@@ -107,6 +112,18 @@ export default function MyBusinessScreen() {
       // Cargar disponibilidad del proveedor
       const availabilityData = await BookingService.getProviderAvailability(providerData.id);
       setAvailability(availabilityData);
+
+      // Cargar métricas del proveedor
+      try {
+        const [revenue, apptCount] = await Promise.all([
+          BookingService.getProviderRevenueThisMonth(user.id),
+          BookingService.getMonthlyAppointmentsCount(user.id)
+        ]);
+        setRevenueThisMonth(revenue);
+        setMonthlyAppointments(apptCount);
+      } catch (metricsError) {
+        console.warn('🔴 [MY BUSINESS] Error loading metrics:', metricsError);
+      }
 
       log.info(LogCategory.SERVICE, 'Business data loaded successfully', { 
         providerId: user.id,
@@ -239,6 +256,58 @@ export default function MyBusinessScreen() {
 
           {editingBusiness ? (
             <View style={styles.editForm}>
+              {/* Logo uploader */}
+              <TouchableOpacity
+                onPress={async () => {
+                  try {
+                    setUploadingLogo(true);
+                    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (permission.status !== 'granted') {
+                      Alert.alert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
+                      return;
+                    }
+                    const result = await ImagePicker.launchImageLibraryAsync({
+                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                      allowsEditing: true,
+                      aspect: [1, 1],
+                      quality: 0.8,
+                    });
+                    if (result.canceled || !result.assets?.length) return;
+                    const asset = result.assets[0];
+                    // Subir a Supabase Storage (bucket 'logos')
+                    try {
+                      const fileUri = asset.uri;
+                      const mime = (asset as any).mimeType || 'image/jpeg';
+                      const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+                      const filePath = `${user?.id}/${Date.now()}.${ext}`;
+                      const response = await fetch(fileUri);
+                      const arrayBuffer = await response.arrayBuffer();
+                      const { error: uploadError } = await supabase.storage
+                        .from('logos')
+                        .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
+                      if (uploadError) throw uploadError;
+                      // Obtener URL pública
+                      const { data: publicUrl } = await supabase.storage
+                        .from('logos').getPublicUrl(filePath);
+                      // Persistir en provider
+                      await BookingService.updateProvider(user!.id, { logo_url: publicUrl.publicUrl });
+                      setProvider(prev => prev ? { ...prev, logo_url: publicUrl.publicUrl } as any : prev);
+                      Alert.alert('Logo subido', 'Logo actualizado correctamente');
+                    } catch (uploadErr) {
+                      console.error('Error uploading logo:', uploadErr);
+                      Alert.alert('Error', 'No se pudo subir el logo');
+                    }
+                  } finally {
+                    setUploadingLogo(false);
+                  }
+                }}
+                style={{ alignSelf: 'flex-start' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <IconSymbol name="photo" size={18} color={Colors.light.primary} />
+                  <ThemedText>{uploadingLogo ? 'Subiendo logo...' : 'Subir logo'}</ThemedText>
+                </View>
+              </TouchableOpacity>
               <Input
                 label="Nombre del Negocio"
                 value={businessData.business_name}
@@ -634,6 +703,16 @@ export default function MyBusinessScreen() {
                 {services.filter(s => s.is_active).length}
               </ThemedText>
               <ThemedText style={styles.statLabel}>Activos</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>
+                {revenueThisMonth ? `${revenueThisMonth.currency} ${revenueThisMonth.amount.toFixed(2)}` : '—'}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Ingresos (mes)</ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <ThemedText style={styles.statValue}>{monthlyAppointments}</ThemedText>
+              <ThemedText style={styles.statLabel}>Citas este mes</ThemedText>
             </View>
           </View>
         </Card>

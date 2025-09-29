@@ -6,7 +6,7 @@ import { TimeSlots } from '@/components/ui/TimeSlots';
 import { Colors } from '@/constants/Colors';
 import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -29,6 +29,8 @@ export default function TimeSelectionScreen() {
   } = useLocalSearchParams();
   
   const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const timeSlotsYRef = useRef<number>(0);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -104,6 +106,12 @@ export default function TimeSelectionScreen() {
   useEffect(() => {
     if (selectedDate && providerId) {
       loadAvailableTimes(selectedDate);
+      // Auto-scroll a la sección de franjas horarias
+      setTimeout(() => {
+        if (scrollRef.current && timeSlotsYRef.current > 0) {
+          scrollRef.current.scrollTo({ y: timeSlotsYRef.current - 12, animated: true });
+        }
+      }, 100);
     } else {
       setAvailableTimes([]);
     }
@@ -275,6 +283,7 @@ export default function TimeSelectionScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -330,7 +339,12 @@ export default function TimeSelectionScreen() {
 
         {/* Franjas horarias */}
         {selectedDate && (
-          <View style={styles.timeSlotsSection}>
+          <View
+            style={styles.timeSlotsSection}
+            onLayout={(e) => {
+              timeSlotsYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <TimeSlots
               slots={availableTimes.map(time => ({
                 time,
@@ -457,6 +471,27 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: Colors.light.primary,
     borderRadius: 2,
+  },
+  progressSteps: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.borderLight,
+  },
+  progressDotCompleted: {
+    backgroundColor: Colors.light.primary,
+  },
+  progressDotActive: {
+    backgroundColor: Colors.light.primary,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   serviceSummary: {
     padding: 20,

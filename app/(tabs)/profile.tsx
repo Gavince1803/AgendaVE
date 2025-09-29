@@ -58,11 +58,7 @@ export default function ProfileScreen() {
               setToastMessage('Sesión cerrada exitosamente');
               setToastType('success');
               setShowToast(true);
-              
-              setTimeout(() => {
-                console.log('🔴 [PROFILE] Navegando a login...');
-                router.replace('/(auth)/login');
-              }, 1000);
+              // No navegación manual: el layout redirige automáticamente al login cuando user es null
               
             } catch (error) {
               console.error('🔴 [PROFILE] ❌ Error en signOut:', error);

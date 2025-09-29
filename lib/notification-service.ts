@@ -49,9 +49,10 @@ export class NotificationService {
         return null;
       }
 
-      // Skip push token generation in Expo Go since it requires EAS project setup
-      if (__DEV__) {
-        console.log('Skipping push token generation in development');
+      // Skip token generation on web; mobile requires proper EAS project ID
+      // Web push is not implemented in this project
+      // @ts-ignore Platform available from react-native
+      if (Platform.OS === 'web') {
         return null;
       }
 
