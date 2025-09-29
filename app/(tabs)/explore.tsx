@@ -350,8 +350,8 @@ export default function ExploreScreen() {
         refreshControl={createRefreshControl(refreshing, handleRefresh)}
       >
         {/* Categorías */}
-        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing['2xl'] }]}> 
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing.xs }]}> 
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor, marginBottom: DesignTokens.spacing.xl }] } >
             Categorías
           </ThemedText>
           <ScrollView 

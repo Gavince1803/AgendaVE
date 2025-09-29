@@ -1,13 +1,13 @@
 import { Colors, DesignTokens } from '@/constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { IconSymbol } from './IconSymbol';
 
@@ -70,6 +70,10 @@ export function TimePicker({
     }
   };
 
+  const handleModalClose = () => {
+    setShowPicker(false);
+  };
+
   const formatTimeDisplay = (timeStr: string): string => {
     try {
       const parts = timeStr.split(':');
@@ -126,14 +130,20 @@ export function TimePicker({
               transparent
               animationType="slide"
               visible={showPicker}
-              onRequestClose={() => setShowPicker(false)}
+              onRequestClose={handleModalClose}
+              presentationStyle="overFullScreen"
             >
               <View style={styles.modalOverlay}>
+                <TouchableOpacity 
+                  style={styles.modalBackdrop}
+                  activeOpacity={1}
+                  onPress={handleModalClose}
+                />
                 <View style={styles.modalContent}>
                   <View style={styles.modalHeader}>
                     <TouchableOpacity
                       style={styles.modalButton}
-                      onPress={() => setShowPicker(false)}
+                      onPress={handleModalClose}
                     >
                       <Text style={styles.modalButtonText}>Cancelar</Text>
                     </TouchableOpacity>
@@ -142,7 +152,7 @@ export function TimePicker({
                     </Text>
                     <TouchableOpacity
                       style={styles.modalButton}
-                      onPress={() => setShowPicker(false)}
+                      onPress={handleModalClose}
                     >
                       <Text style={[styles.modalButtonText, styles.modalButtonDone]}>
                         Listo
@@ -150,13 +160,16 @@ export function TimePicker({
                     </TouchableOpacity>
                   </View>
                   
-                  <DateTimePicker
-                    value={timeToDate(value)}
-                    mode="time"
-                    display="wheels"
-                    onChange={handleTimeChange}
-                    style={styles.picker}
-                  />
+                  <View style={styles.pickerContainer}>
+                    <DateTimePicker
+                      value={timeToDate(value)}
+                      mode="time"
+                      display="spinner"
+                      onChange={handleTimeChange}
+                      style={styles.picker}
+                      textColor={Colors.light.text}
+                    />
+                  </View>
                 </View>
               </View>
             </Modal>
@@ -212,6 +225,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  modalBackdrop: {
+    flex: 1,
+  },
   modalContent: {
     backgroundColor: Colors.light.background,
     borderTopLeftRadius: DesignTokens.radius.xl,
@@ -243,7 +259,12 @@ const styles = StyleSheet.create({
   modalButtonDone: {
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
   },
+  pickerContainer: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.lg,
+  },
   picker: {
     backgroundColor: Colors.light.background,
+    height: 200,
   },
 });

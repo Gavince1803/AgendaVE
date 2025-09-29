@@ -10,12 +10,12 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from 'react-native';
 
 export default function HomeScreen() {
@@ -702,6 +702,8 @@ const styles = StyleSheet.create({
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     letterSpacing: -0.2,
+    marginBottom: DesignTokens.spacing.md,
+
   },
   
   // Categorías

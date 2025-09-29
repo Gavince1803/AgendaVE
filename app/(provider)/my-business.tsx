@@ -740,10 +740,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
+    paddingTop: DesignTokens.spacing.sm,    // pequeño espacio superior
+    paddingBottom: DesignTokens.spacing.lg, // espacio inferior cómodo
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
   },
+  
   title: {
     textAlign: 'center',
   },
