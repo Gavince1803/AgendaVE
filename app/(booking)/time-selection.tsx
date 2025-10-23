@@ -102,6 +102,16 @@ export default function TimeSelectionScreen() {
     }
   }, [employeeId, providerId, serviceId]);
 
+  // Auto-scroll to calendar on mount to show it immediately
+  useEffect(() => {
+    // Scroll to show calendar after initial load, keeping some of service card visible
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({ y: 80, animated: true });
+      }
+    }, 300);
+  }, []);
+
   // Cargar horarios disponibles cuando se selecciona una fecha
   useEffect(() => {
     if (selectedDate && providerId) {
@@ -430,25 +440,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 24,
+    padding: 16,
     paddingTop: HEADER_PADDING_TOP,
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
   },
   headerContent: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   providerName: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.light.text,
     letterSpacing: -0.5,
   },
   providerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
   stepIndicator: {
     alignItems: 'flex-end',
@@ -494,25 +504,26 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   serviceSummary: {
-    padding: 20,
-    paddingTop: 0,
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   summaryTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: Colors.light.textSecondary,
     marginLeft: 8,
   },
   serviceName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   summaryDetails: {
     flexDirection: 'row',
@@ -520,11 +531,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.light.textSecondary,
   },
   summaryPrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: Colors.light.success,
   },

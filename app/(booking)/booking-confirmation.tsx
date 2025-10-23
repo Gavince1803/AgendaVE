@@ -251,7 +251,7 @@ export default function BookingConfirmationScreen() {
         </View>
 
         {/* Términos y condiciones */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.termsSection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.termsContainer}>
               <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
@@ -269,7 +269,7 @@ export default function BookingConfirmationScreen() {
         </View>
 
         {/* Política de cancelación */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.policySection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.policyContainer}>
               <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.warning} />
@@ -343,6 +343,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
+  termsSection: {
+    marginBottom: 12,
+  },
+  policySection: {
+    marginBottom: 24,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -414,40 +420,40 @@ const styles = StyleSheet.create({
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   termsContent: {
-    marginLeft: 12,
     flex: 1,
   },
   termsTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   termsText: {
     fontSize: 12,
     color: Colors.light.text,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   policyContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   policyContent: {
-    marginLeft: 12,
     flex: 1,
   },
   policyTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   policyText: {
     fontSize: 12,
     color: Colors.light.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   bottomSection: {
     padding: 20,

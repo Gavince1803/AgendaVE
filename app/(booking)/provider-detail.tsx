@@ -1,13 +1,13 @@
 // 📱 Pantalla de Detalles del Proveedor
 // Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
 
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -147,7 +147,11 @@ export default function ProviderDetailScreen() {
       pathname: '/(booking)/service-selection',
       params: {
         providerId: providerId!,
-        providerName: provider?.business_name || 'Proveedor'
+        providerName: provider?.business_name || 'Proveedor',
+        preselectedServiceId: service.id.toString(),
+        preselectedServiceName: service.name,
+        preselectedServicePrice: service.price_amount.toString(),
+        preselectedServiceDuration: service.duration_minutes.toString()
       }
     });
   };
@@ -524,6 +528,7 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.md,
   },
   viewAllContainer: {
     marginTop: DesignTokens.spacing.md,
