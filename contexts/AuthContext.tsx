@@ -6,7 +6,14 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    role: 'client' | 'provider',
+    phone?: string,
+    businessInfo?: { businessName?: string; businessType?: string; address?: string }
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: any) => Promise<void>;
 }
@@ -135,4 +142,3 @@ export function useAuth() {
   }
   return context;
 }
-

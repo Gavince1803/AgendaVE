@@ -12,6 +12,7 @@ export interface Provider {
   phone?: string;
   email?: string;
   logo_url?: string;
+  website?: string;
   lat?: number;
   lng?: number;
   timezone: string;
@@ -89,11 +90,17 @@ export interface Appointment {
   updated_at: string;
   // Joined data
   service?: Service;
+  services?: Service;
   provider?: Provider;
+  providers?: Provider;
   employee?: Employee;
   client?: {
     id: string;
     full_name?: string;
+    display_name?: string;
+    phone?: string;
+  };
+  profiles?: {
     display_name?: string;
     phone?: string;
   };
@@ -113,6 +120,7 @@ export interface Review {
     full_name?: string;
     display_name?: string;
   };
+  service?: Service;
 }
 
 export class BookingService {
@@ -464,7 +472,7 @@ export class BookingService {
       // Obtener citas existentes para esa fecha
       const { data: existingAppointments, error: appointmentsError } = await supabase
         .from('appointments')
-        .select('appointment_time, services(duration_minutes)')
+        .select('appointment_time, service_id, services(duration_minutes)')
         .eq('provider_id', providerId)
         .eq('appointment_date', date)
         .in('status', ['pending', 'confirmed']);
@@ -517,8 +525,9 @@ export class BookingService {
         // Verificar si este slot y toda su duración están disponibles
         const hasConflict = existingAppointments?.some(apt => {
           const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
-          const service = services.find(s => s.id === apt.service_id);
-          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
+          const matchedService = services.find(s => s.id === apt.service_id);
+          const joinedService = Array.isArray(apt.services) ? apt.services[0] : apt.services;
+          const aptDuration = matchedService?.duration_minutes || joinedService?.duration_minutes || 60;
           
           const aptStart = aptTime.getTime();
           const aptEnd = aptStart + (aptDuration * 60 * 1000);
@@ -579,7 +588,7 @@ export class BookingService {
       // Obtener citas existentes para esa fecha y empleado
       const { data: existingAppointments, error: appointmentsError } = await supabase
         .from('appointments')
-        .select('appointment_time, services(duration_minutes)')
+        .select('appointment_time, service_id, services(duration_minutes)')
         .eq('provider_id', providerId)
         .eq('employee_id', employeeId)
         .eq('appointment_date', date)
@@ -616,8 +625,9 @@ export class BookingService {
         // Verificar si este slot y toda su duración están disponibles
         const hasConflict = existingAppointments?.some(apt => {
           const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
-          const service = services.find(s => s.id === apt.service_id);
-          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
+          const matchedService = services.find(s => s.id === apt.service_id);
+          const joinedService = Array.isArray(apt.services) ? apt.services[0] : apt.services;
+          const aptDuration = matchedService?.duration_minutes || joinedService?.duration_minutes || 60;
           
           const aptStart = aptTime.getTime();
           const aptEnd = aptStart + (aptDuration * 60 * 1000);
@@ -868,7 +878,7 @@ export class BookingService {
   // 📍 Actualizar estado de cita (confirmar/rechazar)
   static async updateAppointmentStatus(
     appointmentId: string,
-    status: 'confirmed' | 'cancelled' | 'done'
+    status: 'pending' | 'confirmed' | 'cancelled' | 'done'
   ): Promise<Appointment> {
     try {
       const { data, error } = await supabase
@@ -1366,6 +1376,7 @@ export class BookingService {
     phone?: string;
     email?: string;
     is_active?: boolean;
+    website?: string;
   }): Promise<Provider> {
     try {
       // Crear el proveedor
@@ -1380,6 +1391,7 @@ export class BookingService {
           address: providerData.address || '',
           phone: providerData.phone || '',
           email: providerData.email || '',
+          website: providerData.website || '',
           timezone: 'America/Caracas',
           rating: 0.0,
           total_reviews: 0,
@@ -1433,6 +1445,7 @@ export class BookingService {
       phone?: string;
       email?: string;
       logo_url?: string;
+      website?: string;
     }
   ): Promise<Provider | null> {
     try {
@@ -1448,6 +1461,7 @@ export class BookingService {
           phone: updateData.phone,
           email: updateData.email,
           logo_url: updateData.logo_url,
+          website: updateData.website,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)
@@ -1816,9 +1830,13 @@ export class BookingService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Extract providers from the join result
-      return (data || []).map(item => item.providers as Provider);
+
+      const rows = (data ?? []) as Array<{ provider_id: string; providers: Provider | Provider[] }>; 
+      const providersList = rows
+        .map(row => (Array.isArray(row.providers) ? row.providers[0] : row.providers))
+        .filter((provider): provider is Provider => Boolean(provider));
+
+      return providersList;
     } catch (error) {
       console.error('Error getting favorite providers:', error);
       throw error;

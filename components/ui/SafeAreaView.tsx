@@ -1,12 +1,12 @@
 import { Colors } from '@/constants/Colors';
 import React from 'react';
-import { Platform, StatusBar, useColorScheme, View, ViewStyle } from 'react-native';
+import { Platform, StatusBar, useColorScheme, View, ViewStyle, StyleProp } from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SafeAreaViewProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   backgroundColor?: string;
   statusBarStyle?: 'light' | 'dark' | 'auto';
   statusBarBackgroundColor?: string;
@@ -52,10 +52,12 @@ export function SafeAreaView({
     return safeAreaStyle;
   };
 
+  const containerStyles: StyleProp<ViewStyle> = [getSafeAreaStyle(), style];
+
   return (
-    <View style={[getSafeAreaStyle(), style]}>
+    <View style={containerStyles}>
       <StatusBar
-        style={statusBarStyle}
+        barStyle={statusBarStyle === 'auto' ? (colorScheme === 'dark' ? 'light-content' : 'dark-content') : `${statusBarStyle}-content` as const}
         backgroundColor={statusBarBackgroundColor || defaultBackgroundColor}
         translucent={Platform.OS === 'android'}
       />
@@ -65,7 +67,7 @@ export function SafeAreaView({
 }
 
 // Componente especializado para pantallas de autenticación
-export function AuthSafeAreaView({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function AuthSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const colorScheme = useColorScheme();
   return (
     <SafeAreaView
@@ -80,15 +82,16 @@ export function AuthSafeAreaView({ children, style }: { children: React.ReactNod
 }
 
 // Componente especializado para pantallas principales con tabs
-export function TabSafeAreaView({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function TabSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const containerStyle: StyleProp<ViewStyle> = [{ paddingTop: insets.top }, style];
   return (
     <SafeAreaView
       backgroundColor={Colors[colorScheme ?? 'light'].background}
       statusBarStyle="dark"
       edges={['left', 'right']} // Keep only left and right
-      style={[{ paddingTop: insets.top }, style]} // Add manual top padding
+      style={containerStyle}
     >
       <ExpoStatusBar
         style="dark"
@@ -101,15 +104,16 @@ export function TabSafeAreaView({ children, style }: { children: React.ReactNode
 }
 
 // Componente especializado para pantallas de booking
-export function BookingSafeAreaView({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function BookingSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const colorScheme = useColorScheme();
+  const containerStyle: StyleProp<ViewStyle> = [{ paddingTop: 0 }, style];
   return (
     <SafeAreaView
       backgroundColor={Colors[colorScheme ?? 'light'].background}
       statusBarStyle="dark"
       statusBarBackgroundColor={Colors[colorScheme ?? 'light'].background}
       edges={['left', 'right', 'bottom']}
-      style={[{ paddingTop: 0 }, style]}
+      style={containerStyle}
     >
       <ExpoStatusBar
         style="dark"

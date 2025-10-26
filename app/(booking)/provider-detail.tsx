@@ -7,12 +7,12 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
-  StyleSheet
+  StyleSheet,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -169,10 +169,14 @@ export default function ProviderDetailScreen() {
 
   const formatAvailability = (availability: Availability[]) => {
     const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    return availability.map(a => {
-      const dayName = days[a.weekday];
-      return `${dayName}: ${a.start_time} - ${a.end_time}`;
-    }).join('\n');
+    return availability
+      .slice()
+      .sort((a, b) => a.weekday - b.weekday)
+      .map(slot => ({
+        id: slot.id,
+        day: days[slot.weekday],
+        range: `${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}`,
+      }));
   };
 
   const renderStars = (rating: number) => {
@@ -227,6 +231,8 @@ export default function ProviderDetailScreen() {
     );
   }
 
+  const availabilitySlots = formatAvailability(availability);
+
   return (
     <TabSafeAreaView style={styles.container}>
       <ScrollView
@@ -238,12 +244,12 @@ export default function ProviderDetailScreen() {
       >
         {/* Header del Proveedor */}
         <Card variant="elevated" style={styles.headerCard}>
-          <ThemedView style={styles.headerContent}>
-            <ThemedView style={styles.providerMainSection}>
-              <ThemedView style={styles.providerInfo}>
+          <View style={styles.headerContent}>
+            <View style={styles.providerMainSection}>
+              <View style={styles.providerInfo}>
                 <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
                 <ThemedText style={styles.category}>{provider.category}</ThemedText>
-              </ThemedView>
+              </View>
               
               <Button
                 title=""
@@ -261,33 +267,33 @@ export default function ProviderDetailScreen() {
                   />
                 }
               />
-            </ThemedView>
+            </View>
             
             {/* Rating */}
-            <ThemedView style={styles.ratingContainer}>
-              <ThemedView style={styles.starsContainer}>
+            <View style={styles.ratingContainer}>
+              <View style={styles.starsContainer}>
                 {renderStars(provider.rating)}
-              </ThemedView>
+              </View>
               <ThemedText style={styles.ratingText}>
                 {provider.rating.toFixed(1)} ({provider.total_reviews} reseñas)
               </ThemedText>
-            </ThemedView>
+            </View>
 
             {/* Información de contacto */}
             {provider.address && (
-              <ThemedView style={styles.contactInfo}>
+              <View style={styles.contactInfo}>
                 <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
-              </ThemedView>
+              </View>
             )}
             
             {provider.phone && (
-              <ThemedView style={styles.contactInfo}>
+              <View style={styles.contactInfo}>
                 <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
-              </ThemedView>
+              </View>
             )}
-          </ThemedView>
+          </View>
 
           {provider.bio && (
             <ThemedText style={styles.bio}>{provider.bio}</ThemedText>
@@ -299,37 +305,37 @@ export default function ProviderDetailScreen() {
           <ThemedText style={styles.sectionTitle}>Servicios ({services.length})</ThemedText>
           {services.length > 0 ? (
             services.map((service) => (
-              <Card key={service.id} variant="outlined" style={styles.serviceCard}>
-                <ThemedView style={styles.serviceContent}>
-                  <ThemedView style={styles.serviceInfo}>
+              <Card key={service.id} variant="default" style={styles.serviceCard}>
+                <View style={styles.serviceContent}>
+                  <View style={styles.serviceInfo}>
                     <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
                     {service.description && (
                       <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
                     )}
-                    <ThemedView style={styles.serviceDetails}>
-                      <Badge variant="secondary" style={styles.durationBadge}>
-                        <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
-                        <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
-                      </Badge>
+                    <View style={styles.serviceDetails}>
+                      <View style={styles.serviceMetaChip}>
+                        <IconSymbol name="clock" size={12} color={Colors.light.primary} />
+                        <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                      </View>
                       <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
-                    </ThemedView>
-                  </ThemedView>
+                    </View>
+                  </View>
                   <Button
                     title="Reservar"
                     onPress={() => handleBookService(service)}
                     style={styles.bookButton}
                     size="small"
                   />
-                </ThemedView>
+                </View>
               </Card>
             ))
           ) : (
             <Card variant="outlined" style={styles.emptyServicesCard}>
-              <ThemedView style={styles.emptyServicesContent}>
+              <View style={styles.emptyServicesContent}>
                 <IconSymbol name="wrench.and.screwdriver" size={48} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.emptyServicesText}>Este proveedor aún no ha configurado servicios</ThemedText>
                 <ThemedText style={styles.emptyServicesSubtext}>Contacta directamente para obtener más información</ThemedText>
-              </ThemedView>
+              </View>
             </Card>
           )}
         </ThemedView>
@@ -337,10 +343,45 @@ export default function ProviderDetailScreen() {
         {/* Horarios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Horarios de Atención</ThemedText>
-          <Card variant="outlined" style={styles.availabilityCard}>
-            <ThemedText style={styles.availabilityText}>
-              {formatAvailability(availability)}
-            </ThemedText>
+          <Card variant="elevated" style={styles.availabilityCard}>
+            <View style={styles.availabilityHeader}>
+              <View style={styles.availabilityIcon}>
+                <IconSymbol name="clock" size={18} color={Colors.light.primary} />
+              </View>
+              <View>
+                <ThemedText style={styles.availabilityTitle}>Atención Personalizada</ThemedText>
+                <ThemedText style={styles.availabilitySubtitle}>
+                  Agenda dentro de los horarios disponibles
+                </ThemedText>
+              </View>
+            </View>
+
+            {availabilitySlots.length > 0 ? (
+              <View style={styles.availabilityList}>
+                {availabilitySlots.map((slot, index) => (
+                  <View
+                    key={slot.id}
+                    style={[
+                      styles.availabilityRow,
+                      index === availabilitySlots.length - 1 && styles.availabilityRowLast,
+                    ]}
+                  >
+                    <ThemedText style={styles.availabilityDay}>{slot.day}</ThemedText>
+                    <View style={styles.availabilityPill}>
+                      <IconSymbol name="clock" size={14} color={Colors.light.primary} />
+                      <ThemedText style={styles.availabilitySlot}>{slot.range}</ThemedText>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyAvailability}>
+                <IconSymbol name="calendar.badge.clock" size={20} color={Colors.light.textSecondary} />
+                <ThemedText style={styles.emptyAvailabilityText}>
+                  Este proveedor aún no ha configurado horarios públicos.
+                </ThemedText>
+              </View>
+            )}
           </Card>
         </ThemedView>
 
@@ -536,16 +577,22 @@ const styles = StyleSheet.create({
   },
   serviceCard: {
     marginBottom: DesignTokens.spacing.md,
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['2xl'],
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    ...DesignTokens.elevation.sm,
   },
   serviceContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: DesignTokens.spacing.lg,
   },
   serviceInfo: {
     flex: 1,
-    marginRight: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.sm,
   },
   serviceName: {
     fontSize: DesignTokens.typography.fontSizes.lg,
@@ -555,25 +602,28 @@ const styles = StyleSheet.create({
   },
   serviceDescription: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.sm,
+    color: Colors.light.textSecondary,
     lineHeight: 18,
   },
   serviceDetails: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: DesignTokens.spacing.md,
   },
-  durationBadge: {
+  serviceMetaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: DesignTokens.spacing.xs,
-    paddingHorizontal: DesignTokens.spacing.sm,
+    backgroundColor: Colors.light.surfaceVariant,
+    paddingHorizontal: DesignTokens.spacing.md,
     paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
   },
-  durationText: {
+  serviceMetaText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.text,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.lg,
@@ -584,12 +634,78 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   availabilityCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['3xl'],
+    backgroundColor: Colors.light.surface,
+    borderWidth: 0,
+    gap: DesignTokens.spacing.lg,
+    ...DesignTokens.elevation.md,
   },
-  availabilityText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+  availabilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+  },
+  availabilityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availabilityTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    lineHeight: 22,
+  },
+  availabilitySubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  availabilityList: {
+    gap: DesignTokens.spacing.sm,
+  },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: DesignTokens.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  availabilityRowLast: {
+    borderBottomWidth: 0,
+  },
+  availabilityDay: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    color: Colors.light.text,
+  },
+  availabilityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.full,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.xs,
+  },
+  availabilitySlot: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  emptyAvailability: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.lg,
+  },
+  emptyAvailabilityText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
   reviewCard: {
     marginBottom: DesignTokens.spacing.md,

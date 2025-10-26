@@ -120,6 +120,10 @@ export default function AddServiceScreen() {
     console.log('🔴 [ADD-SERVICE] createService called with:', { price, duration });
     
     try {
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
       setSaving(true);
       console.log('🔴 [ADD-SERVICE] Setting saving state to true');
       
@@ -265,7 +269,7 @@ export default function AddServiceScreen() {
               </ThemedText>
               <ThemedText style={styles.infoDescription}>
                 • El servicio se creará como activo por defecto{'\n'}
-                • Puedes editarlo o desactivarlo desde "Mi Negocio"{'\n'}
+                {'• Puedes editarlo o desactivarlo desde "Mi Negocio"'}{'\n'}
                 • Los clientes podrán reservar este servicio inmediatamente
               </ThemedText>
             </View>

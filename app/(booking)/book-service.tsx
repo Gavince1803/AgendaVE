@@ -218,8 +218,10 @@ export default function BookServiceScreen() {
         appointment = await BookingService.updateAppointment(rescheduleId, {
           appointment_date: selectedDate.toISOString().split('T')[0],
           appointment_time: selectedTime,
-          status: 'pending' // Reset to pending for provider confirmation
         });
+
+        // Reset status to pending for provider confirmation
+        appointment = await BookingService.updateAppointmentStatus(rescheduleId, 'pending');
       } else {
         // Create new appointment
         appointment = await BookingService.createAppointment(

@@ -39,7 +39,7 @@ export default function EmployeeManagementScreen() {
       return;
     }
 
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     
     try {
       setLoading(true);
@@ -82,7 +82,7 @@ export default function EmployeeManagementScreen() {
       // Set empty array so UI doesn't break
       setEmployees([]);
     } finally {
-      if (timeoutId) {
+      if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
       setLoading(false);

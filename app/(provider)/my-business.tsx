@@ -90,7 +90,7 @@ export default function MyBusinessScreen() {
         address: providerData.address || '',
         phone: providerData.phone || '',
         email: providerData.email || '',
-        website: '',
+        website: providerData.website || '',
       });
 
       // Cargar TODOS los servicios (activos e inactivos) para gestión
@@ -177,8 +177,9 @@ export default function MyBusinessScreen() {
       );
     } catch (error) {
       console.error('🔴 [MY BUSINESS] Error guardando:', error);
-      log.error(LogCategory.SERVICE, 'Error saving business data', { error: error instanceof Error ? error.message : String(error) });
-      Alert.alert('Error', `No se pudieron guardar los datos: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error(LogCategory.SERVICE, 'Error saving business data', { error: errorMessage });
+      Alert.alert('Error', `No se pudieron guardar los datos: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -388,7 +389,7 @@ export default function MyBusinessScreen() {
               </View>
               <View style={styles.infoRow}>
                 <ThemedText style={styles.infoLabel}>Descripción:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.description || 'No especificado'}</ThemedText>
+                <ThemedText style={styles.infoValue}>{provider?.bio || 'No especificado'}</ThemedText>
               </View>
               <View style={styles.infoRow}>
                 <ThemedText style={styles.infoLabel}>Dirección:</ThemedText>

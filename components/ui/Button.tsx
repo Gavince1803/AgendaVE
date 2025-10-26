@@ -5,14 +5,20 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    TouchableOpacityProps
+    TouchableOpacityProps,
+    StyleProp,
+    ViewStyle,
+    TextStyle
 } from 'react-native';
 import { LoadingSpinner } from './LoadingSpinner';
 
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'warning' | 'error' | 'wellness' | 'premium' | 'soft';
+type ButtonSize = 'small' | 'medium' | 'large' | 'xl';
+
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'success' | 'warning' | 'error' | 'wellness' | 'premium' | 'soft';
-  size?: 'small' | 'medium' | 'large' | 'xl';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
@@ -65,23 +71,23 @@ export function Button({
     }).start();
   };
 
-  const buttonStyle = [
+  const buttonStyle: StyleProp<ViewStyle> = [
     styles.base,
-    styles[variant],
-    styles[size],
-    fullWidth && styles.fullWidth,
-    rounded && styles.rounded,
-    elevated && styles.elevated,
-    gradient && styles.gradient,
-    (disabled || loading) && styles.disabled,
+    styles[variant] as ViewStyle,
+    styles[size] as ViewStyle,
+    fullWidth ? styles.fullWidth : undefined,
+    rounded ? styles.rounded : undefined,
+    elevated ? styles.elevated : undefined,
+    gradient ? styles.gradient : undefined,
+    (disabled || loading) ? styles.disabled : undefined,
     style,
   ];
 
-  const textStyle = [
+  const textStyle: StyleProp<TextStyle> = [
     styles.text,
-    styles[`${variant}Text`],
-    styles[`${size}Text`],
-    (disabled || loading) && styles.disabledText,
+    styles[`${variant}Text`] as TextStyle,
+    styles[`${size}Text`] as TextStyle,
+    (disabled || loading) ? styles.disabledText : undefined,
   ];
 
   const animatedStyle = {
@@ -89,7 +95,7 @@ export function Button({
   };
 
   return (
-    <Animated.View style={[animatedStyle, fullWidth && styles.fullWidthContainer]}>
+    <Animated.View style={[animatedStyle, fullWidth ? styles.fullWidthContainer : undefined]}>
       <TouchableOpacity
         style={buttonStyle}
         disabled={disabled || loading}
@@ -136,7 +142,47 @@ function getLoadingColor(variant: string): string {
   }
 }
 
-const styles = StyleSheet.create({
+type ButtonStyles = {
+  base: ViewStyle;
+  primary: ViewStyle;
+  secondary: ViewStyle;
+  outline: ViewStyle;
+  ghost: ViewStyle;
+  success: ViewStyle;
+  warning: ViewStyle;
+  error: ViewStyle;
+  wellness: ViewStyle;
+  premium: ViewStyle;
+  soft: ViewStyle;
+  small: ViewStyle;
+  medium: ViewStyle;
+  large: ViewStyle;
+  xl: ViewStyle;
+  disabled: ViewStyle;
+  fullWidth: ViewStyle;
+  fullWidthContainer: ViewStyle;
+  rounded: ViewStyle;
+  elevated: ViewStyle;
+  gradient: ViewStyle;
+  text: TextStyle;
+  primaryText: TextStyle;
+  secondaryText: TextStyle;
+  outlineText: TextStyle;
+  ghostText: TextStyle;
+  successText: TextStyle;
+  warningText: TextStyle;
+  errorText: TextStyle;
+  wellnessText: TextStyle;
+  premiumText: TextStyle;
+  softText: TextStyle;
+  smallText: TextStyle;
+  mediumText: TextStyle;
+  largeText: TextStyle;
+  xlText: TextStyle;
+  disabledText: TextStyle;
+};
+
+const styles = StyleSheet.create<ButtonStyles>({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,7 +292,7 @@ const styles = StyleSheet.create({
   
   // Texto
   text: {
-    fontWeight: DesignTokens.typography.fontWeights.semibold,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     textAlign: 'center',
     letterSpacing: 0.2,
   },

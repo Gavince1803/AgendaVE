@@ -244,7 +244,7 @@ export default function BookingConfirmationScreen() {
             </Text>
             <View style={styles.notesInput}>
               <Text style={styles.notesPlaceholder}>
-                Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.
+                {'Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.'}
               </Text>
             </View>
           </Card>

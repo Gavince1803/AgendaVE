@@ -1,13 +1,15 @@
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import React, { useState } from 'react';
 import {
-    Animated,
     StyleSheet,
     Text,
     TextInput,
     TextInputProps,
     TouchableOpacity,
     View,
+    StyleProp,
+    ViewStyle,
+    TextStyle,
 } from 'react-native';
 
 interface InputProps extends TextInputProps {
@@ -17,7 +19,7 @@ interface InputProps extends TextInputProps {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   onRightIconPress?: () => void;
-  containerStyle?: any;
+  containerStyle?: StyleProp<ViewStyle>;
   variant?: 'default' | 'filled' | 'outlined';
   size?: 'small' | 'medium' | 'large';
 }
@@ -37,42 +39,42 @@ export function Input({
 }: InputProps) {
   const [isFocused, setIsFocused] = useState(false);
 
-  const handleFocus = (e: any) => {
+  const handleFocus = (e: Parameters<NonNullable<TextInputProps['onFocus']>>[0]) => {
     setIsFocused(true);
     if (props.onFocus) {
       props.onFocus(e);
     }
   };
 
-  const handleBlur = (e: any) => {
+  const handleBlur = (e: Parameters<NonNullable<TextInputProps['onBlur']>>[0]) => {
     setIsFocused(false);
     if (props.onBlur) {
       props.onBlur(e);
     }
   };
 
-  const inputContainerStyle = [
+  const inputContainerStyle: StyleProp<ViewStyle> = [
     styles.inputContainer,
-    styles[variant],
-    styles[size],
-    isFocused && styles.inputContainerFocused,
-    error && styles.inputContainerError,
-    leftIcon && styles.inputContainerWithLeftIcon,
-    rightIcon && styles.inputContainerWithRightIcon,
+    styles[variant] as ViewStyle,
+    styles[size] as ViewStyle,
+    isFocused ? styles.inputContainerFocused : undefined,
+    error ? styles.inputContainerError : undefined,
+    leftIcon ? styles.inputContainerWithLeftIcon : undefined,
+    rightIcon ? styles.inputContainerWithRightIcon : undefined,
   ];
 
-  const inputStyle = [
+  const inputStyle: StyleProp<TextStyle> = [
     styles.input,
-    styles[`${size}Input`],
-    leftIcon && styles.inputWithLeftIcon,
-    rightIcon && styles.inputWithRightIcon,
+    styles[`${size}Input`] as TextStyle,
+    leftIcon ? styles.inputWithLeftIcon : undefined,
+    rightIcon ? styles.inputWithRightIcon : undefined,
     style,
   ];
 
-  const labelStyle = [
+  const labelStyle: StyleProp<TextStyle> = [
     styles.label,
-    styles[`${size}Label`],
-    error && styles.errorLabel,
+    styles[`${size}Label`] as TextStyle,
+    error ? styles.errorLabel : undefined,
   ];
 
   return (
@@ -114,7 +116,37 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+type InputStyles = {
+  container: ViewStyle;
+  label: TextStyle;
+  smallLabel: TextStyle;
+  mediumLabel: TextStyle;
+  largeLabel: TextStyle;
+  errorLabel: TextStyle;
+  inputContainer: ViewStyle;
+  default: ViewStyle;
+  filled: ViewStyle;
+  outlined: ViewStyle;
+  small: ViewStyle;
+  medium: ViewStyle;
+  large: ViewStyle;
+  inputContainerFocused: ViewStyle;
+  inputContainerError: ViewStyle;
+  inputContainerWithLeftIcon: ViewStyle;
+  inputContainerWithRightIcon: ViewStyle;
+  input: TextStyle;
+  smallInput: TextStyle;
+  mediumInput: TextStyle;
+  largeInput: TextStyle;
+  inputWithLeftIcon: TextStyle;
+  inputWithRightIcon: TextStyle;
+  leftIconContainer: ViewStyle;
+  rightIconContainer: ViewStyle;
+  helperText: TextStyle;
+  errorText: TextStyle;
+};
+
+const styles = StyleSheet.create<InputStyles>({
   container: {
     marginBottom: DesignTokens.spacing.xl,
   },
@@ -122,7 +154,7 @@ const styles = StyleSheet.create({
   // Labels
   label: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.semibold,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
     letterSpacing: 0.2,
@@ -148,7 +180,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ComponentColors.input.border,
     borderRadius: DesignTokens.radius.lg,
-    transition: `border-color ${DesignTokens.transitions.fast}ms ease`,
   },
   
   // Variantes
@@ -203,7 +234,7 @@ const styles = StyleSheet.create({
     paddingVertical: DesignTokens.spacing.md,
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.normal,
+    fontWeight: DesignTokens.typography.fontWeights.normal as TextStyle['fontWeight'],
   },
   smallInput: {
     paddingHorizontal: DesignTokens.spacing.md,
@@ -242,7 +273,7 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
     marginTop: DesignTokens.spacing.xs,
-    fontWeight: DesignTokens.typography.fontWeights.normal,
+    fontWeight: DesignTokens.typography.fontWeights.normal as TextStyle['fontWeight'],
   },
   errorText: {
     color: ComponentColors.button.error,

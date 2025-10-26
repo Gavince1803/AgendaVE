@@ -7,6 +7,7 @@ import {
     TouchableOpacityProps,
     View,
     ViewStyle,
+    StyleProp,
 } from 'react-native';
 
 interface CardProps extends TouchableOpacityProps {
@@ -14,7 +15,7 @@ interface CardProps extends TouchableOpacityProps {
   variant?: 'default' | 'elevated' | 'outlined' | 'glass' | 'gradient' | 'wellness' | 'premium' | 'soft';
   padding?: 'none' | 'small' | 'medium' | 'large' | 'xl';
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   rounded?: boolean;
   shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
   borderColor?: string;
@@ -92,13 +93,13 @@ export function Card({
     }
   };
 
-  const cardStyle = [
+  const cardStyle: StyleProp<ViewStyle> = [
     styles.base,
     { backgroundColor: cardBackgroundColor, borderColor: cardBorderColor },
     styles[variant],
-    styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}`],
-    styles[`shadow${shadow.charAt(0).toUpperCase() + shadow.slice(1)}`],
-    rounded && styles.rounded,
+    paddingStyleMap[padding],
+    shadowStyleMap[shadow],
+    rounded ? styles.rounded : undefined,
     style,
   ];
 
@@ -130,7 +131,30 @@ export function Card({
   );
 }
 
-const styles = StyleSheet.create({
+type CardStyles = {
+  base: ViewStyle;
+  default: ViewStyle;
+  elevated: ViewStyle;
+  outlined: ViewStyle;
+  glass: ViewStyle;
+  gradient: ViewStyle;
+  wellness: ViewStyle;
+  premium: ViewStyle;
+  soft: ViewStyle;
+  paddingNone: ViewStyle;
+  paddingSmall: ViewStyle;
+  paddingMedium: ViewStyle;
+  paddingLarge: ViewStyle;
+  paddingXl: ViewStyle;
+  shadowNone: ViewStyle;
+  shadowSm: ViewStyle;
+  shadowMd: ViewStyle;
+  shadowLg: ViewStyle;
+  shadowXl: ViewStyle;
+  rounded: ViewStyle;
+};
+
+const styles = StyleSheet.create<CardStyles>({
   base: {
     borderRadius: DesignTokens.radius.xl,
     overflow: 'hidden',
@@ -211,3 +235,19 @@ const styles = StyleSheet.create({
     borderRadius: DesignTokens.radius['3xl'],
   },
 });
+
+const paddingStyleMap: Record<Required<CardProps>['padding'], ViewStyle> = {
+  none: styles.paddingNone,
+  small: styles.paddingSmall,
+  medium: styles.paddingMedium,
+  large: styles.paddingLarge,
+  xl: styles.paddingXl,
+};
+
+const shadowStyleMap: Record<Required<CardProps>['shadow'], ViewStyle> = {
+  none: styles.shadowNone,
+  sm: styles.shadowSm,
+  md: styles.shadowMd,
+  lg: styles.shadowLg,
+  xl: styles.shadowXl,
+};

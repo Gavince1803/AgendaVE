@@ -410,7 +410,7 @@ export default function BookingsScreen() {
         <ScreenLoading
           loading={loading}
           skeleton={<AppointmentListSkeleton />}
-          error={error}
+          error={error || undefined}
           onRetry={handleRetry}
         >
           {currentBookings.length === 0 ? (
@@ -597,4 +597,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

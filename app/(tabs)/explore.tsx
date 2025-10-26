@@ -411,7 +411,7 @@ export default function ExploreScreen() {
           <ScreenLoading
             loading={loading}
             skeleton={<ProviderListSkeleton />}
-            error={error}
+            error={error || undefined}
             onRetry={handleRetry}
           >
             {filteredProviders.length > 0 ? (
