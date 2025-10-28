@@ -6,7 +6,6 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Input } from '@/components/ui/Input';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,11 +15,13 @@ import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MyBusinessScreen() {
   const { user } = useAuth();
   const log = useLogger();
+  const insets = useSafeAreaInsets();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
@@ -231,7 +232,18 @@ export default function MyBusinessScreen() {
 
   return (
     <TabSafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+      >
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Header */}
         <ThemedView style={styles.header}>
           <ThemedText type="title" style={styles.title}>
@@ -309,53 +321,106 @@ export default function MyBusinessScreen() {
                   <ThemedText>{uploadingLogo ? 'Subiendo logo...' : 'Subir logo'}</ThemedText>
                 </View>
               </TouchableOpacity>
-              <Input
-                label="Nombre del Negocio"
-                value={businessData.business_name}
-                onChangeText={(text) => setBusinessData({...businessData, business_name: text})}
-                placeholder="Nombre del Negocio"
-              />
-              <Input
-                label="Categoría"
-                value={businessData.category}
-                onChangeText={(text) => setBusinessData({...businessData, category: text})}
-                placeholder="Categoría del Negocio"
-              />
-              <Input
-                label="Descripción"
-                value={businessData.description}
-                onChangeText={(text) => setBusinessData({...businessData, description: text})}
-                placeholder="Descripción del Negocio"
-                multiline
-                numberOfLines={3}
-              />
-              <Input
-                label="Dirección"
-                value={businessData.address}
-                onChangeText={(text) => setBusinessData({...businessData, address: text})}
-                placeholder="Dirección del Negocio"
-              />
-              <Input
-                label="Teléfono"
-                value={businessData.phone}
-                onChangeText={(text) => setBusinessData({...businessData, phone: text})}
-                placeholder="Teléfono de Contacto"
-                keyboardType="phone-pad"
-              />
-              <Input
-                label="Email"
-                value={businessData.email}
-                onChangeText={(text) => setBusinessData({...businessData, email: text})}
-                placeholder="Email de Contacto"
-                keyboardType="email-address"
-              />
-              <Input
-                label="Sitio Web"
-                value={businessData.website}
-                onChangeText={(text) => setBusinessData({...businessData, website: text})}
-                placeholder="Sitio Web (opcional)"
-                keyboardType="url"
-              />
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Nombre del Negocio</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.business_name}
+                  onChangeText={(text) => setBusinessData({ ...businessData, business_name: text })}
+                  placeholder="Nombre del Negocio"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Categoría</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.category}
+                  onChangeText={(text) => setBusinessData({ ...businessData, category: text })}
+                  placeholder="Categoría del Negocio"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Descripción</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  value={businessData.description}
+                  onChangeText={(text) => setBusinessData({ ...businessData, description: text })}
+                  placeholder="Descripción del Negocio"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  autoCapitalize="sentences"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  returnKeyType="default"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Dirección</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.address}
+                  onChangeText={(text) => setBusinessData({ ...businessData, address: text })}
+                  placeholder="Dirección del Negocio"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  autoCapitalize="sentences"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Teléfono</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.phone}
+                  onChangeText={(text) => setBusinessData({ ...businessData, phone: text })}
+                  placeholder="Teléfono de Contacto"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.email}
+                  onChangeText={(text) => setBusinessData({ ...businessData, email: text })}
+                  placeholder="Email de Contacto"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Sitio Web</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={businessData.website}
+                  onChangeText={(text) => setBusinessData({ ...businessData, website: text })}
+                  placeholder="Sitio Web (opcional)"
+                  placeholderTextColor={Colors.light.textSecondary}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="URL"
+                  returnKeyType="done"
+                />
+              </View>
               
               {/* Botones de acción al final del formulario */}
               <View style={styles.formActions}>
@@ -720,7 +785,8 @@ export default function MyBusinessScreen() {
 
         {/* Espacio adicional */}
         <View style={styles.bottomSpacing} />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </TabSafeAreaView>
   );
 }
@@ -732,6 +798,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['5xl'],
   },
   loadingContainer: {
     flex: 1,
@@ -765,6 +834,28 @@ const styles = StyleSheet.create({
   },
   editForm: {
     gap: DesignTokens.spacing.lg,
+  },
+  fieldGroup: {
+    marginBottom: DesignTokens.spacing.lg,
+  },
+  fieldLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: DesignTokens.radius.lg,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.text,
+    backgroundColor: Colors.light.surface,
+  },
+  textArea: {
+    minHeight: 112,
   },
   businessInfo: {
     gap: DesignTokens.spacing.md,

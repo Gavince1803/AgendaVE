@@ -6,7 +6,7 @@ import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, router } from 'expo-router';
+import { Link, router, Href } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -140,6 +140,17 @@ export default function LoginScreen() {
                   variant="outline"
                   size="medium"
                   style={styles.ownerButton}
+                />
+              </Link>
+            </View>
+
+            <View style={styles.inviteSection}>
+              <ThemedText style={styles.inviteText}>¿Te invitaron como empleado?</ThemedText>
+              <Link href={'/accept-invite' as Href} asChild>
+                <Button
+                  title="Ingresar código"
+                  variant="ghost"
+                  size="small"
                 />
               </Link>
             </View>
@@ -281,5 +292,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.primary,
     borderWidth: 2,
   },
+  inviteSection: {
+    marginTop: DesignTokens.spacing.lg,
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+  },
+  inviteText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
 });
-

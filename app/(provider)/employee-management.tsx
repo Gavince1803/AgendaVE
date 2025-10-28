@@ -4,6 +4,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -25,6 +26,7 @@ export default function EmployeeManagementScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
   const log = useLogger();
+  const inviteBaseUrl = process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite';
 
   useEffect(() => {
     if (user?.profile?.role === 'provider') {
@@ -149,6 +151,42 @@ export default function EmployeeManagementScreen() {
     }
   };
 
+  const ensureInviteDetails = async (employee: Employee) => {
+    if (employee.invite_status === 'pending' && employee.invite_token) {
+      return {
+        inviteToken: employee.invite_token,
+        inviteUrl: `${inviteBaseUrl}?token=${employee.invite_token}`,
+        expiresAt: employee.invite_token_expires_at ?? '',
+      };
+    }
+
+    const refreshed = await BookingService.resendEmployeeInvite(employee.id);
+
+    setEmployees(prev => prev.map((item) =>
+      item.id === employee.id
+        ? {
+            ...item,
+            invite_token: refreshed.inviteToken,
+            invite_status: 'pending',
+            invite_token_expires_at: refreshed.expiresAt,
+          }
+        : item
+    ));
+
+    return refreshed;
+  };
+
+  const handleShareInvite = async (employee: Employee) => {
+    try {
+      const invite = await ensureInviteDetails(employee);
+      const message = `Hola ${employee.name},\nTe invitamos a unirte al equipo en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}`;
+      await Share.share({ message });
+    } catch (error) {
+      console.error('Error sharing invite:', error);
+      Alert.alert('Error', 'No se pudo compartir la invitación.');
+    }
+  };
+
   const deleteEmployee = async (employee: Employee) => {
     try {
       // In a real implementation, you'd call an API to delete the employee
@@ -248,21 +286,55 @@ export default function EmployeeManagementScreen() {
                           <Text style={styles.ownerBadgeText}>Propietario</Text>
                         </View>
                       )}
-                      <View style={[
-                        styles.statusBadge,
-                        employee.is_active ? styles.activeBadge : styles.inactiveBadge
-                      ]}>
-                        <Text style={[
-                          styles.statusBadgeText,
-                          employee.is_active ? styles.activeText : styles.inactiveText
-                        ]}>
+                      {employee.profile_id ? (
+                        <View style={[styles.statusBadge, styles.connectedBadge]}>
+                          <Text style={[styles.statusBadgeText, styles.connectedText]}>Conectado</Text>
+                        </View>
+                      ) : employee.invite_status === 'pending' ? (
+                        <View style={[styles.statusBadge, styles.pendingBadge]}>
+                          <Text style={[styles.statusBadgeText, styles.pendingText]}>Invitación pendiente</Text>
+                        </View>
+                      ) : null}
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          employee.is_active ? styles.activeBadge : styles.inactiveBadge,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            employee.is_active ? styles.activeText : styles.inactiveText,
+                          ]}
+                        >
                           {employee.is_active ? 'Activo' : 'Inactivo'}
                         </Text>
                       </View>
                     </View>
                   </View>
 
-                  {/* Employee Actions */}
+                  {!employee.profile_id && (
+                    <View style={styles.inviteContainer}>
+                      <View style={styles.inviteInfoRow}>
+                        <IconSymbol name="paperplane" size={16} color={Colors.light.primary} />
+                        <Text style={styles.inviteText}>
+                          {employee.invite_email
+                            ? `Invitación enviada a ${employee.invite_email}`
+                            : 'Invita al empleado para que active su cuenta'}
+                        </Text>
+                      </View>
+                      <View style={styles.inviteButtons}>
+                        <Button
+                          title="Compartir"
+                          onPress={() => handleShareInvite(employee)}
+                          variant="secondary"
+                          size="small"
+                          icon={<IconSymbol name="square.and.arrow.up" size={14} color={Colors.light.primary} />}
+                        />
+                      </View>
+                    </View>
+                  )}
+
                   {/* Employee Schedule Info */}
                   <View style={styles.employeeSchedule}>
                     <View style={styles.scheduleInfo}>
@@ -444,6 +516,42 @@ const styles = StyleSheet.create({
   },
   inactiveText: {
     color: Colors.light.error,
+  },
+  connectedBadge: {
+    backgroundColor: Colors.light.primary + '20',
+  },
+  connectedText: {
+    color: Colors.light.primary,
+  },
+  pendingBadge: {
+    backgroundColor: Colors.light.warning + '25',
+  },
+  pendingText: {
+    color: Colors.light.warning,
+  },
+  inviteContainer: {
+    paddingVertical: DesignTokens.spacing.sm,
+    paddingHorizontal: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    backgroundColor: Colors.light.surface,
+    gap: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  inviteInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  inviteText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    flex: 1,
+  },
+  inviteButtons: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.sm,
   },
   employeeActions: {
     flexDirection: 'row',

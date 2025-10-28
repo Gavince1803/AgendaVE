@@ -8,6 +8,7 @@ const ACTIVE_FEATURE_FLAGS = (process.env.EXPO_PUBLIC_FEATURE_FLAGS || '')
   .filter((flag) => flag.length > 0);
 
 const LOYALTY_REWARD_STEP = 100;
+const INVITE_TOKEN_TTL_HOURS = 48;
 
 export interface Provider {
   id: string;
@@ -68,6 +69,12 @@ export interface Employee {
   email?: string;
   phone?: string;
   position?: string;
+  profile_id?: string | null;
+  invite_email?: string | null;
+  invite_status?: 'draft' | 'pending' | 'accepted' | 'revoked';
+  invite_token?: string | null;
+  invite_token_expires_at?: string | null;
+  role?: string;
   is_active: boolean;
   is_owner: boolean;
   profile_image_url?: string;
@@ -75,6 +82,10 @@ export interface Employee {
   bio?: string;
   created_at: string;
   updated_at: string;
+  profiles?: {
+    display_name?: string;
+    phone?: string;
+  } | null;
 }
 
 export interface EmployeeAvailability {
@@ -269,6 +280,21 @@ export class BookingService {
   private static isFeatureEnabled(flag?: string | null): boolean {
     if (!flag) return true;
     return ACTIVE_FEATURE_FLAGS.includes(flag);
+  }
+
+  private static generateInviteToken(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID().replace(/-/g, '');
+    }
+    const random = Math.random().toString(36).slice(2);
+    const timestamp = Date.now().toString(36);
+    return `${random}${timestamp}`.slice(0, 32);
+  }
+
+  private static computeInviteExpiry(hours: number = INVITE_TOKEN_TTL_HOURS): string {
+    const expires = new Date();
+    expires.setHours(expires.getHours() + hours);
+    return expires.toISOString();
   }
 
   // 📍 Obtener proveedores por categoría
@@ -559,7 +585,7 @@ export class BookingService {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('*, profiles:profiles!employees_profile_id_fkey(display_name, phone)')
         .eq('provider_id', providerId)
         .eq('is_active', true)
         .order('is_owner', { ascending: false }) // Owners first
@@ -570,6 +596,28 @@ export class BookingService {
     } catch (error) {
       console.error('Error fetching provider employees:', error);
       throw error;
+    }
+  }
+
+  static async getEmployeeProfile(userId?: string): Promise<Employee | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const targetUser = userId || user?.id;
+      if (!targetUser) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('profile_id', targetUser)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data || null;
+    } catch (error) {
+      console.error('Error fetching employee profile:', error);
+      return null;
     }
   }
 
@@ -693,20 +741,48 @@ export class BookingService {
     is_active?: boolean;
     custom_schedule_enabled?: boolean;
     profile_image_url?: string;
+    email?: string | null;
+    phone?: string | null;
+    profile_id?: string | null;
+    inviteEmail?: string | null;
+    inviteStatus?: 'draft' | 'pending' | 'accepted' | 'revoked';
+    inviteToken?: string | null;
+    inviteExpiresAt?: string | null;
+    role?: string;
   }): Promise<Employee> {
     try {
+      const payload: any = {
+        provider_id: employeeData.provider_id,
+        name: employeeData.name,
+        position: employeeData.position || 'Empleado',
+        bio: employeeData.bio || '',
+        is_owner: employeeData.is_owner || false,
+        is_active: employeeData.is_active ?? true,
+        custom_schedule_enabled: employeeData.custom_schedule_enabled || false,
+        profile_image_url: employeeData.profile_image_url || null,
+        email: employeeData.email || employeeData.inviteEmail || null,
+        phone: employeeData.phone || null,
+        profile_id: employeeData.profile_id || null,
+        role: employeeData.role || 'staff',
+      };
+
+      if (employeeData.inviteEmail && !employeeData.profile_id) {
+        const token = employeeData.inviteToken || BookingService.generateInviteToken();
+        payload.invite_email = employeeData.inviteEmail;
+        payload.invite_status = employeeData.inviteStatus || 'pending';
+        payload.invite_token = token;
+        payload.invite_token_expires_at =
+          employeeData.inviteExpiresAt || BookingService.computeInviteExpiry();
+      } else if (employeeData.profile_id) {
+        payload.invite_email = employeeData.email || employeeData.inviteEmail || null;
+        payload.invite_status = 'accepted';
+        payload.invite_token = null;
+        payload.invite_token_expires_at = null;
+      }
+
       const { data, error } = await supabase
         .from('employees')
-        .insert({
-          provider_id: employeeData.provider_id,
-          name: employeeData.name,
-          position: employeeData.position || 'Empleado',
-          bio: employeeData.bio || '',
-          is_owner: employeeData.is_owner || false,
-          is_active: employeeData.is_active ?? true,
-          custom_schedule_enabled: employeeData.custom_schedule_enabled || false,
-          profile_image_url: employeeData.profile_image_url || null,
-        })
+        .insert(payload)
         .select()
         .single();
 
@@ -715,6 +791,222 @@ export class BookingService {
     } catch (error) {
       console.error('Error creating employee:', error);
       throw error;
+    }
+  }
+
+  static async inviteEmployee(params: {
+    name: string;
+    email: string;
+    phone?: string;
+    position?: string;
+    bio?: string;
+    role?: string;
+  }): Promise<{ employee: Employee; inviteToken: string; inviteUrl: string; expiresAt: string }> {
+    const {
+      name,
+      email,
+      phone,
+      position = 'Empleado',
+      bio = '',
+      role = 'staff',
+    } = params;
+
+    if (!email.includes('@')) {
+      throw new Error('Email de invitación inválido');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const provider = await this.getProviderById(user.id);
+    if (!provider) {
+      throw new Error('No se encontró el proveedor para el usuario actual.');
+    }
+
+    const inviteToken = BookingService.generateInviteToken();
+    const expiresAt = BookingService.computeInviteExpiry();
+
+    const employee = await this.createEmployee({
+      provider_id: provider.id,
+      name: name.trim(),
+      position,
+      bio,
+      phone: phone || null,
+      inviteEmail: email.trim().toLowerCase(),
+      inviteStatus: 'pending',
+      inviteToken,
+      inviteExpiresAt: expiresAt,
+      role,
+      is_owner: false,
+      is_active: true,
+      custom_schedule_enabled: false,
+    });
+
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+
+    return { employee, inviteToken, inviteUrl, expiresAt };
+  }
+
+  static async resendEmployeeInvite(employeeId: string): Promise<{ inviteToken: string; inviteUrl: string; expiresAt: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('id, provider_id')
+      .eq('id', employeeId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!employee) {
+      throw new Error('Empleado no encontrado');
+    }
+
+    const provider = await this.getProviderById(user.id);
+    if (!provider || provider.id !== employee.provider_id) {
+      throw new Error('No tienes permisos para reenviar esta invitación.');
+    }
+
+    const inviteToken = BookingService.generateInviteToken();
+    const expiresAt = BookingService.computeInviteExpiry();
+
+    const { error: updateError } = await supabase
+      .from('employees')
+      .update({
+        invite_status: 'pending',
+        invite_token: inviteToken,
+        invite_token_expires_at: expiresAt,
+      })
+      .eq('id', employeeId);
+
+    if (updateError) throw updateError;
+
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+
+    return { inviteToken, inviteUrl, expiresAt };
+  }
+
+  static async acceptEmployeeInvite(token: string): Promise<Employee> {
+    if (!token) {
+      throw new Error('Token de invitación inválido');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Debes iniciar sesión para aceptar la invitación.');
+    }
+
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('invite_token', token)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!employee) {
+      throw new Error('Invitación no encontrada o ya utilizada.');
+    }
+
+    if (employee.invite_token_expires_at) {
+      const expires = new Date(employee.invite_token_expires_at).getTime();
+      if (Date.now() > expires) {
+        throw new Error('La invitación ha expirado. Solicita un nuevo enlace al administrador.');
+      }
+    }
+
+    const { error: updateError, data: updatedEmployee } = await supabase
+      .from('employees')
+      .update({
+        profile_id: user.id,
+        email: user.email,
+        invite_status: 'accepted',
+        invite_token: null,
+        invite_token_expires_at: null,
+        is_active: true,
+      })
+      .eq('id', employee.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Ensure the profile role is set to employee
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        role: 'employee',
+        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || updatedEmployee.name,
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.warn('⚠️ [BOOKING SERVICE] Could not update profile role to employee:', profileError);
+    }
+
+    return updatedEmployee;
+  }
+
+  static async notifyEmployeeAssignment(employeeId: string, payload: {
+    appointmentId: string;
+    providerName: string;
+    appointmentDate: string;
+    appointmentTime?: string;
+    serviceName?: string;
+    clientName?: string;
+    status?: 'created' | 'updated' | 'cancelled' | 'confirmed';
+  }): Promise<void> {
+    try {
+      const { data: employee, error } = await supabase
+        .from('employees')
+        .select('profile_id, name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!employee?.profile_id) {
+        return;
+      }
+
+      if (payload.status === 'cancelled') {
+        await NotificationService.notifyAppointmentCancellation(
+          employee.profile_id,
+          {
+            id: payload.appointmentId,
+            provider_name: payload.providerName,
+            client_name: payload.clientName || 'Cliente',
+          },
+          false
+        );
+        return;
+      }
+
+      if (payload.status === 'confirmed') {
+        await NotificationService.notifyAppointmentConfirmation(employee.profile_id, {
+          id: payload.appointmentId,
+          provider_name: payload.providerName,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+        });
+        return;
+      }
+
+      await NotificationService.notifyEmployeeNewAppointment(
+        employee.profile_id,
+        {
+          id: payload.appointmentId,
+          provider_name: payload.providerName,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+          service_name: payload.serviceName,
+          client_name: payload.clientName,
+        }
+      );
+    } catch (error) {
+      console.error('Error notifying employee assignment:', error);
     }
   }
 
@@ -1171,7 +1463,7 @@ export class BookingService {
       // Obtener duración del servicio para calcular end_ts
       const { data: serviceData } = await supabase
         .from('services')
-        .select('duration_minutes')
+        .select('duration_minutes, name')
         .eq('id', serviceId)
         .single();
       
@@ -1196,6 +1488,58 @@ export class BookingService {
         .single();
 
       if (error) throw error;
+
+      // Load additional metadata for notifications
+      try {
+        const [{ data: providerDetails }, { data: clientProfile }] = await Promise.all([
+          supabase
+            .from('providers')
+            .select('business_name, user_id')
+            .eq('id', providerId)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('display_name, full_name')
+            .eq('id', user.id)
+            .maybeSingle(),
+        ]);
+
+        const providerUserId = providerDetails?.user_id as string | undefined;
+        const providerName = providerDetails?.business_name || 'Tu negocio';
+        const clientName =
+          clientProfile?.display_name ||
+          clientProfile?.full_name ||
+          user.user_metadata?.full_name ||
+          user.email?.split('@')[0] ||
+          'Cliente';
+
+        if (providerUserId) {
+          await NotificationService.notifyNewAppointment(providerUserId, {
+            id: data.id,
+            provider_id: providerId,
+            provider_name: providerName,
+            appointment_date: appointmentDate,
+            appointment_time: appointmentTime,
+            client_name: clientName,
+            service_name: serviceData?.name,
+          });
+        }
+
+        if (employeeId) {
+          await this.notifyEmployeeAssignment(employeeId, {
+            appointmentId: data.id,
+            providerName,
+            appointmentDate,
+            appointmentTime,
+            serviceName: serviceData?.name,
+            clientName,
+            status: 'created',
+          });
+        }
+      } catch (notificationError) {
+        console.warn('⚠️ [BOOKING SERVICE] Error sending notifications for new appointment:', notificationError);
+      }
+
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -1290,6 +1634,35 @@ export class BookingService {
     } catch (error) {
       console.error('Error fetching provider appointments:', error);
       throw error;
+    }
+  }
+
+  static async getEmployeeAppointments(userId?: string): Promise<Appointment[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const employee = await this.getEmployeeProfile(userId || user.id);
+      if (!employee) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(*),
+          profiles!appointments_client_id_fkey(id, display_name, phone)
+        `)
+        .eq('employee_id', employee.id)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching employee appointments:', error);
+      return [];
     }
   }
 
@@ -1683,24 +2056,101 @@ export class BookingService {
 
       // Enviar notificaciones según el estado
       try {
+        const [
+          { data: providerData, error: providerError },
+          { data: clientProfile, error: clientError },
+          { data: serviceInfo, error: serviceError },
+        ] = await Promise.all([
+          supabase
+            .from('providers')
+            .select('business_name, user_id')
+            .eq('id', data.provider_id)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('display_name, full_name')
+            .eq('id', data.client_id)
+            .maybeSingle(),
+          supabase
+            .from('services')
+            .select('name')
+            .eq('id', data.service_id)
+            .maybeSingle(),
+        ]);
+
+        if (providerError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load provider for notifications:', providerError);
+        }
+        if (clientError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load client profile for notifications:', clientError);
+        }
+        if (serviceError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load service for notifications:', serviceError);
+        }
+
+        const providerName = providerData?.business_name || 'tu proveedor';
+        const providerUserId = providerData?.user_id as string | undefined;
+        const clientName =
+          (clientProfile as any)?.display_name ||
+          (clientProfile as any)?.full_name ||
+          'Cliente';
+        const serviceName = serviceInfo?.name;
+
         if (status === 'confirmed') {
           await NotificationService.notifyAppointmentConfirmation(
             data.client_id,
             {
               id: data.id,
-              provider_name: data.provider?.business_name,
+              provider_name: providerName,
               appointment_date: data.appointment_date,
+              appointment_time: data.appointment_time,
             }
           );
+
+          if (data.employee_id) {
+            await this.notifyEmployeeAssignment(data.employee_id, {
+              appointmentId: data.id,
+              providerName,
+              appointmentDate: data.appointment_date,
+              appointmentTime: data.appointment_time,
+              serviceName,
+              clientName,
+              status: 'confirmed',
+            });
+          }
         } else if (status === 'cancelled') {
           await NotificationService.notifyAppointmentCancellation(
             data.client_id,
             {
               id: data.id,
-              provider_name: data.provider?.business_name,
+              provider_name: providerName,
             },
             true // isClient
           );
+
+          if (providerUserId) {
+            await NotificationService.notifyAppointmentCancellation(
+              providerUserId,
+              {
+                id: data.id,
+                provider_name: providerName,
+                client_name: clientName,
+              },
+              false // notify provider
+            );
+          }
+
+          if (data.employee_id) {
+            await this.notifyEmployeeAssignment(data.employee_id, {
+              appointmentId: data.id,
+              providerName,
+              appointmentDate: data.appointment_date,
+              appointmentTime: data.appointment_time,
+              serviceName,
+              clientName,
+              status: 'cancelled',
+            });
+          }
         }
       } catch (notificationError) {
         console.error('Error sending status notification:', notificationError);
@@ -2235,6 +2685,10 @@ export class BookingService {
           is_owner: true,
           is_active: true,
           custom_schedule_enabled: false,
+          profile_id: providerData.user_id,
+          email: providerData.email || null,
+          inviteStatus: 'accepted',
+          role: 'owner',
         });
         console.log('✅ [BOOKING SERVICE] Owner created as employee automatically');
       } catch (employeeError) {

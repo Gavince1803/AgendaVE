@@ -91,27 +91,8 @@ export default function BookingConfirmationScreen() {
           data: { type: 'booking_created', appointment_id: created.id },
         });
 
-        if (user?.id) {
-          await NotificationService.notifyAppointmentConfirmation(user.id, {
-            id: created.id,
-            provider_name: providerName,
-            appointment_date: selectedDate,
-          });
-        }
-
-        // Notificar al proveedor sobre nueva reserva
-        try {
-          const providerDetails = await BookingService.getProviderDetails(providerId as string);
-          if (providerDetails?.user_id) {
-            await NotificationService.notifyNewAppointment(providerDetails.user_id, {
-              id: created.id,
-              client_name: user?.profile?.display_name || user?.email || 'Cliente',
-              service_name: serviceName,
-            });
-          }
-        } catch (e) {
-          console.warn('Provider notification skipped:', e);
-        }
+        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
+        // a través de BookingService.createAppointment.
       } catch (notifyErr) {
         console.warn('Push notifications failed or unavailable:', notifyErr);
       }

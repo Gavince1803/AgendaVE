@@ -11,8 +11,6 @@ import { router, Href } from 'expo-router';
 import React from 'react';
 import {
   Alert,
-  Linking,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -55,8 +53,10 @@ export default function HomeScreen() {
     );
   }
 
-  const isProvider = user?.profile?.role === 'provider';
-  const isClient = user?.profile?.role === 'client';
+  const role = user?.profile?.role as string | undefined;
+  const isProvider = role === 'provider';
+  const isClient = role === 'client';
+  const isEmployee = role === 'employee';
 
   if (isClient) {
     return <ClientHomeScreen />;
@@ -64,6 +64,10 @@ export default function HomeScreen() {
 
   if (isProvider) {
     return <ProviderHomeScreen />;
+  }
+
+  if (isEmployee) {
+    return <EmployeeHomeScreen />;
   }
 
   return (
@@ -349,7 +353,6 @@ function ProviderHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [appointments, setAppointments] = React.useState<Appointment[]>([]);
   const [metrics, setMetrics] = React.useState<ProviderDashboardMetrics | null>(null);
-  const [loading, setLoading] = React.useState(true);
   const [metricsLoading, setMetricsLoading] = React.useState(true);
   const { user } = useAuth();
   const log = useLogger(user?.id);
@@ -360,7 +363,6 @@ function ProviderHomeScreen() {
 
   const loadDashboardData = async () => {
     try {
-      setLoading(true);
       setMetricsLoading(true);
       log.info(LogCategory.DATABASE, 'Loading provider dashboard data', { screen: 'ProviderHome' });
 
@@ -381,7 +383,6 @@ function ProviderHomeScreen() {
       setAppointments([]);
       setMetrics(null);
     } finally {
-      setLoading(false);
       setMetricsLoading(false);
     }
   };
@@ -446,142 +447,6 @@ function ProviderHomeScreen() {
       color: Colors.light.success,
     },
   ];
-
-  // Obtener próximas citas (máximo 3)
-  const upcomingAppointments = appointments
-    .filter(apt => apt.status === 'pending' || apt.status === 'confirmed')
-    .sort((a, b) => {
-      const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
-      const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
-      return dateA.getTime() - dateB.getTime();
-    })
-    .slice(0, 3);
-
-  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete' | 'no_show') => {
-    try {
-      log.userAction('Appointment action', { 
-        appointmentId: appointment.id, 
-        action,
-        status: appointment.status,
-        screen: 'ProviderHome' 
-      });
-
-      if (action === 'no_show') {
-        await BookingService.markAppointmentNoShow(appointment.id);
-      } else {
-        let newStatus: 'confirmed' | 'cancelled' | 'done';
-        switch (action) {
-          case 'confirm':
-            newStatus = 'confirmed';
-            break;
-          case 'cancel':
-            newStatus = 'cancelled';
-            break;
-          case 'complete':
-          default:
-            newStatus = 'done';
-            break;
-        }
-
-        await BookingService.updateAppointmentStatus(appointment.id, newStatus);
-      }
-      
-      await loadDashboardData();
-      
-      Alert.alert(
-        'Éxito',
-        action === 'confirm'
-          ? 'Cita confirmada exitosamente'
-          : action === 'cancel'
-          ? 'Cita cancelada exitosamente'
-          : action === 'no_show'
-          ? 'Cita marcada como no presentada'
-          : 'Cita completada exitosamente'
-      );
-    } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error updating appointment status', error);
-      Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
-    }
-  };
-
-  const handleMarkNoShow = (appointment: Appointment) => {
-    log.userAction('Mark appointment as no-show', {
-      appointmentId: appointment.id,
-      screen: 'ProviderHome',
-    });
-
-    Alert.alert(
-      'Marcar como no presentada',
-      '¿Confirmas que el cliente no asistió a la cita?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Sí, marcar',
-          style: 'destructive',
-          onPress: () => {
-            void handleAppointmentAction(appointment, 'no_show');
-          },
-        },
-      ]
-    );
-  };
-
-  const handleRescheduleAppointment = (appointment: Appointment) => {
-    log.userAction('Reschedule appointment quick action', {
-      appointmentId: appointment.id,
-      screen: 'ProviderHome',
-    });
-
-    const proceed = () => {
-      router.push({
-        pathname: '/(booking)/book-service',
-        params: {
-          providerId: appointment.provider_id,
-          serviceId: appointment.service_id,
-          serviceName: appointment.services?.name || '',
-          servicePrice: appointment.services?.price_amount?.toString() || '',
-          serviceDuration: appointment.services?.duration_minutes?.toString() || '',
-          rescheduleId: appointment.id,
-          mode: 'reschedule',
-        },
-      });
-    };
-
-    Alert.alert(
-      'Reprogramar cita',
-      `¿Quieres reprogramar la cita de "${appointment.services?.name || 'Servicio'}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Reprogramar',
-          onPress: proceed,
-        },
-      ]
-    );
-  };
-
-  const handleMessageClient = (appointment: Appointment) => {
-    log.userAction('Message client from dashboard', {
-      appointmentId: appointment.id,
-      screen: 'ProviderHome',
-    });
-
-    const phone = appointment.profiles?.phone;
-    if (!phone) {
-      Alert.alert('Sin teléfono', 'El cliente no tiene un número de contacto registrado.');
-      return;
-    }
-
-    const normalizedPhone = phone.replace(/\s+/g, '');
-    const smsUrl = Platform.select({
-      ios: `sms:&addresses=${normalizedPhone}`,
-      default: `sms:${normalizedPhone}`,
-    });
-
-    Linking.openURL(smsUrl || `tel:${normalizedPhone}`).catch(() => {
-      Alert.alert('Error', 'No se pudo abrir la aplicación de mensajes.');
-    });
-  };
 
   return (
     <TabSafeAreaView style={styles.container}>
@@ -670,152 +535,17 @@ function ProviderHomeScreen() {
         </View>
       </View>
 
-      {/* Próximas citas */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Próximas Citas
-          </ThemedText>
-          <Button
-            title="Ver todas"
-            variant="ghost"
-            size="small"
-            onPress={() => {
-              log.userAction('Navigate to all appointments', { screen: 'ProviderHome' });
-              log.navigation('ProviderHome', 'Appointments');
-              router.push('/(tabs)/appointments');
-            }}
-          />
-        </View>
-        
-        <View style={styles.appointmentsList}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
-            </View>
-          ) : upcomingAppointments.length > 0 ? (
-            upcomingAppointments.map((appointment) => (
-              <Card
-                key={appointment.id}
-                variant="elevated"
-                style={styles.appointmentCard}
-              >
-                <View style={styles.appointmentHeader}>
-                  <View style={styles.appointmentTime}>
-                    <ThemedText style={styles.timeText}>{appointment.appointment_time}</ThemedText>
-                    <ThemedText style={styles.dateText}>
-                      {new Date(appointment.appointment_date).toLocaleDateString('es-VE', {
-                        day: 'numeric',
-                        month: 'short'
-                      })}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.appointmentInfo}>
-                    <ThemedText style={styles.clientName}>
-                      {appointment.profiles?.display_name || 'Cliente'}
-                    </ThemedText>
-                    <ThemedText style={styles.serviceName}>
-                      {appointment.services?.name || 'Servicio'}
-                    </ThemedText>
-                    {appointment.profiles?.phone && (
-                      <ThemedText style={styles.clientPhone}>
-                        📞 {appointment.profiles.phone}
-                      </ThemedText>
-                    )}
-                  </View>
-                  <View style={[
-                    styles.statusBadge,
-                    { 
-                      backgroundColor: appointment.status === 'confirmed' 
-                        ? Colors.light.success 
-                        : appointment.status === 'pending'
-                        ? Colors.light.warning
-                        : Colors.light.error
-                    }
-                  ]}>
-                    <ThemedText style={styles.statusText}>
-                      {appointment.status === 'confirmed' ? 'Confirmada' : 
-                       appointment.status === 'pending' ? 'Pendiente' : 
-                       appointment.status === 'cancelled' ? 'Cancelada' : 'Completada'}
-                    </ThemedText>
-                  </View>
-                </View>
-                
-                <View style={styles.appointmentActions}>
-                  {appointment.status === 'pending' && (
-                    <>
-                      <Button
-                        title="Confirmar"
-                        variant="primary"
-                        size="small"
-                        onPress={() => handleAppointmentAction(appointment, 'confirm')}
-                        style={styles.actionButton}
-                      />
-                      <Button
-                        title="Rechazar"
-                        variant="outline"
-                        size="small"
-                        onPress={() => handleAppointmentAction(appointment, 'cancel')}
-                        style={styles.actionButton}
-                      />
-                    </>
-                  )}
-                  {appointment.status === 'confirmed' && (
-                    <Button
-                      title="Completar"
-                      variant="primary"
-                      size="small"
-                      onPress={() => handleAppointmentAction(appointment, 'complete')}
-                      style={styles.actionButton}
-                    />
-                  )}
-                </View>
-                <View style={styles.appointmentSecondaryActions}>
-                  {appointment.profiles?.phone ? (
-                    <Button
-                      title="Mensaje"
-                      variant="ghost"
-                      size="small"
-                      onPress={() => handleMessageClient(appointment)}
-                      style={styles.secondaryActionButton}
-                    />
-                  ) : null}
-                  <Button
-                    title="Reprogramar"
-                    variant="ghost"
-                    size="small"
-                    onPress={() => handleRescheduleAppointment(appointment)}
-                    style={styles.secondaryActionButton}
-                  />
-                  {appointment.status === 'confirmed' && (
-                    <Button
-                      title="No-show"
-                      variant="outline"
-                      size="small"
-                      onPress={() => handleMarkNoShow(appointment)}
-                      style={styles.secondaryActionButton}
-                    />
-                  )}
-                </View>
-              </Card>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>
-                No tienes citas próximas
-              </ThemedText>
-            </View>
-          )}
-        </View>
-      </View>
-
       {/* Acciones rápidas */}
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
           Acciones Rápidas
         </ThemedText>
         
-        <View style={styles.quickActionsGrid}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickActionsScrollContent}
+        >
           <Button
             title="Mis Servicios"
             variant="outline"
@@ -844,15 +574,240 @@ function ProviderHomeScreen() {
             title="Ajustes"
             variant="outline"
             size="medium"
-          icon={<IconSymbol name="slider.horizontal.3" size={18} color={Colors.light.primary} />}
-          onPress={() => {
-            log.userAction('Navigate to provider settings', { screen: 'ProviderHome' });
-            router.push('/(provider)/settings' as Href);
-          }}
-          style={styles.quickActionButton}
-        />
-        </View>
+            icon={<IconSymbol name="slider.horizontal.3" size={18} color={Colors.light.primary} />}
+            onPress={() => {
+              log.userAction('Navigate to provider settings', { screen: 'ProviderHome' });
+              router.push('/(provider)/settings' as Href);
+            }}
+            style={styles.quickActionButton}
+          />
+        </ScrollView>
       </View>
+      </ScrollView>
+    </TabSafeAreaView>
+  );
+}
+
+function EmployeeHomeScreen() {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [appointments, setAppointments] = React.useState<Appointment[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const log = useLogger();
+
+  const loadAppointments = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await BookingService.getEmployeeAppointments();
+      setAppointments(data);
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error loading employee appointments', error);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [log]);
+
+  React.useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAppointments();
+    setRefreshing(false);
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
+  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
+  const confirmedAppointments = appointments.filter(apt => apt.status === 'confirmed');
+
+  const upcomingAppointments = appointments
+    .filter(apt => apt.status === 'pending' || apt.status === 'confirmed')
+    .sort((a, b) => {
+      const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`);
+      const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+  const formatDateLabel = (date: string) => {
+    try {
+      return new Date(date).toLocaleDateString('es-VE', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      });
+    } catch {
+      return date;
+    }
+  };
+
+  const handleUpdateStatus = async (appointment: Appointment, newStatus: 'confirmed' | 'cancelled' | 'done') => {
+    try {
+      log.userAction('Employee update appointment', {
+        appointmentId: appointment.id,
+        currentStatus: appointment.status,
+        newStatus,
+      });
+      await BookingService.updateAppointmentStatus(appointment.id, newStatus);
+      await loadAppointments();
+      Alert.alert('Éxito',
+        newStatus === 'confirmed'
+          ? 'La cita fue confirmada.'
+          : newStatus === 'cancelled'
+          ? 'La cita fue cancelada.'
+          : 'La cita fue marcada como completada.'
+      );
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error updating appointment status', error);
+      Alert.alert('Error', 'No se pudo actualizar la cita. Inténtalo nuevamente.');
+    }
+  };
+
+  const confirmCancel = (appointment: Appointment) => {
+    Alert.alert(
+      'Cancelar cita',
+      '¿Deseas cancelar esta cita? El cliente recibirá una notificación.',
+      [
+        { text: 'No', style: 'cancel' },
+        { text: 'Sí, cancelar', style: 'destructive', onPress: () => handleUpdateStatus(appointment, 'cancelled') },
+      ]
+    );
+  };
+
+  const performanceCards = [
+    {
+      label: 'Citas Hoy',
+      number: todayAppointments.length.toString(),
+      icon: 'calendar',
+      color: Colors.light.primary,
+    },
+    {
+      label: 'Pendientes',
+      number: pendingAppointments.length.toString(),
+      icon: 'clock',
+      color: Colors.light.warning,
+    },
+    {
+      label: 'Confirmadas',
+      number: confirmedAppointments.length.toString(),
+      icon: 'checkmark.circle',
+      color: Colors.light.success,
+    },
+  ];
+
+  return (
+    <TabSafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.light.primary]}
+            tintColor={Colors.light.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.welcomeSection}>
+            <ThemedText type="title" style={styles.welcomeText}>
+              Mi Agenda 👋
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Gestiona tus citas asignadas
+            </ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Resumen
+          </ThemedText>
+          <View style={styles.statsGrid}>
+            {performanceCards.map((card, index) => (
+              <Card key={index} variant="elevated" style={styles.statCard}>
+                <View style={[styles.statIcon, { backgroundColor: card.color }]}>
+                  <IconSymbol name={card.icon as any} size={20} color="white" />
+                </View>
+                <ThemedText style={styles.statNumber}>{card.number}</ThemedText>
+                <ThemedText style={styles.statLabel}>{card.label}</ThemedText>
+              </Card>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Próximas citas
+          </ThemedText>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+            </View>
+          ) : upcomingAppointments.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>No tienes citas próximamente.</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.employeeAppointmentsList}>
+              {upcomingAppointments.map((appointment) => (
+                <Card key={appointment.id} variant="elevated" style={styles.employeeAppointmentCard}>
+                  <View style={styles.employeeAppointmentHeader}>
+                    <View>
+                      <ThemedText style={styles.employeeAppointmentTime}>{appointment.appointment_time}</ThemedText>
+                      <ThemedText style={styles.employeeAppointmentDate}>{formatDateLabel(appointment.appointment_date)}</ThemedText>
+                    </View>
+                    <View style={styles.employeeAppointmentMeta}>
+                      <ThemedText style={styles.employeeAppointmentClient}>
+                        {appointment.profiles?.display_name || 'Cliente'}
+                      </ThemedText>
+                      <ThemedText style={styles.employeeAppointmentService}>
+                        {appointment.services?.name || 'Servicio'}
+                      </ThemedText>
+                    </View>
+                    <View style={[styles.statusBadge, appointment.status === 'confirmed' ? styles.activeBadge : styles.pendingBadge]}>
+                      <ThemedText style={[styles.statusBadgeText, appointment.status === 'confirmed' ? styles.activeText : styles.pendingText]}>
+                        {appointment.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  <View style={styles.employeeAppointmentActions}>
+                    {appointment.status === 'pending' && (
+                      <Button
+                        title="Confirmar"
+                        variant="primary"
+                        size="small"
+                        onPress={() => handleUpdateStatus(appointment, 'confirmed')}
+                        style={styles.employeeActionButton}
+                      />
+                    )}
+                    <Button
+                      title="Cancelar"
+                      variant="outline"
+                      size="small"
+                      onPress={() => confirmCancel(appointment)}
+                      style={styles.employeeActionButton}
+                    />
+                    {appointment.status === 'confirmed' && (
+                      <Button
+                        title="Completar"
+                        variant="secondary"
+                        size="small"
+                        onPress={() => handleUpdateStatus(appointment, 'done')}
+                        style={styles.employeeActionButton}
+                      />
+                    )}
+                  </View>
+                </Card>
+              ))}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </TabSafeAreaView>
   );
@@ -1130,76 +1085,16 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
   },
-  
-  // Citas del proveedor
-  appointmentsList: {
-    gap: DesignTokens.spacing.lg,
-  },
-  appointmentCard: {
-    marginBottom: 0,
-  },
-  appointmentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: DesignTokens.spacing.lg,
-  },
-  appointmentTime: {
-    width: 64,
-    alignItems: 'center',
-    marginRight: DesignTokens.spacing.lg,
-  },
-  timeText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    color: Colors.light.primary,
-  },
-  appointmentInfo: {
-    flex: 1,
-  },
-  clientName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.xs,
-    letterSpacing: -0.1,
-  },
-  serviceName: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
-  statusBadge: {
-    paddingHorizontal: DesignTokens.spacing.sm,
-    paddingVertical: DesignTokens.spacing.xs,
-    borderRadius: DesignTokens.radius.md,
-  },
-  appointmentStatusText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    color: '#ffffff',
-  },
-  appointmentActions: {
-    flexDirection: 'row',
-    gap: DesignTokens.spacing.md,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  appointmentSecondaryActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: DesignTokens.spacing.sm,
-    marginTop: DesignTokens.spacing.md,
-  },
-  secondaryActionButton: {
-    flexGrow: 1,
-    minWidth: 120,
-  },
   loadingText: {
     fontSize: DesignTokens.typography.fontSizes.lg,
     color: Colors.light.textSecondary,
     textAlign: 'center',
     marginTop: DesignTokens.spacing['5xl'],
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  loadingContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
   },
   errorText: {
     fontSize: DesignTokens.typography.fontSizes.lg,
@@ -1208,9 +1103,10 @@ const styles = StyleSheet.create({
     marginTop: DesignTokens.spacing['5xl'],
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
-  loadingContainer: {
-    padding: DesignTokens.spacing.xl,
-    alignItems: 'center',
+  dateText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    marginTop: DesignTokens.spacing.xs,
   },
   emptyContainer: {
     padding: DesignTokens.spacing.xl,
@@ -1221,18 +1117,77 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     textAlign: 'center',
   },
-  dateText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textSecondary,
-    marginTop: DesignTokens.spacing.xs,
-  },
-  clientPhone: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textSecondary,
-    marginTop: DesignTokens.spacing.xs,
+  quickActionsScrollContent: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.md,
+    paddingRight: DesignTokens.spacing.xl,
   },
   quickActionButton: {
+    minWidth: 180,
+    marginRight: DesignTokens.spacing.sm,
+  },
+  statusBadge: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.sm,
+  },
+  activeBadge: {
+    backgroundColor: Colors.light.success + '20',
+  },
+  pendingBadge: {
+    backgroundColor: Colors.light.warning + '20',
+  },
+  statusBadgeText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  activeText: {
+    color: Colors.light.success,
+  },
+  pendingText: {
+    color: Colors.light.warning,
+  },
+  employeeAppointmentsList: {
+    gap: DesignTokens.spacing.md,
+  },
+  employeeAppointmentCard: {
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    gap: DesignTokens.spacing.md,
+  },
+  employeeAppointmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: DesignTokens.spacing.md,
+  },
+  employeeAppointmentMeta: {
     flex: 1,
-    marginHorizontal: DesignTokens.spacing.xs,
+  },
+  employeeAppointmentTime: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.primary,
+  },
+  employeeAppointmentDate: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    textTransform: 'capitalize',
+  },
+  employeeAppointmentClient: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+  },
+  employeeAppointmentService: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  employeeAppointmentActions: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.sm,
+  },
+  employeeActionButton: {
+    flex: 1,
   },
 });
