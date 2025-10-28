@@ -16,17 +16,36 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { MotionFadeIn } from '@/components/ui/MotionFadeIn';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { Availability, BookingService, Provider, Review, Service } from '@/lib/booking-service';
+import {
+  Availability,
+  BookingService,
+  Provider,
+  ProviderHighlight,
+  ProviderLoyaltySummary,
+  ProviderMedia,
+  ProviderTeamMember,
+  Review,
+  Service
+} from '@/lib/booking-service';
+import { useAuth } from '@/contexts/AuthContext';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { Image } from 'expo-image';
 
 export default function ProviderDetailScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  const { user } = useAuth();
+  const isClient = user?.profile?.role === 'client';
   const [provider, setProvider] = useState<Provider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [media, setMedia] = useState<ProviderMedia[]>([]);
+  const [teamMembers, setTeamMembers] = useState<ProviderTeamMember[]>([]);
+  const [highlights, setHighlights] = useState<ProviderHighlight[]>([]);
+  const [loyaltySummary, setLoyaltySummary] = useState<ProviderLoyaltySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -58,17 +77,38 @@ export default function ProviderDetailScreen() {
       log.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
 
       // Cargar datos en paralelo
-      const [providerData, servicesData, availabilityData, reviewsData] = await Promise.all([
+      const loyaltyPromise = isClient
+        ? BookingService.getProviderLoyaltySummary(providerId)
+        : Promise.resolve(null);
+
+      const [
+        providerData,
+        servicesData,
+        availabilityData,
+        reviewsData,
+        mediaData,
+        teamData,
+        highlightsData,
+        loyaltyData
+      ] = await Promise.all([
         BookingService.getProviderDetails(providerId),
         BookingService.getProviderServices(providerId),
         BookingService.getProviderAvailability(providerId),
-        BookingService.getProviderReviews(providerId)
+        BookingService.getProviderReviews(providerId),
+        BookingService.getProviderMedia(providerId),
+        BookingService.getProviderTeam(providerId),
+        BookingService.getProviderHighlights(providerId),
+        loyaltyPromise
       ]);
 
       setProvider(providerData);
       setServices(servicesData);
       setAvailability(availabilityData);
       setReviews(reviewsData);
+      setMedia(mediaData);
+      setTeamMembers(teamData);
+      setHighlights(highlightsData);
+      setLoyaltySummary(loyaltyData);
       
       // Load favorite status
       await loadFavoriteStatus();
@@ -78,6 +118,9 @@ export default function ProviderDetailScreen() {
         servicesCount: servicesData.length,
         availabilityCount: availabilityData.length,
         reviewsCount: reviewsData.length,
+        mediaCount: mediaData.length,
+        teamCount: teamData.length,
+        highlightsCount: highlightsData.length,
         providerRating: providerData?.rating,
         totalReviews: providerData?.total_reviews
       });
@@ -242,6 +285,16 @@ export default function ProviderDetailScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
+        {provider.hero_image_url && (
+          <MotionFadeIn delay={40}>
+            <Image
+              source={{ uri: provider.hero_image_url }}
+              style={styles.heroImage}
+              contentFit="cover"
+            />
+          </MotionFadeIn>
+        )}
+
         {/* Header del Proveedor */}
         <Card variant="elevated" style={styles.headerCard}>
           <View style={styles.headerContent}>
@@ -249,6 +302,9 @@ export default function ProviderDetailScreen() {
               <View style={styles.providerInfo}>
                 <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
                 <ThemedText style={styles.category}>{provider.category}</ThemedText>
+                {provider.tagline && (
+                  <ThemedText style={styles.tagline}>{provider.tagline}</ThemedText>
+                )}
               </View>
               
               <Button
@@ -293,41 +349,94 @@ export default function ProviderDetailScreen() {
                 <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
               </View>
             )}
+
+            {provider.specialties && provider.specialties.length > 0 && (
+              <View style={styles.specialtiesRow}>
+                {provider.specialties.slice(0, 4).map((specialty, index) => (
+                  <View key={`${specialty}-${index}`} style={styles.specialtyChip}>
+                    <IconSymbol name="sparkles" size={12} color={Colors.light.primary} />
+                    <ThemedText style={styles.specialtyText}>{specialty}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           {provider.bio && (
             <ThemedText style={styles.bio}>{provider.bio}</ThemedText>
           )}
+
+          {provider.mission && (
+            <ThemedText style={styles.mission}>{provider.mission}</ThemedText>
+          )}
         </Card>
+
+        {highlights.length > 0 && (
+          <MotionFadeIn delay={80}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Lo que nos distingue</ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.highlightScroll}
+              >
+                {highlights.map((highlight) => (
+                  <Card key={highlight.id} variant="elevated" style={styles.highlightCard}>
+                    <View style={styles.highlightHeader}>
+                      <View style={styles.highlightIconWrapper}>
+                        <IconSymbol
+                          name={(highlight.icon as any) || 'star'}
+                          size={18}
+                          color={Colors.light.primary}
+                        />
+                      </View>
+                      {highlight.badge && (
+                        <View style={styles.highlightBadge}>
+                          <ThemedText style={styles.highlightBadgeText}>{highlight.badge}</ThemedText>
+                        </View>
+                      )}
+                    </View>
+                    <ThemedText style={styles.highlightTitle}>{highlight.title}</ThemedText>
+                    {highlight.description && (
+                      <ThemedText style={styles.highlightDescription}>{highlight.description}</ThemedText>
+                    )}
+                  </Card>
+                ))}
+              </ScrollView>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
 
         {/* Servicios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Servicios ({services.length})</ThemedText>
           {services.length > 0 ? (
-            services.map((service) => (
-              <Card key={service.id} variant="default" style={styles.serviceCard}>
-                <View style={styles.serviceContent}>
-                  <View style={styles.serviceInfo}>
-                    <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
-                    {service.description && (
-                      <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
-                    )}
-                    <View style={styles.serviceDetails}>
-                      <View style={styles.serviceMetaChip}>
-                        <IconSymbol name="clock" size={12} color={Colors.light.primary} />
-                        <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+            services.map((service, index) => (
+              <MotionFadeIn key={service.id} delay={index * 60}>
+                <Card variant="default" style={styles.serviceCard}>
+                  <View style={styles.serviceContent}>
+                    <View style={styles.serviceInfo}>
+                      <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                      {service.description && (
+                        <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                      )}
+                      <View style={styles.serviceDetails}>
+                        <View style={styles.serviceMetaChip}>
+                          <IconSymbol name="clock" size={12} color={Colors.light.primary} />
+                          <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                        </View>
+                        <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
                       </View>
-                      <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
                     </View>
+                    <Button
+                      title="Reservar"
+                      onPress={() => handleBookService(service)}
+                      style={styles.bookButton}
+                      size="small"
+                    />
                   </View>
-                  <Button
-                    title="Reservar"
-                    onPress={() => handleBookService(service)}
-                    style={styles.bookButton}
-                    size="small"
-                  />
-                </View>
-              </Card>
+                </Card>
+              </MotionFadeIn>
             ))
           ) : (
             <Card variant="outlined" style={styles.emptyServicesCard}>
@@ -340,49 +449,206 @@ export default function ProviderDetailScreen() {
           )}
         </ThemedView>
 
+        {media.length > 0 && (
+          <MotionFadeIn delay={100}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Galería</ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.galleryScroll}
+              >
+                {media.map((item) => (
+                  <Image
+                    key={item.id}
+                    source={{ uri: item.thumbnail_url || item.url }}
+                    style={styles.galleryImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ))}
+              </ScrollView>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
+        {teamMembers.length > 0 && (
+          <MotionFadeIn delay={120}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Conoce al equipo</ThemedText>
+              <View style={styles.teamGrid}>
+                {teamMembers.map((member) => (
+                  <Card key={member.id} variant="outlined" style={styles.teamCard}>
+                    <View style={styles.teamHeader}>
+                      <Image
+                        source={{ uri: member.avatar_url || provider.logo_url || undefined }}
+                        style={styles.teamAvatar}
+                        contentFit="cover"
+                      />
+                      <View style={styles.teamInfo}>
+                        <ThemedText style={styles.teamName}>{member.full_name}</ThemedText>
+                        {member.role && (
+                          <ThemedText style={styles.teamRole}>{member.role}</ThemedText>
+                        )}
+                      </View>
+                    </View>
+                    {member.bio && (
+                      <ThemedText style={styles.teamBio}>{member.bio}</ThemedText>
+                    )}
+                    {member.expertise && member.expertise.length > 0 && (
+                      <View style={styles.teamTagRow}>
+                        {member.expertise.slice(0, 3).map((tag, index) => (
+                          <View key={`${member.id}-tag-${index}`} style={styles.teamTag}>
+                            <ThemedText style={styles.teamTagText}>{tag}</ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Card>
+                ))}
+              </View>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
+        {(provider.loyalty_enabled ?? true) && (
+          <MotionFadeIn delay={140}>
+            <ThemedView style={styles.section}>
+              <Card variant="elevated" style={styles.loyaltyCard}>
+                <View style={styles.loyaltyHeader}>
+                  <View>
+                    <ThemedText style={styles.sectionTitle}>Programa de Lealtad</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Acumula puntos en cada visita para canjear beneficios exclusivos.
+                    </ThemedText>
+                  </View>
+                  <IconSymbol name="rosette" size={28} color={Colors.light.primary} />
+                </View>
+
+                {isClient ? (
+                  loyaltySummary ? (
+                    <View style={styles.loyaltyStatsRow}>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyPoints}>{loyaltySummary.pointsBalance}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Puntos acumulados</ThemedText>
+                      </View>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyTier}>{loyaltySummary.tier}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Tu nivel actual</ThemedText>
+                      </View>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyPoints}>{loyaltySummary.pointsToNextReward}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Pts. para próxima recompensa</ThemedText>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.loyaltyEmptyState}>
+                      <ThemedText style={styles.loyaltyEmptyTitle}>Aún no tienes puntos</ThemedText>
+                      <ThemedText style={styles.loyaltySubtitle}>
+                        Reserva tu primera cita para comenzar a acumular recompensas.
+                      </ThemedText>
+                    </View>
+                  )
+                ) : user ? (
+                  <View style={styles.loyaltyEmptyState}>
+                    <ThemedText style={styles.loyaltyEmptyTitle}>Programa disponible para clientes</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Pídele a tus clientes que inicien sesión para acumular puntos y canjear beneficios.
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={styles.loyaltyEmptyState}>
+                    <ThemedText style={styles.loyaltyEmptyTitle}>Inicia sesión para sumar puntos</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Crea una cuenta o inicia sesión para participar en el programa de lealtad.
+                    </ThemedText>
+                    <Button
+                      title="Ingresar"
+                      variant="outline"
+                      onPress={() => router.push('/(auth)/login')}
+                      style={styles.loyaltyButton}
+                    />
+                  </View>
+                )}
+
+                {loyaltySummary?.recentActivity?.length ? (
+                  <View style={styles.loyaltyActivityList}>
+                    {loyaltySummary.recentActivity.map((activity) => (
+                      <View key={activity.id} style={styles.loyaltyActivityRow}>
+                        <View>
+                          <ThemedText style={styles.loyaltyActivityReason}>
+                            {activity.reason || 'Movimiento de puntos'}
+                          </ThemedText>
+                          <ThemedText style={styles.loyaltyActivityDate}>
+                            {new Date(activity.created_at).toLocaleDateString('es-VE', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </ThemedText>
+                        </View>
+                        <ThemedText
+                          style={[
+                            styles.loyaltyActivityPoints,
+                            activity.points_change >= 0 ? styles.loyaltyPointsEarned : styles.loyaltyPointsRedeemed,
+                          ]}
+                        >
+                          {activity.points_change >= 0 ? '+' : ''}{activity.points_change}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </Card>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
         {/* Horarios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Horarios de Atención</ThemedText>
-          <Card variant="elevated" style={styles.availabilityCard}>
-            <View style={styles.availabilityHeader}>
-              <View style={styles.availabilityIcon}>
-                <IconSymbol name="clock" size={18} color={Colors.light.primary} />
+          <MotionFadeIn delay={120} offset={24}>
+            <Card variant="elevated" style={styles.availabilityCard}>
+              <View style={styles.availabilityHeader}>
+                <View style={styles.availabilityIcon}>
+                  <IconSymbol name="clock" size={18} color={Colors.light.primary} />
+                </View>
+                <View>
+                  <ThemedText style={styles.availabilityTitle}>Atención Personalizada</ThemedText>
+                  <ThemedText style={styles.availabilitySubtitle}>
+                    Agenda dentro de los horarios disponibles
+                  </ThemedText>
+                </View>
               </View>
-              <View>
-                <ThemedText style={styles.availabilityTitle}>Atención Personalizada</ThemedText>
-                <ThemedText style={styles.availabilitySubtitle}>
-                  Agenda dentro de los horarios disponibles
-                </ThemedText>
-              </View>
-            </View>
 
-            {availabilitySlots.length > 0 ? (
-              <View style={styles.availabilityList}>
-                {availabilitySlots.map((slot, index) => (
-                  <View
-                    key={slot.id}
-                    style={[
-                      styles.availabilityRow,
-                      index === availabilitySlots.length - 1 && styles.availabilityRowLast,
-                    ]}
-                  >
-                    <ThemedText style={styles.availabilityDay}>{slot.day}</ThemedText>
-                    <View style={styles.availabilityPill}>
-                      <IconSymbol name="clock" size={14} color={Colors.light.primary} />
-                      <ThemedText style={styles.availabilitySlot}>{slot.range}</ThemedText>
+              {availabilitySlots.length > 0 ? (
+                <View style={styles.availabilityList}>
+                  {availabilitySlots.map((slot, index) => (
+                    <View
+                      key={slot.id}
+                      style={[
+                        styles.availabilityRow,
+                        index === availabilitySlots.length - 1 && styles.availabilityRowLast,
+                      ]}
+                    >
+                      <ThemedText style={styles.availabilityDay}>{slot.day}</ThemedText>
+                      <View style={styles.availabilityPill}>
+                        <IconSymbol name="clock" size={14} color={Colors.light.primary} />
+                        <ThemedText style={styles.availabilitySlot}>{slot.range}</ThemedText>
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyAvailability}>
-                <IconSymbol name="calendar.badge.clock" size={20} color={Colors.light.textSecondary} />
-                <ThemedText style={styles.emptyAvailabilityText}>
-                  Este proveedor aún no ha configurado horarios públicos.
-                </ThemedText>
-              </View>
-            )}
-          </Card>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyAvailability}>
+                  <IconSymbol name="calendar.badge.clock" size={20} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.emptyAvailabilityText}>
+                    Este proveedor aún no ha configurado horarios públicos.
+                  </ThemedText>
+                </View>
+              )}
+            </Card>
+          </MotionFadeIn>
         </ThemedView>
 
         {/* Reseñas */}
@@ -415,15 +681,35 @@ export default function ProviderDetailScreen() {
             {reviews.slice(0, 3).map((review) => (
               <Card key={review.id} variant="outlined" style={styles.reviewCard}>
                 <ThemedView style={styles.reviewHeader}>
-                  <ThemedText style={styles.reviewerName}>
-                    {review.client?.display_name || 'Cliente'}
-                  </ThemedText>
+                  <View style={styles.reviewTitleRow}>
+                    <ThemedText style={styles.reviewerName}>
+                      {review.client?.display_name || 'Cliente'}
+                    </ThemedText>
+                    {review.is_verified && (
+                      <View style={styles.verifiedBadge}>
+                        <IconSymbol name="checkmark.seal" size={12} color={Colors.light.success} />
+                        <ThemedText style={styles.verifiedText}>Reserva verificada</ThemedText>
+                      </View>
+                    )}
+                  </View>
                   <ThemedView style={styles.reviewStars}>
                     {renderStars(review.rating)}
                   </ThemedView>
                 </ThemedView>
+                {review.highlight && (
+                  <ThemedText style={styles.reviewHighlight}>{review.highlight}</ThemedText>
+                )}
                 {review.comment && (
                   <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
+                )}
+                {review.tags && review.tags.length > 0 && (
+                  <View style={styles.reviewTagRow}>
+                    {review.tags.slice(0, 4).map((tag, index) => (
+                      <View key={`${review.id}-tag-${index}`} style={styles.reviewTag}>
+                        <ThemedText style={styles.reviewTagText}>{tag}</ThemedText>
+                      </View>
+                    ))}
+                  </View>
                 )}
                 <ThemedText style={styles.reviewDate}>
                   {new Date(review.created_at).toLocaleDateString('es-VE')}
@@ -470,6 +756,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: DesignTokens.spacing['6xl'],
+  },
+  heroImage: {
+    marginHorizontal: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.lg,
+    height: 220,
+    borderRadius: DesignTokens.radius['3xl'],
+    overflow: 'hidden',
+    backgroundColor: Colors.light.surfaceVariant,
   },
   loadingContainer: {
     flex: 1,
@@ -521,6 +815,11 @@ const styles = StyleSheet.create({
     fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.text,
   },
+  tagline: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+  },
   category: {
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.primary,
@@ -549,11 +848,37 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     flex: 1,
   },
+  specialtiesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.md,
+  },
+  specialtyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  specialtyText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
   bio: {
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.text,
     lineHeight: 22,
     marginTop: DesignTokens.spacing.md,
+  },
+  mission: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginTop: DesignTokens.spacing.sm,
   },
   section: {
     marginHorizontal: DesignTokens.spacing.lg,
@@ -564,6 +889,200 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: DesignTokens.spacing.md,
+  },
+  highlightScroll: {
+    gap: DesignTokens.spacing.md,
+    paddingRight: DesignTokens.spacing.lg,
+  },
+  highlightCard: {
+    width: 220,
+    padding: DesignTokens.spacing.lg,
+    marginRight: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius['2xl'],
+  },
+  highlightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  highlightIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  highlightBadge: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.primary + '15',
+  },
+  highlightBadgeText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  highlightTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  highlightDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  galleryScroll: {
+    gap: DesignTokens.spacing.md,
+    paddingRight: DesignTokens.spacing.lg,
+  },
+  galleryImage: {
+    width: 220,
+    height: 160,
+    borderRadius: DesignTokens.radius['2xl'],
+    marginRight: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamGrid: {
+    gap: DesignTokens.spacing.lg,
+  },
+  teamCard: {
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    gap: DesignTokens.spacing.md,
+  },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+  },
+  teamAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamInfo: {
+    flex: 1,
+    gap: DesignTokens.spacing.xs,
+  },
+  teamName: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+  },
+  teamRole: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primary,
+  },
+  teamBio: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  teamTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+  },
+  teamTag: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamTagText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyCard: {
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['3xl'],
+    gap: DesignTokens.spacing.lg,
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+  },
+  loyaltySubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  loyaltyStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.lg,
+  },
+  loyaltyStat: {
+    flex: 1,
+    gap: DesignTokens.spacing.xs,
+  },
+  loyaltyPoints: {
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.primary,
+  },
+  loyaltyTier: {
+    fontSize: DesignTokens.typography.fontSizes['xl'],
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.accent,
+  },
+  loyaltyLabel: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyEmptyState: {
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    backgroundColor: Colors.light.surfaceVariant,
+    gap: DesignTokens.spacing.sm,
+  },
+  loyaltyEmptyTitle: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+  },
+  loyaltyButton: {
+    alignSelf: 'flex-start',
+  },
+  loyaltyActivityList: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    paddingTop: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.md,
+  },
+  loyaltyActivityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  loyaltyActivityReason: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  loyaltyActivityDate: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyActivityPoints: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+  },
+  loyaltyPointsEarned: {
+    color: Colors.light.success,
+  },
+  loyaltyPointsRedeemed: {
+    color: Colors.light.warning,
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
@@ -710,6 +1229,7 @@ const styles = StyleSheet.create({
   reviewCard: {
     marginBottom: DesignTokens.spacing.md,
     padding: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.sm,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -717,20 +1237,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: DesignTokens.spacing.sm,
   },
+  reviewTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
   reviewerName: {
     fontSize: DesignTokens.typography.fontSizes.base,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
   },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.success + '15',
+  },
+  verifiedText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.successDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
   reviewStars: {
     flexDirection: 'row',
     gap: 2,
+  },
+  reviewHighlight: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   reviewComment: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
     lineHeight: 18,
     marginBottom: DesignTokens.spacing.sm,
+  },
+  reviewTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  reviewTag: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  reviewTagText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
   },
   reviewDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,

@@ -5,18 +5,36 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Appointment, BookingService, Provider } from '@/lib/booking-service';
+import { Appointment, BookingService, Provider, ProviderDashboardMetrics } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { router } from 'expo-router';
+import { router, Href } from 'expo-router';
 import React from 'react';
 import {
   Alert,
+  Linking,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+
+const formatCurrency = (amount: number, currency?: string) => {
+  const safeCurrency = currency || 'USD';
+  try {
+    return new Intl.NumberFormat('es-VE', {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  } catch {
+    return `${safeCurrency} ${(amount || 0).toFixed(0)}`;
+  }
+};
+
+const formatPercentage = (value?: number) =>
+  Number.isFinite(value) ? `${(value ?? 0).toFixed(1)}%` : '0.0%';
 
 export default function HomeScreen() {
   const { user, loading } = useAuth();
@@ -330,38 +348,48 @@ function ClientHomeScreen() {
 function ProviderHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [appointments, setAppointments] = React.useState<Appointment[]>([]);
+  const [metrics, setMetrics] = React.useState<ProviderDashboardMetrics | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [metricsLoading, setMetricsLoading] = React.useState(true);
   const { user } = useAuth();
   const log = useLogger(user?.id);
 
   React.useEffect(() => {
-    loadAppointments();
+    loadDashboardData();
   }, []);
 
-  const loadAppointments = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
-      log.info(LogCategory.DATABASE, 'Loading provider appointments', { screen: 'ProviderHome' });
-      
-      const appointmentsData = await BookingService.getProviderAppointments();
+      setMetricsLoading(true);
+      log.info(LogCategory.DATABASE, 'Loading provider dashboard data', { screen: 'ProviderHome' });
+
+      const [appointmentsData, metricsData] = await Promise.all([
+        BookingService.getProviderAppointments(),
+        BookingService.getProviderDashboardMetrics(),
+      ]);
       setAppointments(appointmentsData);
-      
-      log.info(LogCategory.DATABASE, 'Provider appointments loaded', { 
+      setMetrics(metricsData);
+
+      log.info(LogCategory.DATABASE, 'Provider dashboard data loaded', { 
         count: appointmentsData.length,
-        screen: 'ProviderHome' 
+        screen: 'ProviderHome',
+        metrics: metricsData,
       });
     } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading provider appointments', error);
+      log.error(LogCategory.SERVICE, 'Error loading provider dashboard', error);
       setAppointments([]);
+      setMetrics(null);
     } finally {
       setLoading(false);
+      setMetricsLoading(false);
     }
   };
 
   const onRefresh = async () => {
     log.userAction('Refresh dashboard', { screen: 'ProviderHome' });
     setRefreshing(true);
-    await loadAppointments();
+    await loadDashboardData();
     setRefreshing(false);
     log.info(LogCategory.UI, 'Dashboard refresh completed', { screen: 'ProviderHome' });
   };
@@ -369,27 +397,53 @@ function ProviderHomeScreen() {
   // Calcular estadísticas reales
   const today = new Date().toISOString().split('T')[0];
   const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
-  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
-  const confirmedAppointments = appointments.filter(apt => apt.status === 'confirmed');
+  const pendingAppointments = metrics?.pendingAppointments ?? appointments.filter(apt => apt.status === 'pending').length;
+  const confirmedAppointments = metrics?.confirmedAppointments ?? appointments.filter(apt => apt.status === 'confirmed').length;
 
-  const stats = [
-    { 
-      number: todayAppointments.length.toString(), 
-      label: 'Citas Hoy', 
-      icon: 'calendar', 
-      color: Colors.light.primary 
+  const performanceCards = [
+    {
+      label: 'Ingresos Mensuales',
+      value: metricsLoading
+        ? '...'
+        : formatCurrency(metrics?.revenue.amount ?? 0, metrics?.revenue.currency),
+      icon: 'creditcard',
+      color: Colors.light.primary,
+      helper: metricsLoading ? '' : `${metrics?.monthlyAppointments ?? 0} citas`,
     },
-    { 
-      number: pendingAppointments.length.toString(), 
-      label: 'Pendientes', 
-      icon: 'clock', 
-      color: Colors.light.warning 
+    {
+      label: 'Recompra',
+      value: metricsLoading ? '...' : formatPercentage(metrics?.rebookingRate ?? 0),
+      icon: 'arrow.2.squarepath',
+      color: Colors.light.secondary,
+      helper: metricsLoading ? '' : `${metrics?.repeatClients ?? 0} clientes repetidos`,
     },
-    { 
-      number: confirmedAppointments.length.toString(), 
-      label: 'Confirmadas', 
-      icon: 'checkmark.circle', 
-      color: Colors.light.success 
+    {
+      label: 'No Shows',
+      value: metricsLoading ? '...' : formatPercentage(metrics?.noShowRate ?? 0),
+      icon: 'exclamationmark.triangle',
+      color: Colors.light.warning,
+      helper: metricsLoading ? '' : `${metrics?.noShowAppointments ?? 0} ausencias`,
+    },
+  ];
+
+  const operationalStats = [
+    {
+      number: todayAppointments.length.toString(),
+      label: 'Citas Hoy',
+      icon: 'calendar',
+      color: Colors.light.primary,
+    },
+    {
+      number: pendingAppointments.toString(),
+      label: 'Pendientes',
+      icon: 'clock',
+      color: Colors.light.warning,
+    },
+    {
+      number: confirmedAppointments.toString(),
+      label: 'Confirmadas',
+      icon: 'checkmark.circle',
+      color: Colors.light.success,
     },
   ];
 
@@ -403,7 +457,7 @@ function ProviderHomeScreen() {
     })
     .slice(0, 3);
 
-  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
+  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete' | 'no_show') => {
     try {
       log.userAction('Appointment action', { 
         appointmentId: appointment.id, 
@@ -412,32 +466,121 @@ function ProviderHomeScreen() {
         screen: 'ProviderHome' 
       });
 
-      let newStatus: 'confirmed' | 'cancelled' | 'done';
-      switch (action) {
-        case 'confirm':
-          newStatus = 'confirmed';
-          break;
-        case 'cancel':
-          newStatus = 'cancelled';
-          break;
-        case 'complete':
-          newStatus = 'done';
-          break;
-      }
+      if (action === 'no_show') {
+        await BookingService.markAppointmentNoShow(appointment.id);
+      } else {
+        let newStatus: 'confirmed' | 'cancelled' | 'done';
+        switch (action) {
+          case 'confirm':
+            newStatus = 'confirmed';
+            break;
+          case 'cancel':
+            newStatus = 'cancelled';
+            break;
+          case 'complete':
+          default:
+            newStatus = 'done';
+            break;
+        }
 
-      await BookingService.updateAppointmentStatus(appointment.id, newStatus);
+        await BookingService.updateAppointmentStatus(appointment.id, newStatus);
+      }
       
-      // Recargar citas
-      await loadAppointments();
+      await loadDashboardData();
       
       Alert.alert(
         'Éxito',
-        `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
+        action === 'confirm'
+          ? 'Cita confirmada exitosamente'
+          : action === 'cancel'
+          ? 'Cita cancelada exitosamente'
+          : action === 'no_show'
+          ? 'Cita marcada como no presentada'
+          : 'Cita completada exitosamente'
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error updating appointment status', error);
       Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
     }
+  };
+
+  const handleMarkNoShow = (appointment: Appointment) => {
+    log.userAction('Mark appointment as no-show', {
+      appointmentId: appointment.id,
+      screen: 'ProviderHome',
+    });
+
+    Alert.alert(
+      'Marcar como no presentada',
+      '¿Confirmas que el cliente no asistió a la cita?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, marcar',
+          style: 'destructive',
+          onPress: () => {
+            void handleAppointmentAction(appointment, 'no_show');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRescheduleAppointment = (appointment: Appointment) => {
+    log.userAction('Reschedule appointment quick action', {
+      appointmentId: appointment.id,
+      screen: 'ProviderHome',
+    });
+
+    const proceed = () => {
+      router.push({
+        pathname: '/(booking)/book-service',
+        params: {
+          providerId: appointment.provider_id,
+          serviceId: appointment.service_id,
+          serviceName: appointment.services?.name || '',
+          servicePrice: appointment.services?.price_amount?.toString() || '',
+          serviceDuration: appointment.services?.duration_minutes?.toString() || '',
+          rescheduleId: appointment.id,
+          mode: 'reschedule',
+        },
+      });
+    };
+
+    Alert.alert(
+      'Reprogramar cita',
+      `¿Quieres reprogramar la cita de "${appointment.services?.name || 'Servicio'}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reprogramar',
+          onPress: proceed,
+        },
+      ]
+    );
+  };
+
+  const handleMessageClient = (appointment: Appointment) => {
+    log.userAction('Message client from dashboard', {
+      appointmentId: appointment.id,
+      screen: 'ProviderHome',
+    });
+
+    const phone = appointment.profiles?.phone;
+    if (!phone) {
+      Alert.alert('Sin teléfono', 'El cliente no tiene un número de contacto registrado.');
+      return;
+    }
+
+    const normalizedPhone = phone.replace(/\s+/g, '');
+    const smsUrl = Platform.select({
+      ios: `sms:&addresses=${normalizedPhone}`,
+      default: `sms:${normalizedPhone}`,
+    });
+
+    Linking.openURL(smsUrl || `tel:${normalizedPhone}`).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir la aplicación de mensajes.');
+    });
   };
 
   return (
@@ -480,14 +623,38 @@ function ProviderHomeScreen() {
         />
       </View>
 
-      {/* Estadísticas */}
+      {/* Indicadores clave */}
       <View style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Estadísticas
+          Indicadores Clave
+        </ThemedText>
+        
+        <View style={styles.performanceGrid}>
+          {performanceCards.map((card, index) => (
+            <Card key={index} variant="elevated" style={styles.performanceCard}>
+              <View style={styles.performanceHeader}>
+                <View style={[styles.statIcon, { backgroundColor: card.color }]}>
+                  <IconSymbol name={card.icon as any} size={20} color="white" />
+                </View>
+                <ThemedText style={styles.performanceLabel}>{card.label}</ThemedText>
+              </View>
+              <ThemedText style={styles.performanceValue}>{card.value}</ThemedText>
+              {card.helper ? (
+                <ThemedText style={styles.performanceHelper}>{card.helper}</ThemedText>
+              ) : null}
+            </Card>
+          ))}
+        </View>
+      </View>
+
+      {/* Estado operativo */}
+      <View style={styles.section}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          Estado Operativo
         </ThemedText>
         
         <View style={styles.statsGrid}>
-          {stats.map((stat, index) => (
+          {operationalStats.map((stat, index) => (
             <Card
               key={index}
               variant="elevated"
@@ -603,6 +770,33 @@ function ProviderHomeScreen() {
                     />
                   )}
                 </View>
+                <View style={styles.appointmentSecondaryActions}>
+                  {appointment.profiles?.phone ? (
+                    <Button
+                      title="Mensaje"
+                      variant="ghost"
+                      size="small"
+                      onPress={() => handleMessageClient(appointment)}
+                      style={styles.secondaryActionButton}
+                    />
+                  ) : null}
+                  <Button
+                    title="Reprogramar"
+                    variant="ghost"
+                    size="small"
+                    onPress={() => handleRescheduleAppointment(appointment)}
+                    style={styles.secondaryActionButton}
+                  />
+                  {appointment.status === 'confirmed' && (
+                    <Button
+                      title="No-show"
+                      variant="outline"
+                      size="small"
+                      onPress={() => handleMarkNoShow(appointment)}
+                      style={styles.secondaryActionButton}
+                    />
+                  )}
+                </View>
               </Card>
             ))
           ) : (
@@ -646,6 +840,17 @@ function ProviderHomeScreen() {
             }}
             style={styles.quickActionButton}
           />
+          <Button
+            title="Ajustes"
+            variant="outline"
+            size="medium"
+          icon={<IconSymbol name="slider.horizontal.3" size={18} color={Colors.light.primary} />}
+          onPress={() => {
+            log.userAction('Navigate to provider settings', { screen: 'ProviderHome' });
+            router.push('/(provider)/settings' as Href);
+          }}
+          style={styles.quickActionButton}
+        />
         </View>
       </View>
       </ScrollView>
@@ -867,6 +1072,7 @@ const styles = StyleSheet.create({
   // Estadísticas del proveedor
   statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: DesignTokens.spacing.md,
   },
   statCard: {
@@ -895,6 +1101,34 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     textAlign: 'center',
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  performanceGrid: {
+    gap: DesignTokens.spacing.md,
+  },
+  performanceCard: {
+    padding: DesignTokens.spacing.lg,
+  },
+  performanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.md,
+  },
+  performanceLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  performanceValue: {
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.primary,
+    marginBottom: DesignTokens.spacing.xs,
+    letterSpacing: -0.3,
+  },
+  performanceHelper: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
   },
   
   // Citas del proveedor
@@ -949,6 +1183,16 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  appointmentSecondaryActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.md,
+  },
+  secondaryActionButton: {
+    flexGrow: 1,
+    minWidth: 120,
   },
   loadingText: {
     fontSize: DesignTokens.typography.fontSizes.lg,

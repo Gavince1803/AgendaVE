@@ -195,6 +195,24 @@ Una vez configurado, deberías ver:
 - Asegúrate de que el proyecto de Supabase esté activo
 - Verifica que las tablas se hayan creado correctamente
 
+## 🛎️ Automatizar recordatorios de citas
+
+AgendaVE incluye una función edge (`send-reminders`) que envía recordatorios push según la anticipación configurada por cada proveedor.
+
+1. Define las variables `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en los secrets del proyecto:
+   ```bash
+   supabase secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+   ```
+2. Despliega la función edge:
+   ```bash
+   supabase functions deploy send-reminders
+   ```
+3. Programa un cron en Supabase (por ejemplo cada 15 minutos):
+   ```bash
+   supabase cron create send-reminders --schedule "*/15 * * * *" --function send-reminders
+   ```
+4. Verifica la tabla `appointment_reminder_logs` para confirmar que no se envíen recordatorios duplicados.
+
 ## 📞 Soporte
 
 Si tienes problemas, verifica:

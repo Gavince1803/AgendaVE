@@ -20,6 +20,7 @@
   "exclude": [
     "node_modules",
     "examples",
-    "components/ui/EnhancedComponents.tsx"
+    "components/ui/EnhancedComponents.tsx",
+    "supabase/functions/**/*"
   ]
 }

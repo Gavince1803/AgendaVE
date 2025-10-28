@@ -1,4 +1,4 @@
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { DesignSystemProvider } from '@/theme';
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -22,19 +23,21 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <ThemeProvider value={DefaultTheme}>
-          {/** Deep link handling for notification taps */}
-          {loaded && (
-            <DeepLinkHandler />
-          )}
-          <Stack>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(booking)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="light" />
-        </ThemeProvider>
+        <DesignSystemProvider>
+          <NavigationThemeProvider value={DefaultTheme}>
+            {/** Deep link handling for notification taps */}
+            {loaded && (
+              <DeepLinkHandler />
+            )}
+            <Stack>
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(booking)" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="light" />
+          </NavigationThemeProvider>
+        </DesignSystemProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

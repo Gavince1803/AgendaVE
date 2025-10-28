@@ -1,16 +1,20 @@
-import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TextInputProps,
-    TouchableOpacity,
-    View,
-    StyleProp,
-    ViewStyle,
-    TextStyle,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+  StyleProp,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
+
+import { Theme, useTheme } from '@/theme';
+
+type InputVariant = 'default' | 'filled' | 'outlined';
+type InputSize = 'small' | 'medium' | 'large';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -20,8 +24,8 @@ interface InputProps extends TextInputProps {
   rightIcon?: React.ReactNode;
   onRightIconPress?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
-  variant?: 'default' | 'filled' | 'outlined';
-  size?: 'small' | 'medium' | 'large';
+  variant?: InputVariant;
+  size?: InputSize;
 }
 
 export function Input({
@@ -37,26 +41,28 @@ export function Input({
   size = 'medium',
   ...props
 }: InputProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [isFocused, setIsFocused] = useState(false);
 
-  const handleFocus = (e: Parameters<NonNullable<TextInputProps['onFocus']>>[0]) => {
+  const handleFocus = (
+    e: Parameters<NonNullable<TextInputProps['onFocus']>>[0],
+  ) => {
     setIsFocused(true);
-    if (props.onFocus) {
-      props.onFocus(e);
-    }
+    props.onFocus?.(e);
   };
 
-  const handleBlur = (e: Parameters<NonNullable<TextInputProps['onBlur']>>[0]) => {
+  const handleBlur = (
+    e: Parameters<NonNullable<TextInputProps['onBlur']>>[0],
+  ) => {
     setIsFocused(false);
-    if (props.onBlur) {
-      props.onBlur(e);
-    }
+    props.onBlur?.(e);
   };
 
   const inputContainerStyle: StyleProp<ViewStyle> = [
     styles.inputContainer,
-    styles[variant] as ViewStyle,
-    styles[size] as ViewStyle,
+    styles[variant],
+    styles[size],
     isFocused ? styles.inputContainerFocused : undefined,
     error ? styles.inputContainerError : undefined,
     leftIcon ? styles.inputContainerWithLeftIcon : undefined,
@@ -65,7 +71,7 @@ export function Input({
 
   const inputStyle: StyleProp<TextStyle> = [
     styles.input,
-    styles[`${size}Input`] as TextStyle,
+    styles[`${size}Input`],
     leftIcon ? styles.inputWithLeftIcon : undefined,
     rightIcon ? styles.inputWithRightIcon : undefined,
     style,
@@ -73,30 +79,31 @@ export function Input({
 
   const labelStyle: StyleProp<TextStyle> = [
     styles.label,
-    styles[`${size}Label`] as TextStyle,
+    styles[`${size}Label`],
     error ? styles.errorLabel : undefined,
+  ];
+
+  const helperStyle: StyleProp<TextStyle> = [
+    styles.helperText,
+    error ? styles.errorText : undefined,
   ];
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={labelStyle}>{label}</Text>}
-      
+
       <View style={inputContainerStyle}>
-        {leftIcon && (
-          <View style={styles.leftIconContainer}>
-            {leftIcon}
-          </View>
-        )}
-        
+        {leftIcon ? <View style={styles.leftIconContainer}>{leftIcon}</View> : null}
+
         <TextInput
           style={inputStyle}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholderTextColor={ComponentColors.input.placeholder}
+          placeholderTextColor={theme.components.input.placeholder}
           {...props}
         />
-        
-        {rightIcon && (
+
+        {rightIcon ? (
           <TouchableOpacity
             style={styles.rightIconContainer}
             onPress={onRightIconPress}
@@ -104,11 +111,11 @@ export function Input({
           >
             {rightIcon}
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
-      
+
       {(error || helperText) && (
-        <Text style={[styles.helperText, error && styles.errorText]}>
+        <Text style={helperStyle}>
           {error || helperText}
         </Text>
       )}
@@ -146,136 +153,118 @@ type InputStyles = {
   errorText: TextStyle;
 };
 
-const styles = StyleSheet.create<InputStyles>({
-  container: {
-    marginBottom: DesignTokens.spacing.xl,
-  },
-  
-  // Labels
-  label: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.sm,
-    letterSpacing: 0.2,
-  },
-  smallLabel: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-  },
-  mediumLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-  },
-  largeLabel: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-  },
-  errorLabel: {
-    color: ComponentColors.button.error,
-  },
-  
-  // Input container
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: ComponentColors.input.background,
-    borderWidth: 1,
-    borderColor: ComponentColors.input.border,
-    borderRadius: DesignTokens.radius.lg,
-  },
-  
-  // Variantes
-  default: {
-    backgroundColor: ComponentColors.input.background,
-  },
-  filled: {
-    backgroundColor: Colors.light.surfaceVariant,
-    borderColor: 'transparent',
-  },
-  outlined: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-  },
-  
-  // Tamaños
-  small: {
-    minHeight: 40,
-    borderRadius: DesignTokens.radius.md,
-  },
-  medium: {
-    minHeight: 48,
-    borderRadius: DesignTokens.radius.lg,
-  },
-  large: {
-    minHeight: 56,
-    borderRadius: DesignTokens.radius.xl,
-  },
-  
-  // Estados
-  inputContainerFocused: {
-    borderColor: ComponentColors.input.borderFocused,
-    shadowColor: ComponentColors.input.borderFocused,
-    ...DesignTokens.elevation.sm,
-  },
-  inputContainerError: {
-    borderColor: ComponentColors.button.error,
-    shadowColor: ComponentColors.button.error,
-    ...DesignTokens.elevation.sm,
-  },
-  inputContainerWithLeftIcon: {
-    paddingLeft: DesignTokens.spacing.md,
-  },
-  inputContainerWithRightIcon: {
-    paddingRight: DesignTokens.spacing.md,
-  },
-  
-  // Input text
-  input: {
-    flex: 1,
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
-    fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.normal as TextStyle['fontWeight'],
-  },
-  smallInput: {
-    paddingHorizontal: DesignTokens.spacing.md,
-    paddingVertical: DesignTokens.spacing.sm,
-    fontSize: DesignTokens.typography.fontSizes.sm,
-  },
-  mediumInput: {
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
-    fontSize: DesignTokens.typography.fontSizes.base,
-  },
-  largeInput: {
-    paddingHorizontal: DesignTokens.spacing.xl,
-    paddingVertical: DesignTokens.spacing.lg,
-    fontSize: DesignTokens.typography.fontSizes.lg,
-  },
-  inputWithLeftIcon: {
-    paddingLeft: DesignTokens.spacing.sm,
-  },
-  inputWithRightIcon: {
-    paddingRight: DesignTokens.spacing.sm,
-  },
-  
-  // Iconos
-  leftIconContainer: {
-    marginRight: DesignTokens.spacing.sm,
-  },
-  rightIconContainer: {
-    marginLeft: DesignTokens.spacing.sm,
-    padding: DesignTokens.spacing.xs,
-    borderRadius: DesignTokens.radius.sm,
-  },
-  
-  // Texto de ayuda
-  helperText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.textSecondary,
-    marginTop: DesignTokens.spacing.xs,
-    fontWeight: DesignTokens.typography.fontWeights.normal as TextStyle['fontWeight'],
-  },
-  errorText: {
-    color: ComponentColors.button.error,
-  },
-});
+function createStyles(theme: Theme) {
+  const { tokens, colors, components } = theme;
+
+  return StyleSheet.create<InputStyles>({
+    container: {
+      marginBottom: tokens.spacing.xl,
+    },
+    label: {
+      fontSize: tokens.typography.fontSizes.sm,
+      fontWeight: tokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+      color: colors.text,
+      marginBottom: tokens.spacing.sm,
+      letterSpacing: 0.2,
+    },
+    smallLabel: {
+      fontSize: tokens.typography.fontSizes.xs,
+    },
+    mediumLabel: {
+      fontSize: tokens.typography.fontSizes.sm,
+    },
+    largeLabel: {
+      fontSize: tokens.typography.fontSizes.base,
+    },
+    errorLabel: {
+      color: components.button.error,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: components.input.background,
+      borderWidth: 1,
+      borderColor: components.input.border,
+      borderRadius: tokens.radius.lg,
+    },
+    default: {
+      backgroundColor: components.input.background,
+    },
+    filled: {
+      backgroundColor: colors.surfaceVariant,
+      borderColor: 'transparent',
+    },
+    outlined: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+    },
+    small: {
+      minHeight: 40,
+      borderRadius: tokens.radius.md,
+    },
+    medium: {
+      minHeight: 48,
+      borderRadius: tokens.radius.lg,
+    },
+    large: {
+      minHeight: 56,
+      borderRadius: tokens.radius.xl,
+    },
+    inputContainerFocused: {
+      borderColor: components.input.borderFocused,
+      shadowColor: components.input.borderFocused,
+      ...tokens.elevation.sm,
+    },
+    inputContainerError: {
+      borderColor: components.button.error,
+      shadowColor: components.button.error,
+      ...tokens.elevation.sm,
+    },
+    inputContainerWithLeftIcon: {
+      paddingLeft: tokens.spacing.md,
+    },
+    inputContainerWithRightIcon: {
+      paddingRight: tokens.spacing.md,
+    },
+    input: {
+      flex: 1,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
+      fontSize: tokens.typography.fontSizes.base,
+      color: colors.text,
+      fontWeight: tokens.typography.fontWeights.normal as TextStyle['fontWeight'],
+    },
+    smallInput: {
+      fontSize: tokens.typography.fontSizes.sm,
+    },
+    mediumInput: {
+      fontSize: tokens.typography.fontSizes.base,
+    },
+    largeInput: {
+      fontSize: tokens.typography.fontSizes.lg,
+    },
+    inputWithLeftIcon: {
+      paddingLeft: tokens.spacing.sm,
+    },
+    inputWithRightIcon: {
+      paddingRight: tokens.spacing.sm,
+    },
+    leftIconContainer: {
+      marginRight: tokens.spacing.sm,
+    },
+    rightIconContainer: {
+      marginLeft: tokens.spacing.sm,
+      padding: tokens.spacing.xs,
+      borderRadius: tokens.radius.sm,
+    },
+    helperText: {
+      fontSize: tokens.typography.fontSizes.xs,
+      color: colors.textSecondary,
+      marginTop: tokens.spacing.xs,
+      fontWeight: tokens.typography.fontWeights.normal as TextStyle['fontWeight'],
+    },
+    errorText: {
+      color: components.button.error,
+    },
+  });
+}

@@ -1,8 +1,15 @@
-import { Colors } from '@/constants/Colors';
-import React from 'react';
-import { Platform, StatusBar, useColorScheme, View, ViewStyle, StyleProp } from 'react-native';
+import React, { useMemo } from 'react';
+import {
+  Platform,
+  StatusBar,
+  View,
+  ViewStyle,
+  StyleProp,
+} from 'react-native';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useTheme } from '@/theme';
 
 interface SafeAreaViewProps {
   children: React.ReactNode;
@@ -11,7 +18,6 @@ interface SafeAreaViewProps {
   statusBarStyle?: 'light' | 'dark' | 'auto';
   statusBarBackgroundColor?: string;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
-  enableKeyboardAvoidance?: boolean;
 }
 
 export function SafeAreaView({
@@ -21,21 +27,18 @@ export function SafeAreaView({
   statusBarStyle = 'auto',
   statusBarBackgroundColor,
   edges = ['top', 'bottom', 'left', 'right'],
-  enableKeyboardAvoidance = false,
 }: SafeAreaViewProps) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  
-  // Usar el color de fondo apropiado según el modo
-  const defaultBackgroundColor = backgroundColor || Colors[colorScheme ?? 'light'].surface;
 
-  const getSafeAreaStyle = (): ViewStyle => {
+  const defaultBackgroundColor = backgroundColor ?? colors.surface;
+
+  const containerStyles = useMemo(() => {
     const safeAreaStyle: ViewStyle = {
       flex: 1,
       backgroundColor: defaultBackgroundColor,
     };
 
-    // Aplicar insets solo a los edges especificados
     if (edges.includes('top')) {
       safeAreaStyle.paddingTop = insets.top;
     }
@@ -49,15 +52,18 @@ export function SafeAreaView({
       safeAreaStyle.paddingRight = insets.right;
     }
 
-    return safeAreaStyle;
-  };
+    return [safeAreaStyle, style] as StyleProp<ViewStyle>;
+  }, [defaultBackgroundColor, edges, insets.bottom, insets.left, insets.right, insets.top, style]);
 
-  const containerStyles: StyleProp<ViewStyle> = [getSafeAreaStyle(), style];
+  const barStyle =
+    statusBarStyle === 'auto'
+      ? 'dark-content'
+      : (`${statusBarStyle}-content` as const);
 
   return (
     <View style={containerStyles}>
       <StatusBar
-        barStyle={statusBarStyle === 'auto' ? (colorScheme === 'dark' ? 'light-content' : 'dark-content') : `${statusBarStyle}-content` as const}
+        barStyle={barStyle}
         backgroundColor={statusBarBackgroundColor || defaultBackgroundColor}
         translucent={Platform.OS === 'android'}
       />
@@ -66,14 +72,19 @@ export function SafeAreaView({
   );
 }
 
-// Componente especializado para pantallas de autenticación
-export function AuthSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colorScheme = useColorScheme();
+export function AuthSafeAreaView({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
   return (
     <SafeAreaView
-      backgroundColor={Colors[colorScheme ?? 'light'].surface}
+      backgroundColor={colors.surface}
       statusBarStyle="dark"
-      edges={['top', 'left', 'right']} // No incluir bottom para que el teclado no interfiera
+      edges={['top', 'left', 'right']}
       style={style}
     >
       {children}
@@ -81,21 +92,26 @@ export function AuthSafeAreaView({ children, style }: { children: React.ReactNod
   );
 }
 
-// Componente especializado para pantallas principales con tabs
-export function TabSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colorScheme = useColorScheme();
+export function TabSafeAreaView({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const containerStyle: StyleProp<ViewStyle> = [{ paddingTop: insets.top }, style];
   return (
     <SafeAreaView
-      backgroundColor={Colors[colorScheme ?? 'light'].background}
+      backgroundColor={colors.background}
       statusBarStyle="dark"
-      edges={['left', 'right']} // Keep only left and right
+      edges={['left', 'right']}
       style={containerStyle}
     >
       <ExpoStatusBar
         style="dark"
-        backgroundColor={Colors[colorScheme ?? 'light'].background}
+        backgroundColor={colors.background}
         translucent={false}
       />
       {children}
@@ -103,21 +119,26 @@ export function TabSafeAreaView({ children, style }: { children: React.ReactNode
   );
 }
 
-// Componente especializado para pantallas de booking
-export function BookingSafeAreaView({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const colorScheme = useColorScheme();
+export function BookingSafeAreaView({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { colors } = useTheme();
   const containerStyle: StyleProp<ViewStyle> = [{ paddingTop: 0 }, style];
   return (
     <SafeAreaView
-      backgroundColor={Colors[colorScheme ?? 'light'].background}
+      backgroundColor={colors.background}
       statusBarStyle="dark"
-      statusBarBackgroundColor={Colors[colorScheme ?? 'light'].background}
+      statusBarBackgroundColor={colors.background}
       edges={['left', 'right', 'bottom']}
       style={containerStyle}
     >
       <ExpoStatusBar
         style="dark"
-        backgroundColor={Colors[colorScheme ?? 'light'].background}
+        backgroundColor={colors.background}
         translucent={false}
       />
       {children}
@@ -125,20 +146,17 @@ export function BookingSafeAreaView({ children, style }: { children: React.React
   );
 }
 
-// Hook personalizado para obtener insets de Safe Area
 export function useSafeArea() {
   const insets = useSafeAreaInsets();
-  
+
   return {
     top: insets.top,
     bottom: insets.bottom,
     left: insets.left,
     right: insets.right,
-    // Valores útiles para estilos
-    headerHeight: insets.top + 44, // Altura típica de header + safe area
-    tabBarHeight: insets.bottom + 49, // Altura típica de tab bar + safe area
-    // Valores para diferentes dispositivos
-    isIPhoneX: insets.top > 20, // Detecta si es iPhone X o superior
-    isIPad: insets.top === 0 && insets.bottom === 0, // Detecta iPad
+    headerHeight: insets.top + 44,
+    tabBarHeight: insets.bottom + 49,
+    isIPhoneX: insets.top > 20,
+    isIPad: insets.top === 0 && insets.bottom === 0,
   };
 }
