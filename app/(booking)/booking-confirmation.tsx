@@ -82,15 +82,9 @@ export default function BookingConfirmationScreen() {
         notes
       );
 
-      // Intentar enviar notificaciones (no bloquear la UX si falla)
+      // Intentar enviar notificaciones push (no bloquear la UX si falla)
       try {
-        // Notificar al cliente (confirmación/local)
-        await NotificationService.sendLocalNotification({
-          title: 'Reserva creada',
-          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
-          data: { type: 'booking_created', appointment_id: created.id },
-        });
-
+        // Notificar al cliente con push notification (solo Apple Push para producción)
         if (user?.id) {
           await NotificationService.notifyAppointmentConfirmation(user.id, {
             id: created.id,

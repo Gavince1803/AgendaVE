@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService } from '@/lib/booking-service';
+import { EmailService } from '@/lib/email-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -70,7 +71,7 @@ export default function AddEmployeeScreen() {
       }
 
       // Create employee
-      await BookingService.createEmployee({
+      const employee = await BookingService.createEmployee({
         provider_id: provider.id,
         name: formData.name.trim(),
         position: formData.position.trim(),
@@ -86,9 +87,32 @@ export default function AddEmployeeScreen() {
         providerId: provider.id
       });
 
+      // Send invitation email if email provided
+      if (formData.email && formData.email.trim()) {
+        try {
+          console.log('📧 Sending invitation email to employee...');
+          const token = await EmailService.createInvitationToken(employee.id, provider.id);
+          const invitationLink = EmailService.generateInvitationLink(employee.id, provider.id, token);
+          
+          await EmailService.sendEmployeeInvitation(
+            formData.email.trim(),
+            formData.name.trim(),
+            provider.business_name || provider.name,
+            invitationLink
+          );
+          
+          console.log('📧 ✅ Invitation email sent successfully');
+        } catch (emailError) {
+          console.warn('⚠️ Could not send invitation email:', emailError);
+          // Don't fail the employee creation if email fails
+        }
+      }
+
       Alert.alert(
         'Éxito',
-        `${formData.name} ha sido agregado al equipo correctamente`,
+        formData.email 
+          ? `${formData.name} ha sido agregado al equipo. Se ha enviado un email de invitación a ${formData.email}`
+          : `${formData.name} ha sido agregado al equipo correctamente`,
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
