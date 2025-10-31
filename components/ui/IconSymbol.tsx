@@ -6,7 +6,7 @@ import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
-type IconMapping = Record<SymbolViewProps['name'], ComponentProps<typeof MaterialIcons>['name']>;
+type IconMapping = Record<string, ComponentProps<typeof MaterialIcons>['name']>;
 type IconSymbolName = keyof typeof MAPPING | string;
 
 /**
@@ -14,7 +14,7 @@ type IconSymbolName = keyof typeof MAPPING | string;
  * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
-const MAPPING = {
+const MAPPING: IconMapping = {
   'house': 'home',
   'house.fill': 'home',
   'paperplane.fill': 'send',
@@ -125,34 +125,6 @@ const MAPPING = {
   'lungs': 'air',
   'cross.case': 'medical-services',
   'pills': 'medication',
-  'cross.fill': 'add',
-  'cross': 'add',
-  'minus': 'remove',
-  'multiply': 'close',
-  'divide': 'functions',
-  'equal': 'drag-indicator',
-  'percent': 'percent',
-  'number': 'numbers',
-  'textformat': 'format-color-text',
-  'bold': 'format-bold',
-  'italic': 'format-italic',
-  'underline': 'format-underlined',
-  'strikethrough': 'format-strikethrough',
-  'text.alignleft': 'format-align-left',
-  'text.aligncenter': 'format-align-center',
-  'text.alignright': 'format-align-right',
-  'text.alignjustify': 'format-align-justify',
-  'list.number': 'format-list-numbered',
-  'list.bullet.rectangle': 'format-list-bulleted',
-  'quote.bubble': 'format-quote',
-  'text.quote': 'format-quote',
-  'text.cursor': 'text-fields',
-  'cursorarrow': 'mouse',
-  'hand.tap': 'touch-app',
-  'hand.draw': 'gesture',
-  'hand.point.left': 'back-hand',
-  'hand.point.right': 'back-hand',
-  'hand.point.down': 'back-hand',
   'hand.raised.fill': 'pan-tool',
   'hand.thumbsup.fill': 'thumb-up',
   'hand.thumbsdown.fill': 'thumb-down',

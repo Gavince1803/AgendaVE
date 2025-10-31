@@ -1,5 +1,6 @@
-import { Colors } from '@/constants/Colors';
 import { Text, TextProps, TextStyle } from 'react-native';
+
+import { useTheme } from '@/theme';
 
 interface ThemedTextProps extends TextProps {
   type?: 'title' | 'subtitle' | 'defaultSemiBold' | 'default' | 'link';
@@ -30,17 +31,18 @@ const typeStyles: Record<string, TextStyle> = {
     fontSize: 16,
     fontWeight: '500' as any,
     lineHeight: 22,
-    color: Colors.light.primary,
   },
 };
 
 export function ThemedText({ style, type = 'default', ...props }: ThemedTextProps) {
+  const { colors } = useTheme();
   const typeStyle = typeStyles[type] || typeStyles.default;
+  const defaultColor = type === 'link' ? colors.primary : colors.text;
   
   return (
     <Text 
       style={[
-        { color: Colors.light.text },
+        { color: defaultColor },
         typeStyle,
         style
       ]} 

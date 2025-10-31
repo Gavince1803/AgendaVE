@@ -3,7 +3,7 @@
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -20,7 +20,7 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { BookingService, Provider, Service } from '@/lib/booking-service';
+import { BookingService, type AppointmentValidationResult, type Provider, type Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function BookServiceScreen() {
@@ -46,12 +46,25 @@ export default function BookServiceScreen() {
   const [service, setService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [slotValidation, setSlotValidation] = useState<AppointmentValidationResult | null>(null);
+  const [slotValidationStatus, setSlotValidationStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const log = useLogger();
+  const defaultValidationSettings = useMemo(
+    () => ({
+      bufferBeforeMinutes: 0,
+      bufferAfterMinutes: 0,
+      allowOverlaps: false,
+      cancellationPolicyHours: 0,
+      cancellationPolicyMessage: '',
+      reminderLeadTimeMinutes: 0,
+    }),
+    []
+  );
 
   // Smooth auto-scroll handling
   const scrollRef = useRef<ScrollView | null>(null);
@@ -171,6 +184,62 @@ export default function BookServiceScreen() {
     log.userAction('Select time slot', { time, date: selectedDate.toISOString().split('T')[0] });
   };
 
+  useEffect(() => {
+    if (!selectedTime || !service || !provider) {
+      setSlotValidation(null);
+      setSlotValidationStatus('idle');
+      return;
+    }
+
+    let isMounted = true;
+    const validate = async () => {
+      setSlotValidationStatus('checking');
+      try {
+        const validation = await BookingService.validateAppointmentSlot({
+          providerId: provider.id,
+          serviceId: service.id,
+          appointmentDate: selectedDate.toISOString().split('T')[0],
+          appointmentTime: selectedTime,
+          ignoreAppointmentId: mode === 'reschedule' && rescheduleId ? rescheduleId : undefined,
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSlotValidation(validation);
+        setSlotValidationStatus(validation.ok ? 'ok' : 'error');
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'No se pudo validar la disponibilidad.';
+        setSlotValidation({
+          ok: false,
+          reason: 'conflict',
+          message,
+          settings: defaultValidationSettings,
+        });
+        setSlotValidationStatus('error');
+      }
+    };
+
+    validate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    selectedTime,
+    selectedDate,
+    service?.id,
+    provider?.id,
+    rescheduleId,
+    mode,
+    defaultValidationSettings,
+  ]);
+
   const handleBookAppointment = async () => {
     if (!selectedTime || !service || !provider) {
       Alert.alert('Error', 'Por favor selecciona una hora disponible');
@@ -212,14 +281,31 @@ export default function BookServiceScreen() {
         originalAppointmentId: rescheduleId
       });
 
+      const validation = await BookingService.validateAppointmentSlot({
+        providerId: provider.id,
+        serviceId: service.id,
+        appointmentDate: selectedDate.toISOString().split('T')[0],
+        appointmentTime: selectedTime,
+        ignoreAppointmentId: isRescheduling && rescheduleId ? rescheduleId : undefined,
+      });
+
+      if (!validation.ok) {
+        setSlotValidation(validation);
+        setSlotValidationStatus('error');
+        Alert.alert('Horario no disponible', validation.message || 'Este horario ya fue tomado.');
+        return;
+      }
+
       let appointment;
       if (isRescheduling) {
         // Update existing appointment with new date/time
         appointment = await BookingService.updateAppointment(rescheduleId, {
           appointment_date: selectedDate.toISOString().split('T')[0],
           appointment_time: selectedTime,
-          status: 'pending' // Reset to pending for provider confirmation
         });
+
+        // Reset status to pending for provider confirmation
+        appointment = await BookingService.updateAppointmentStatus(rescheduleId, 'pending');
       } else {
         // Create new appointment
         appointment = await BookingService.createAppointment(
@@ -417,6 +503,22 @@ export default function BookServiceScreen() {
               </ThemedText>
             </Card>
           )}
+          {slotValidationStatus === 'checking' && (
+            <ThemedText style={styles.slotStatusInfo}>
+              Verificando disponibilidad en tiempo real...
+            </ThemedText>
+          )}
+          {slotValidationStatus === 'error' && slotValidation?.message && (
+            <Card variant="outlined" style={styles.slotWarningCard}>
+              <IconSymbol name="exclamationmark.triangle" size={16} color={Colors.light.warning} />
+              <ThemedText style={styles.slotWarningText}>{slotValidation.message}</ThemedText>
+            </Card>
+          )}
+          {slotValidationStatus === 'ok' && (
+            <ThemedText style={styles.slotStatusSuccess}>
+              Horario disponible • sin conflictos
+            </ThemedText>
+          )}
         </ThemedView>
 
         {/* Botón de Reserva */}
@@ -424,7 +526,7 @@ export default function BookServiceScreen() {
           <Button
             title={booking ? (mode === 'reschedule' ? "Reprogramando..." : "Reservando...") : (mode === 'reschedule' ? "Confirmar Reprogramación" : "Confirmar Reserva")}
             onPress={handleBookAppointment}
-            disabled={!selectedTime || booking}
+            disabled={!selectedTime || booking || slotValidationStatus === 'error' || slotValidationStatus === 'checking'}
             style={styles.bookButton}
             size="large"
           />
@@ -571,6 +673,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: DesignTokens.spacing.sm,
     justifyContent: 'flex-start',
+  },
+  slotStatusInfo: {
+    marginTop: DesignTokens.spacing.md,
+    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+  },
+  slotStatusSuccess: {
+    marginTop: DesignTokens.spacing.md,
+    color: Colors.light.success,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  slotWarningCard: {
+    marginTop: DesignTokens.spacing.md,
+    padding: DesignTokens.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+    borderColor: Colors.light.warning,
+    backgroundColor: Colors.light.warningBg,
+  },
+  slotWarningText: {
+    flex: 1,
+    color: Colors.light.warning,
+    fontSize: DesignTokens.typography.fontSizes.sm,
   },
   timeSlot: {
     paddingHorizontal: DesignTokens.spacing.md,

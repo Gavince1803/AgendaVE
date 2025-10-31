@@ -9,6 +9,7 @@ export default function ProviderLayout() {
     >
       <Stack.Screen name="my-business" />
       <Stack.Screen name="availability" />
+      <Stack.Screen name="settings" />
     </Stack>
   );
 }

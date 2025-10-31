@@ -86,7 +86,7 @@ export function EmployeeSelector({
                   name={employee.name}
                   size="medium"
                   style={styles.employeeAvatar}
-                  imageUrl={employee.profile_image_url}
+                  source={employee.profile_image_url ? { uri: employee.profile_image_url } : undefined}
                 />
                 
                 <View style={styles.employeeInfo}>

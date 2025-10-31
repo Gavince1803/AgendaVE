@@ -56,13 +56,14 @@ export default function ProviderCalendarScreen() {
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
       
-      setAppointments(providerAppointments || []);
+      const appointmentsData = providerAppointments ?? [];
+      setAppointments(appointmentsData);
 
       // Procesar fechas disponibles y ocupadas
       const dates = new Set<string>();
       const booked = new Set<string>();
       
-      providerAppointments.forEach(appointment => {
+      appointmentsData.forEach(appointment => {
         const date = appointment.appointment_date;
         dates.add(date);
         
@@ -137,7 +138,7 @@ export default function ProviderCalendarScreen() {
     }
   };
 
-  const handleAppointmentAction = async (appointmentId: number, action: string) => {
+  const handleAppointmentAction = async (appointmentId: string, action: string) => {
     try {
       switch (action) {
         case 'confirm':
@@ -147,7 +148,7 @@ export default function ProviderCalendarScreen() {
           await BookingService.cancelAppointment(appointmentId);
           break;
         case 'complete':
-          await BookingService.completeAppointment(appointmentId);
+          await BookingService.updateAppointmentStatus(appointmentId, 'done');
           break;
       }
       await loadData(); // Recargar datos
@@ -256,7 +257,7 @@ export default function ProviderCalendarScreen() {
                         <Button
                           title="Cancelar"
                           onPress={() => handleAppointmentAction(appointment.id, 'cancel')}
-                          variant="destructive"
+                          variant="error"
                           size="small"
                           style={styles.actionButton}
                         />

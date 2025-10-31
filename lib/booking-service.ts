@@ -2,6 +2,14 @@
 import { NotificationService } from './notification-service';
 import { supabase } from './supabase';
 
+const ACTIVE_FEATURE_FLAGS = (process.env.EXPO_PUBLIC_FEATURE_FLAGS || '')
+  .split(',')
+  .map((flag) => flag.trim())
+  .filter((flag) => flag.length > 0);
+
+const LOYALTY_REWARD_STEP = 100;
+const INVITE_TOKEN_TTL_HOURS = 48;
+
 export interface Provider {
   id: string;
   user_id: string;
@@ -12,6 +20,7 @@ export interface Provider {
   phone?: string;
   email?: string;
   logo_url?: string;
+  website?: string;
   lat?: number;
   lng?: number;
   timezone: string;
@@ -21,6 +30,12 @@ export interface Provider {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  tagline?: string;
+  mission?: string;
+  hero_image_url?: string;
+  cover_video_url?: string;
+  specialties?: string[];
+  loyalty_enabled?: boolean;
 }
 
 export interface Service {
@@ -54,6 +69,12 @@ export interface Employee {
   email?: string;
   phone?: string;
   position?: string;
+  profile_id?: string | null;
+  invite_email?: string | null;
+  invite_status?: 'draft' | 'pending' | 'accepted' | 'revoked';
+  invite_token?: string | null;
+  invite_token_expires_at?: string | null;
+  role?: string;
   is_active: boolean;
   is_owner: boolean;
   profile_image_url?: string;
@@ -61,6 +82,10 @@ export interface Employee {
   bio?: string;
   created_at: string;
   updated_at: string;
+  profiles?: {
+    display_name?: string;
+    phone?: string;
+  } | null;
 }
 
 export interface EmployeeAvailability {
@@ -82,18 +107,24 @@ export interface Appointment {
   employee_id?: string;
   appointment_date: string;
   appointment_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'done';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'done' | 'no_show';
   note?: string;
   notes?: string;
   created_at: string;
   updated_at: string;
   // Joined data
   service?: Service;
+  services?: Service;
   provider?: Provider;
+  providers?: Provider;
   employee?: Employee;
   client?: {
     id: string;
     full_name?: string;
+    display_name?: string;
+    phone?: string;
+  };
+  profiles?: {
     display_name?: string;
     phone?: string;
   };
@@ -107,15 +138,165 @@ export interface Review {
   rating: number;
   comment?: string;
   created_at: string;
+  is_verified?: boolean;
+  tags?: string[];
+  highlight?: string;
   // Joined data
   client?: {
     id: string;
     full_name?: string;
     display_name?: string;
   };
+  service?: Service;
+}
+
+export interface ProviderMedia {
+  id: string;
+  provider_id: string;
+  media_type: 'image' | 'video';
+  url: string;
+  thumbnail_url?: string | null;
+  caption?: string | null;
+  tags?: string[] | null;
+  sort_order: number;
+  is_featured: boolean;
+  created_at: string;
+}
+
+export interface ProviderTeamMember {
+  id: string;
+  provider_id: string;
+  full_name: string;
+  role?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+  expertise?: string[] | null;
+  spotlight?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProviderHighlight {
+  id: string;
+  provider_id: string;
+  title: string;
+  description?: string | null;
+  icon?: string | null;
+  badge?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ProviderLoyaltyActivity {
+  id: string;
+  provider_id: string;
+  client_id: string;
+  points_change: number;
+  reason?: string | null;
+  source?: string | null;
+  created_at: string;
+}
+
+export interface ProviderLoyaltySummary {
+  pointsBalance: number;
+  tier: string;
+  totalEarned: number;
+  totalRedeemed: number;
+  nextRewardAt: number;
+  pointsToNextReward: number;
+  recentActivity: ProviderLoyaltyActivity[];
+}
+
+export interface DiscoverySectionItem {
+  id: string;
+  section_id: string;
+  provider_id?: string | null;
+  service_id?: string | null;
+  headline?: string | null;
+  subheadline?: string | null;
+  badge?: string | null;
+  sort_order: number;
+  metadata?: Record<string, any> | null;
+  provider?: Provider | null;
+  service?: Service | null;
+}
+
+export interface DiscoverySection {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string | null;
+  layout: string;
+  feature_flag?: string | null;
+  priority: number;
+  items: DiscoverySectionItem[];
+}
+
+export interface ProviderSchedulingSettings {
+  bufferBeforeMinutes: number;
+  bufferAfterMinutes: number;
+  allowOverlaps: boolean;
+  cancellationPolicyHours: number;
+  cancellationPolicyMessage?: string;
+  reminderLeadTimeMinutes: number;
+}
+
+export interface AppointmentValidationResult {
+  ok: boolean;
+  reason?: 'provider_offline' | 'employee_offline' | 'conflict';
+  message?: string;
+  settings: ProviderSchedulingSettings;
+  conflictingAppointments?: Appointment[];
+}
+
+const DEFAULT_SCHEDULING_SETTINGS: ProviderSchedulingSettings = {
+  bufferBeforeMinutes: 10,
+  bufferAfterMinutes: 10,
+  allowOverlaps: false,
+  cancellationPolicyHours: 12,
+  cancellationPolicyMessage: '',
+  reminderLeadTimeMinutes: 60,
+};
+
+export interface ProviderDashboardMetrics {
+  revenue: { currency: string; amount: number };
+  monthlyAppointments: number;
+  upcomingAppointments: number;
+  pendingAppointments: number;
+  confirmedAppointments: number;
+  completedAppointments: number;
+  cancelledAppointments: number;
+  noShowAppointments: number;
+  noShowRate: number;
+  rebookingRate: number;
+  repeatClients: number;
+  totalClientsServed: number;
+  reminderEligibleAppointments: number;
 }
 
 export class BookingService {
+  private static isFeatureEnabled(flag?: string | null): boolean {
+    if (!flag) return true;
+    return ACTIVE_FEATURE_FLAGS.includes(flag);
+  }
+
+  private static generateInviteToken(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID().replace(/-/g, '');
+    }
+    const random = Math.random().toString(36).slice(2);
+    const timestamp = Date.now().toString(36);
+    return `${random}${timestamp}`.slice(0, 32);
+  }
+
+  private static computeInviteExpiry(hours: number = INVITE_TOKEN_TTL_HOURS): string {
+    const expires = new Date();
+    expires.setHours(expires.getHours() + hours);
+    return expires.toISOString();
+  }
+
   // 📍 Obtener proveedores por categoría
   static async getProvidersByCategory(category: string): Promise<Provider[]> {
     try {
@@ -149,6 +330,142 @@ export class BookingService {
       console.error('Error fetching all providers:', error);
       throw error;
     }
+  }
+
+  static async getProviderSchedulingSettings(providerId: string): Promise<ProviderSchedulingSettings> {
+    try {
+      const { data, error } = await supabase
+        .from('provider_settings' as any)
+        .select('buffer_before_minutes, buffer_after_minutes, allow_overlaps, cancellation_policy_hours, cancellation_policy_message, reminder_lead_time_minutes')
+        .eq('provider_id', providerId)
+        .single();
+
+      if (error) {
+        console.warn('⚠️ [BOOKING SERVICE] Using default scheduling settings:', error.message);
+        return DEFAULT_SCHEDULING_SETTINGS;
+      }
+
+      if (!data) {
+        return DEFAULT_SCHEDULING_SETTINGS;
+      }
+
+      return {
+        bufferBeforeMinutes:
+          typeof data.buffer_before_minutes === 'number'
+            ? data.buffer_before_minutes
+            : DEFAULT_SCHEDULING_SETTINGS.bufferBeforeMinutes,
+        bufferAfterMinutes:
+          typeof data.buffer_after_minutes === 'number'
+            ? data.buffer_after_minutes
+            : DEFAULT_SCHEDULING_SETTINGS.bufferAfterMinutes,
+        allowOverlaps: Boolean(data.allow_overlaps),
+        cancellationPolicyHours:
+          typeof data.cancellation_policy_hours === 'number'
+            ? data.cancellation_policy_hours
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyHours,
+        cancellationPolicyMessage:
+          typeof data.cancellation_policy_message === 'string'
+            ? data.cancellation_policy_message
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyMessage,
+        reminderLeadTimeMinutes:
+          typeof data.reminder_lead_time_minutes === 'number'
+            ? data.reminder_lead_time_minutes
+            : DEFAULT_SCHEDULING_SETTINGS.reminderLeadTimeMinutes,
+      };
+    } catch (error) {
+      console.warn('⚠️ [BOOKING SERVICE] Fallback scheduling settings due to error:', error);
+      return DEFAULT_SCHEDULING_SETTINGS;
+    }
+  }
+
+  static async upsertProviderSchedulingSettingsByProviderId(
+    providerId: string,
+    settings: Partial<ProviderSchedulingSettings>
+  ): Promise<ProviderSchedulingSettings> {
+    try {
+      const payload = {
+        provider_id: providerId,
+        buffer_before_minutes:
+          typeof settings.bufferBeforeMinutes === 'number'
+            ? settings.bufferBeforeMinutes
+            : DEFAULT_SCHEDULING_SETTINGS.bufferBeforeMinutes,
+        buffer_after_minutes:
+          typeof settings.bufferAfterMinutes === 'number'
+            ? settings.bufferAfterMinutes
+            : DEFAULT_SCHEDULING_SETTINGS.bufferAfterMinutes,
+        allow_overlaps:
+          typeof settings.allowOverlaps === 'boolean'
+            ? settings.allowOverlaps
+            : DEFAULT_SCHEDULING_SETTINGS.allowOverlaps,
+        cancellation_policy_hours:
+          typeof settings.cancellationPolicyHours === 'number'
+            ? settings.cancellationPolicyHours
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyHours,
+        cancellation_policy_message:
+          typeof settings.cancellationPolicyMessage === 'string'
+            ? settings.cancellationPolicyMessage
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyMessage,
+        reminder_lead_time_minutes:
+          typeof settings.reminderLeadTimeMinutes === 'number'
+            ? settings.reminderLeadTimeMinutes
+            : DEFAULT_SCHEDULING_SETTINGS.reminderLeadTimeMinutes,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from('provider_settings' as any)
+        .upsert(payload, { onConflict: 'provider_id' })
+        .select('buffer_before_minutes, buffer_after_minutes, allow_overlaps, cancellation_policy_hours, cancellation_policy_message, reminder_lead_time_minutes')
+        .single();
+
+      if (error) {
+        console.error('Error upserting provider scheduling settings:', error);
+        throw error;
+      }
+
+      const result = data || payload;
+      return {
+        bufferBeforeMinutes: result.buffer_before_minutes ?? DEFAULT_SCHEDULING_SETTINGS.bufferBeforeMinutes,
+        bufferAfterMinutes: result.buffer_after_minutes ?? DEFAULT_SCHEDULING_SETTINGS.bufferAfterMinutes,
+        allowOverlaps:
+          typeof result.allow_overlaps === 'boolean'
+            ? result.allow_overlaps
+            : DEFAULT_SCHEDULING_SETTINGS.allowOverlaps,
+        cancellationPolicyHours:
+          typeof result.cancellation_policy_hours === 'number'
+            ? result.cancellation_policy_hours
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyHours,
+        cancellationPolicyMessage:
+          typeof result.cancellation_policy_message === 'string'
+            ? result.cancellation_policy_message
+            : DEFAULT_SCHEDULING_SETTINGS.cancellationPolicyMessage,
+        reminderLeadTimeMinutes:
+          typeof result.reminder_lead_time_minutes === 'number'
+            ? result.reminder_lead_time_minutes
+            : DEFAULT_SCHEDULING_SETTINGS.reminderLeadTimeMinutes,
+      };
+    } catch (error: any) {
+      if (error?.message?.includes('provider_settings')) {
+        throw new Error(
+          'No se encontró la tabla provider_settings. Ejecuta la migración de configuración de proveedores en Supabase.'
+        );
+      }
+
+      console.error('Error saving provider scheduling settings:', error);
+      throw error;
+    }
+  }
+
+  static async saveProviderSchedulingSettings(
+    userId: string,
+    settings: Partial<ProviderSchedulingSettings>
+  ): Promise<ProviderSchedulingSettings> {
+    const provider = await this.getProviderById(userId);
+    if (!provider) {
+      throw new Error('No se encontró el proveedor para el usuario actual.');
+    }
+
+    return this.upsertProviderSchedulingSettingsByProviderId(provider.id, settings);
   }
 
   // 📍 Obtener detalles de un proveedor
@@ -206,12 +523,69 @@ export class BookingService {
     }
   }
 
+  // 📸 Obtener medios destacados del proveedor
+  static async getProviderMedia(providerId: string): Promise<ProviderMedia[]> {
+    try {
+      const { data, error } = await supabase
+        .from('provider_media' as any)
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('is_featured', { ascending: false })
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return (data as ProviderMedia[]) || [];
+    } catch (error) {
+      console.error('Error fetching provider media:', error);
+      return [];
+    }
+  }
+
+  // 👥 Obtener miembros del equipo del proveedor
+  static async getProviderTeam(providerId: string): Promise<ProviderTeamMember[]> {
+    try {
+      const { data, error } = await supabase
+        .from('provider_team_members' as any)
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return (data as ProviderTeamMember[]) || [];
+    } catch (error) {
+      console.error('Error fetching provider team:', error);
+      return [];
+    }
+  }
+
+  // ✨ Obtener destacados del proveedor
+  static async getProviderHighlights(providerId: string): Promise<ProviderHighlight[]> {
+    try {
+      const { data, error } = await supabase
+        .from('provider_highlights' as any)
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return (data as ProviderHighlight[]) || [];
+    } catch (error) {
+      console.error('Error fetching provider highlights:', error);
+      return [];
+    }
+  }
+
   // 👥 Obtener empleados de un proveedor
   static async getProviderEmployees(providerId: string): Promise<Employee[]> {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('*, profiles:profiles!employees_profile_id_fkey(display_name, phone)')
         .eq('provider_id', providerId)
         .eq('is_active', true)
         .order('is_owner', { ascending: false }) // Owners first
@@ -222,6 +596,28 @@ export class BookingService {
     } catch (error) {
       console.error('Error fetching provider employees:', error);
       throw error;
+    }
+  }
+
+  static async getEmployeeProfile(userId?: string): Promise<Employee | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const targetUser = userId || user?.id;
+      if (!targetUser) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('profile_id', targetUser)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data || null;
+    } catch (error) {
+      console.error('Error fetching employee profile:', error);
+      return null;
     }
   }
 
@@ -345,20 +741,48 @@ export class BookingService {
     is_active?: boolean;
     custom_schedule_enabled?: boolean;
     profile_image_url?: string;
+    email?: string | null;
+    phone?: string | null;
+    profile_id?: string | null;
+    inviteEmail?: string | null;
+    inviteStatus?: 'draft' | 'pending' | 'accepted' | 'revoked';
+    inviteToken?: string | null;
+    inviteExpiresAt?: string | null;
+    role?: string;
   }): Promise<Employee> {
     try {
+      const payload: any = {
+        provider_id: employeeData.provider_id,
+        name: employeeData.name,
+        position: employeeData.position || 'Empleado',
+        bio: employeeData.bio || '',
+        is_owner: employeeData.is_owner || false,
+        is_active: employeeData.is_active ?? true,
+        custom_schedule_enabled: employeeData.custom_schedule_enabled || false,
+        profile_image_url: employeeData.profile_image_url || null,
+        email: employeeData.email || employeeData.inviteEmail || null,
+        phone: employeeData.phone || null,
+        profile_id: employeeData.profile_id || null,
+        role: employeeData.role || 'staff',
+      };
+
+      if (employeeData.inviteEmail && !employeeData.profile_id) {
+        const token = employeeData.inviteToken || BookingService.generateInviteToken();
+        payload.invite_email = employeeData.inviteEmail;
+        payload.invite_status = employeeData.inviteStatus || 'pending';
+        payload.invite_token = token;
+        payload.invite_token_expires_at =
+          employeeData.inviteExpiresAt || BookingService.computeInviteExpiry();
+      } else if (employeeData.profile_id) {
+        payload.invite_email = employeeData.email || employeeData.inviteEmail || null;
+        payload.invite_status = 'accepted';
+        payload.invite_token = null;
+        payload.invite_token_expires_at = null;
+      }
+
       const { data, error } = await supabase
         .from('employees')
-        .insert({
-          provider_id: employeeData.provider_id,
-          name: employeeData.name,
-          position: employeeData.position || 'Empleado',
-          bio: employeeData.bio || '',
-          is_owner: employeeData.is_owner || false,
-          is_active: employeeData.is_active ?? true,
-          custom_schedule_enabled: employeeData.custom_schedule_enabled || false,
-          profile_image_url: employeeData.profile_image_url || null,
-        })
+        .insert(payload)
         .select()
         .single();
 
@@ -367,6 +791,222 @@ export class BookingService {
     } catch (error) {
       console.error('Error creating employee:', error);
       throw error;
+    }
+  }
+
+  static async inviteEmployee(params: {
+    name: string;
+    email: string;
+    phone?: string;
+    position?: string;
+    bio?: string;
+    role?: string;
+  }): Promise<{ employee: Employee; inviteToken: string; inviteUrl: string; expiresAt: string }> {
+    const {
+      name,
+      email,
+      phone,
+      position = 'Empleado',
+      bio = '',
+      role = 'staff',
+    } = params;
+
+    if (!email.includes('@')) {
+      throw new Error('Email de invitación inválido');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const provider = await this.getProviderById(user.id);
+    if (!provider) {
+      throw new Error('No se encontró el proveedor para el usuario actual.');
+    }
+
+    const inviteToken = BookingService.generateInviteToken();
+    const expiresAt = BookingService.computeInviteExpiry();
+
+    const employee = await this.createEmployee({
+      provider_id: provider.id,
+      name: name.trim(),
+      position,
+      bio,
+      phone: phone || null,
+      inviteEmail: email.trim().toLowerCase(),
+      inviteStatus: 'pending',
+      inviteToken,
+      inviteExpiresAt: expiresAt,
+      role,
+      is_owner: false,
+      is_active: true,
+      custom_schedule_enabled: false,
+    });
+
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+
+    return { employee, inviteToken, inviteUrl, expiresAt };
+  }
+
+  static async resendEmployeeInvite(employeeId: string): Promise<{ inviteToken: string; inviteUrl: string; expiresAt: string }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('id, provider_id')
+      .eq('id', employeeId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!employee) {
+      throw new Error('Empleado no encontrado');
+    }
+
+    const provider = await this.getProviderById(user.id);
+    if (!provider || provider.id !== employee.provider_id) {
+      throw new Error('No tienes permisos para reenviar esta invitación.');
+    }
+
+    const inviteToken = BookingService.generateInviteToken();
+    const expiresAt = BookingService.computeInviteExpiry();
+
+    const { error: updateError } = await supabase
+      .from('employees')
+      .update({
+        invite_status: 'pending',
+        invite_token: inviteToken,
+        invite_token_expires_at: expiresAt,
+      })
+      .eq('id', employeeId);
+
+    if (updateError) throw updateError;
+
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+
+    return { inviteToken, inviteUrl, expiresAt };
+  }
+
+  static async acceptEmployeeInvite(token: string): Promise<Employee> {
+    if (!token) {
+      throw new Error('Token de invitación inválido');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Debes iniciar sesión para aceptar la invitación.');
+    }
+
+    const { data: employee, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('invite_token', token)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!employee) {
+      throw new Error('Invitación no encontrada o ya utilizada.');
+    }
+
+    if (employee.invite_token_expires_at) {
+      const expires = new Date(employee.invite_token_expires_at).getTime();
+      if (Date.now() > expires) {
+        throw new Error('La invitación ha expirado. Solicita un nuevo enlace al administrador.');
+      }
+    }
+
+    const { error: updateError, data: updatedEmployee } = await supabase
+      .from('employees')
+      .update({
+        profile_id: user.id,
+        email: user.email,
+        invite_status: 'accepted',
+        invite_token: null,
+        invite_token_expires_at: null,
+        is_active: true,
+      })
+      .eq('id', employee.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Ensure the profile role is set to employee
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        role: 'employee',
+        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || updatedEmployee.name,
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.warn('⚠️ [BOOKING SERVICE] Could not update profile role to employee:', profileError);
+    }
+
+    return updatedEmployee;
+  }
+
+  static async notifyEmployeeAssignment(employeeId: string, payload: {
+    appointmentId: string;
+    providerName: string;
+    appointmentDate: string;
+    appointmentTime?: string;
+    serviceName?: string;
+    clientName?: string;
+    status?: 'created' | 'updated' | 'cancelled' | 'confirmed';
+  }): Promise<void> {
+    try {
+      const { data: employee, error } = await supabase
+        .from('employees')
+        .select('profile_id, name')
+        .eq('id', employeeId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!employee?.profile_id) {
+        return;
+      }
+
+      if (payload.status === 'cancelled') {
+        await NotificationService.notifyAppointmentCancellation(
+          employee.profile_id,
+          {
+            id: payload.appointmentId,
+            provider_name: payload.providerName,
+            client_name: payload.clientName || 'Cliente',
+          },
+          false
+        );
+        return;
+      }
+
+      if (payload.status === 'confirmed') {
+        await NotificationService.notifyAppointmentConfirmation(employee.profile_id, {
+          id: payload.appointmentId,
+          provider_name: payload.providerName,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+        });
+        return;
+      }
+
+      await NotificationService.notifyEmployeeNewAppointment(
+        employee.profile_id,
+        {
+          id: payload.appointmentId,
+          provider_name: payload.providerName,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+          service_name: payload.serviceName,
+          client_name: payload.clientName,
+        }
+      );
+    } catch (error) {
+      console.error('Error notifying employee assignment:', error);
     }
   }
 
@@ -443,10 +1083,9 @@ export class BookingService {
   // 📍 Obtener horarios disponibles para una fecha específica
   static async getAvailableSlots(providerId: string, date: string, serviceId?: string): Promise<string[]> {
     try {
-      console.log('🔴 [GET SLOTS] Getting available slots for:', { providerId, date, serviceId });
-      
-      // Obtener duración del servicio si se proporciona
-      let serviceDuration = 30; // Default to 30 minutes
+      const settings = await this.getProviderSchedulingSettings(providerId);
+
+      let serviceDuration = 30;
       if (serviceId) {
         const { data: serviceData } = await supabase
           .from('services')
@@ -454,91 +1093,81 @@ export class BookingService {
           .eq('id', serviceId)
           .single();
         serviceDuration = serviceData?.duration_minutes || 30;
-        console.log('🔴 [GET SLOTS] Service duration:', serviceDuration, 'minutes');
       }
-      
-      // Obtener disponibilidad del proveedor
+
       const availability = await this.getProviderAvailability(providerId);
-      console.log('🔴 [GET SLOTS] Provider availability:', availability);
-      
-      // Obtener citas existentes para esa fecha
-      const { data: existingAppointments, error: appointmentsError } = await supabase
+      const dayOfWeek = new Date(date).getDay();
+      const dayAvailability = availability.find((a) => a.weekday === dayOfWeek);
+      if (!dayAvailability) {
+        return [];
+      }
+
+      const dayStartMinutes = this.timeStringToMinutes(dayAvailability.start_time);
+      const dayEndMinutes = this.timeStringToMinutes(dayAvailability.end_time);
+
+      let appointmentsError;
+      let existingAppointments: any[] = [];
+      const appointmentsQuery = await supabase
         .from('appointments')
-        .select('appointment_time, services(duration_minutes)')
+        .select('id, appointment_time, service_id, employee_id, start_ts, end_ts, services(duration_minutes)')
         .eq('provider_id', providerId)
         .eq('appointment_date', date)
         .in('status', ['pending', 'confirmed']);
 
-      if (appointmentsError) throw appointmentsError;
-      console.log('🔴 [GET SLOTS] Existing appointments:', existingAppointments);
-      
-      // Obtener servicios del proveedor para calcular duración
-      const services = await this.getProviderServices(providerId);
-      console.log('🔴 [GET SLOTS] Provider services:', services);
-      
-      // Generar slots disponibles
-      const availableSlots: string[] = [];
-      const dayOfWeek = new Date(date).getDay();
-      const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      console.log('🔴 [GET SLOTS] Date analysis:', {
-        date,
-        dayOfWeek,
-        dayName: weekdayNames[dayOfWeek],
-        availabilityCount: availability.length
-      });
-      
-      // Encontrar disponibilidad para este día
-      const dayAvailability = availability.find(a => a.weekday === dayOfWeek);
-      console.log('🔴 [GET SLOTS] Day availability for', weekdayNames[dayOfWeek], ':', dayAvailability);
-      
-      if (!dayAvailability) {
-        console.log('🔴 [GET SLOTS] ❌ No availability found for', weekdayNames[dayOfWeek], '- returning empty slots');
-        return availableSlots;
+      appointmentsError = appointmentsQuery.error;
+      existingAppointments = appointmentsQuery.data || [];
+
+      if (appointmentsError && appointmentsError.message?.includes('start_ts')) {
+        const fallback = await supabase
+          .from('appointments')
+          .select('id, appointment_time, service_id, employee_id, services(duration_minutes)')
+          .eq('provider_id', providerId)
+          .eq('appointment_date', date)
+          .in('status', ['pending', 'confirmed']);
+        appointmentsError = fallback.error;
+        existingAppointments = fallback.data || [];
       }
 
-      // Generar slots de 30 minutos
-      const startTime = new Date(`2000-01-01T${dayAvailability.start_time}`);
-      const endTime = new Date(`2000-01-01T${dayAvailability.end_time}`);
-      
-      let currentTime = new Date(startTime);
-      while (currentTime < endTime) {
-        const timeString = currentTime.toTimeString().slice(0, 5);
-        
-        // Calcular tiempo de fin del servicio seleccionado
-        const slotStart = currentTime.getTime();
-        const slotEnd = slotStart + (serviceDuration * 60 * 1000);
-        
-        // Check if service would extend beyond availability period
-        if (slotEnd > endTime.getTime()) {
-          console.log('🔴 [GET SLOTS] Service would extend beyond availability for slot:', timeString);
-          break; // No more slots can fit the full service duration
+      if (appointmentsError) throw appointmentsError;
+
+      const providerServices = await this.getProviderServices(providerId);
+      const serviceMap = new Map(providerServices.map((svc) => [svc.id, svc]));
+
+      const availableSlots: string[] = [];
+      let currentMinute = dayStartMinutes;
+      while (currentMinute + serviceDuration <= dayEndMinutes) {
+        const slotStart = currentMinute;
+        const slotEnd = slotStart + serviceDuration;
+        const slotStartWithBuffer = slotStart - settings.bufferBeforeMinutes;
+        const slotEndWithBuffer = slotEnd + settings.bufferAfterMinutes;
+
+        if (slotStartWithBuffer < dayStartMinutes || slotEndWithBuffer > dayEndMinutes) {
+          currentMinute += 30;
+          continue;
         }
-        
-        // Verificar si este slot y toda su duración están disponibles
-        const hasConflict = existingAppointments?.some(apt => {
-          const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
-          const service = services.find(s => s.id === apt.service_id);
-          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
-          
-          const aptStart = aptTime.getTime();
-          const aptEnd = aptStart + (aptDuration * 60 * 1000);
-          
-          // Check if there's any overlap between the new service slot and existing appointment
-          const overlap = (slotStart < aptEnd && slotEnd > aptStart);
-          if (overlap) {
-            console.log('🔴 [GET SLOTS] Conflict detected for slot', timeString, '- overlaps with appointment at', apt.appointment_time);
+
+        const hasConflict = existingAppointments?.some((apt) => {
+          if (settings.allowOverlaps) {
+            return false;
           }
-          return overlap;
+
+          const service = serviceMap.get(apt.service_id);
+          const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+          const aptStart = this.timeStringToMinutes(apt.appointment_time);
+          const aptEnd = aptStart + aptDuration;
+          const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
+          const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
+
+          return this.rangesOverlap(slotStartWithBuffer, slotEndWithBuffer, aptStartWithBuffer, aptEndWithBuffer);
         });
 
         if (!hasConflict) {
-          availableSlots.push(timeString);
+          availableSlots.push(this.minutesToTimeLabel(slotStart));
         }
-        
-        currentTime.setMinutes(currentTime.getMinutes() + 30);
+
+        currentMinute += 30;
       }
 
-      console.log('🔴 [GET SLOTS] Final available slots:', availableSlots);
       return availableSlots;
     } catch (error) {
       console.error('Error fetching available slots:', error);
@@ -550,9 +1179,9 @@ export class BookingService {
   static async getEmployeeAvailableSlots(employeeId: string, providerId: string, date: string, serviceId?: string): Promise<string[]> {
     try {
       console.log('🔴 [GET EMPLOYEE SLOTS] Getting available slots for employee:', { employeeId, providerId, date, serviceId });
-      
-      // Obtener duración del servicio si se proporciona
-      let serviceDuration = 30; // Default to 30 minutes
+      const settings = await this.getProviderSchedulingSettings(providerId);
+
+      let serviceDuration = 30;
       if (serviceId) {
         const { data: serviceData } = await supabase
           .from('services')
@@ -560,96 +1189,247 @@ export class BookingService {
           .eq('id', serviceId)
           .single();
         serviceDuration = serviceData?.duration_minutes || 30;
-        console.log('🔴 [GET EMPLOYEE SLOTS] Service duration:', serviceDuration, 'minutes');
       }
-      
+
       const dayOfWeek = new Date(date).getDay();
-      
-      // Obtener disponibilidad específica del empleado
       const employeeAvailability = await this.getEmployeeAvailability(employeeId, dayOfWeek);
-      console.log('🔴 [GET EMPLOYEE SLOTS] Employee availability:', employeeAvailability);
-      
-      if (!employeeAvailability || employeeAvailability.length === 0 || !employeeAvailability[0]?.is_available) {
-        console.log('🔴 [GET EMPLOYEE SLOTS] ❌ No availability found for employee');
+
+      if (!employeeAvailability || employeeAvailability.length === 0) {
         return [];
       }
-      
-      const dayAvailability = employeeAvailability[0];
-      
-      // Obtener citas existentes para esa fecha y empleado
-      const { data: existingAppointments, error: appointmentsError } = await supabase
+
+      const activeWindow = employeeAvailability.find((slot) => slot.is_available);
+      if (!activeWindow) {
+        return [];
+      }
+
+      const dayStartMinutes = this.timeStringToMinutes(activeWindow.start_time);
+      const dayEndMinutes = this.timeStringToMinutes(activeWindow.end_time);
+
+      let appointmentsError;
+      let existingAppointments: any[] = [];
+      const appointmentsQuery = await supabase
         .from('appointments')
-        .select('appointment_time, services(duration_minutes)')
+        .select('id, appointment_time, service_id, start_ts, end_ts, services(duration_minutes)')
         .eq('provider_id', providerId)
         .eq('employee_id', employeeId)
         .eq('appointment_date', date)
         .in('status', ['pending', 'confirmed']);
 
+      appointmentsError = appointmentsQuery.error;
+      existingAppointments = appointmentsQuery.data || [];
+
+      if (appointmentsError && appointmentsError.message?.includes('start_ts')) {
+        const fallback = await supabase
+          .from('appointments')
+          .select('id, appointment_time, service_id, services(duration_minutes)')
+          .eq('provider_id', providerId)
+          .eq('employee_id', employeeId)
+          .eq('appointment_date', date)
+          .in('status', ['pending', 'confirmed']);
+        appointmentsError = fallback.error;
+        existingAppointments = fallback.data || [];
+      }
+
       if (appointmentsError) throw appointmentsError;
-      console.log('🔴 [GET EMPLOYEE SLOTS] Existing appointments for employee:', existingAppointments);
-      
-      // Obtener servicios del proveedor para calcular duración
-      const services = await this.getProviderServices(providerId);
-      console.log('🔴 [GET EMPLOYEE SLOTS] Provider services:', services);
-      
-      // Generar slots disponibles
+
+      const providerServices = await this.getProviderServices(providerId);
+      const serviceMap = new Map(providerServices.map((svc) => [svc.id, svc]));
+
       const availableSlots: string[] = [];
-      
-      // Generar slots de 30 minutos
-      const startTime = new Date(`2000-01-01T${dayAvailability.start_time}`);
-      const endTime = new Date(`2000-01-01T${dayAvailability.end_time}`);
-      
-      let currentTime = new Date(startTime);
-      while (currentTime < endTime) {
-        const timeString = currentTime.toTimeString().slice(0, 5);
-        
-        // Calcular tiempo de fin del servicio seleccionado
-        const slotStart = currentTime.getTime();
-        const slotEnd = slotStart + (serviceDuration * 60 * 1000);
-        
-        // Check if service would extend beyond availability period
-        if (slotEnd > endTime.getTime()) {
-          console.log('🔴 [GET EMPLOYEE SLOTS] Service would extend beyond availability for slot:', timeString);
-          break; // No more slots can fit the full service duration
+      let currentMinute = dayStartMinutes;
+      while (currentMinute + serviceDuration <= dayEndMinutes) {
+        const slotStart = currentMinute;
+        const slotEnd = slotStart + serviceDuration;
+        const slotStartWithBuffer = slotStart - settings.bufferBeforeMinutes;
+        const slotEndWithBuffer = slotEnd + settings.bufferAfterMinutes;
+
+        if (slotStartWithBuffer < dayStartMinutes || slotEndWithBuffer > dayEndMinutes) {
+          currentMinute += 30;
+          continue;
         }
-        
-        // Verificar si este slot y toda su duración están disponibles
-        const hasConflict = existingAppointments?.some(apt => {
-          const aptTime = new Date(`2000-01-01T${apt.appointment_time}`);
-          const service = services.find(s => s.id === apt.service_id);
-          const aptDuration = service?.duration_minutes || apt.services?.duration_minutes || 60;
-          
-          const aptStart = aptTime.getTime();
-          const aptEnd = aptStart + (aptDuration * 60 * 1000);
-          
-          // Check if there's any overlap between the new service slot and existing appointment
-          const overlap = (slotStart < aptEnd && slotEnd > aptStart);
-          if (overlap) {
-            console.log('🔴 [GET EMPLOYEE SLOTS] Conflict detected for slot', timeString, '- overlaps with appointment at', apt.appointment_time);
+
+        const hasConflict = existingAppointments?.some((apt) => {
+          if (settings.allowOverlaps) {
+            return false;
           }
-          return overlap;
+
+          const service = serviceMap.get(apt.service_id);
+          const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+          const aptStart = this.timeStringToMinutes(apt.appointment_time);
+          const aptEnd = aptStart + aptDuration;
+          const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
+          const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
+
+          return this.rangesOverlap(slotStartWithBuffer, slotEndWithBuffer, aptStartWithBuffer, aptEndWithBuffer);
         });
 
         if (!hasConflict) {
-          availableSlots.push(timeString);
+          availableSlots.push(this.minutesToTimeLabel(slotStart));
         }
-        
-        currentTime.setMinutes(currentTime.getMinutes() + 30);
-      }
 
-      console.log('🔴 [GET EMPLOYEE SLOTS] Generated slots:', { 
-        date, 
-        employee: employeeId, 
-        serviceDuration, 
-        slotsCount: availableSlots.length, 
-        slots: availableSlots 
-      });
+        currentMinute += 30;
+      }
 
       return availableSlots;
     } catch (error) {
       console.error('Error fetching employee available slots:', error);
       throw error;
     }
+  }
+
+  // 📍 Crear una nueva cita
+  static async validateAppointmentSlot(params: {
+    providerId: string;
+    serviceId: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    employeeId?: string;
+    ignoreAppointmentId?: string;
+  }): Promise<AppointmentValidationResult> {
+    const {
+      providerId,
+      serviceId,
+      appointmentDate,
+      appointmentTime,
+      employeeId,
+      ignoreAppointmentId,
+    } = params;
+
+    const settings = await this.getProviderSchedulingSettings(providerId);
+
+    const { data: serviceData } = await supabase
+      .from('services')
+      .select('duration_minutes')
+      .eq('id', serviceId)
+      .single();
+
+    const serviceDuration = serviceData?.duration_minutes || 30;
+
+    const requestStartMinutes = this.timeStringToMinutes(appointmentTime);
+    const requestEndMinutes = requestStartMinutes + serviceDuration;
+
+    const availability = await this.getProviderAvailability(providerId);
+    const dayOfWeek = new Date(appointmentDate).getDay();
+    const dayAvailability = availability.find((slot) => slot.weekday === dayOfWeek);
+
+    if (!dayAvailability) {
+      return {
+        ok: false,
+        reason: 'provider_offline',
+        message: 'El proveedor no atiende en este día.',
+        settings,
+      };
+    }
+
+    const providerStartMinutes = this.timeStringToMinutes(dayAvailability.start_time);
+    const providerEndMinutes = this.timeStringToMinutes(dayAvailability.end_time);
+
+    if (requestStartMinutes < providerStartMinutes || requestEndMinutes > providerEndMinutes) {
+      return {
+        ok: false,
+        reason: 'provider_offline',
+        message: 'El proveedor no está disponible a esta hora.',
+        settings,
+      };
+    }
+
+    if (
+      requestStartMinutes - settings.bufferBeforeMinutes < providerStartMinutes ||
+      requestEndMinutes + settings.bufferAfterMinutes > providerEndMinutes
+    ) {
+      return {
+        ok: false,
+        reason: 'provider_offline',
+        message: 'Este horario está demasiado cerca del inicio o cierre del local.',
+        settings,
+      };
+    }
+
+    if (employeeId) {
+      const dayAvailabilityForEmployee = await this.getEmployeeAvailability(employeeId, dayOfWeek);
+      const hasSlot = dayAvailabilityForEmployee.some((slot) => {
+        if (!slot?.is_available) return false;
+        const slotStart = this.timeStringToMinutes(slot.start_time);
+        const slotEnd = this.timeStringToMinutes(slot.end_time);
+        return requestStartMinutes >= slotStart && requestEndMinutes <= slotEnd;
+      });
+
+      if (!hasSlot) {
+        return {
+          ok: false,
+          reason: 'employee_offline',
+          message: 'El profesional elegido no está disponible a esta hora.',
+          settings,
+        };
+      }
+    }
+
+    const { data: existingAppointmentsRaw, error: existingAppointmentsError } = await supabase
+      .from('appointments')
+      .select('id, appointment_date, appointment_time, service_id, employee_id, start_ts, end_ts, services(duration_minutes)')
+      .eq('provider_id', providerId)
+      .eq('appointment_date', appointmentDate)
+      .in('status', ['pending', 'confirmed']);
+
+    if (existingAppointmentsError) {
+      console.warn('⚠️ [BOOKING SERVICE] Could not load appointments for validation:', existingAppointmentsError);
+    }
+
+    const existingAppointments = (existingAppointmentsRaw || []) as any[];
+
+    const providerServices = await this.getProviderServices(providerId);
+    const serviceMap = new Map(providerServices.map((svc) => [svc.id, svc]));
+
+    const conflicts = existingAppointments.filter((apt) => {
+      if (ignoreAppointmentId && apt.id === ignoreAppointmentId) {
+        return false;
+      }
+
+      if (employeeId) {
+        const sameEmployee = apt.employee_id && apt.employee_id === employeeId;
+        if (!sameEmployee) {
+          return false;
+        }
+      }
+
+      if (settings.allowOverlaps) {
+        return false;
+      }
+
+      const service = serviceMap.get(apt.service_id);
+      const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+      const aptStart = this.timeStringToMinutes(apt.appointment_time);
+      const aptEnd = aptStart + aptDuration;
+      const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
+      const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
+
+      const slotStartWithBuffer = requestStartMinutes - settings.bufferBeforeMinutes;
+      const slotEndWithBuffer = requestEndMinutes + settings.bufferAfterMinutes;
+
+      return this.rangesOverlap(slotStartWithBuffer, slotEndWithBuffer, aptStartWithBuffer, aptEndWithBuffer);
+    });
+
+    if (conflicts.length > 0) {
+      const conflicting = conflicts[0];
+      const startLabel = this.minutesToTimeLabel(this.timeStringToMinutes(conflicting.appointment_time));
+      const service = serviceMap.get(conflicting.service_id);
+      const duration = service?.duration_minutes || serviceDuration;
+      const endLabel = this.minutesToTimeLabel(this.timeStringToMinutes(conflicting.appointment_time) + duration);
+
+      return {
+        ok: false,
+        reason: 'conflict',
+        message: `Este horario se solapa con otra cita programada (${startLabel} - ${endLabel}).`,
+        conflictingAppointments: conflicts,
+        settings,
+      };
+    }
+
+    return {
+      ok: true,
+      settings,
+    };
   }
 
   // 📍 Crear una nueva cita
@@ -665,13 +1445,25 @@ export class BookingService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
+      const validation = await this.validateAppointmentSlot({
+        providerId,
+        serviceId,
+        appointmentDate,
+        appointmentTime,
+        employeeId,
+      });
+
+      if (!validation.ok) {
+        throw new Error(validation.message || 'Este horario ya no está disponible.');
+      }
+
       // Crear timestamp combinando fecha y hora
       const startTimestamp = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
       
       // Obtener duración del servicio para calcular end_ts
       const { data: serviceData } = await supabase
         .from('services')
-        .select('duration_minutes')
+        .select('duration_minutes, name')
         .eq('id', serviceId)
         .single();
       
@@ -696,6 +1488,58 @@ export class BookingService {
         .single();
 
       if (error) throw error;
+
+      // Load additional metadata for notifications
+      try {
+        const [{ data: providerDetails }, { data: clientProfile }] = await Promise.all([
+          supabase
+            .from('providers')
+            .select('business_name, user_id')
+            .eq('id', providerId)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('display_name, full_name')
+            .eq('id', user.id)
+            .maybeSingle(),
+        ]);
+
+        const providerUserId = providerDetails?.user_id as string | undefined;
+        const providerName = providerDetails?.business_name || 'Tu negocio';
+        const clientName =
+          clientProfile?.display_name ||
+          clientProfile?.full_name ||
+          user.user_metadata?.full_name ||
+          user.email?.split('@')[0] ||
+          'Cliente';
+
+        if (providerUserId) {
+          await NotificationService.notifyNewAppointment(providerUserId, {
+            id: data.id,
+            provider_id: providerId,
+            provider_name: providerName,
+            appointment_date: appointmentDate,
+            appointment_time: appointmentTime,
+            client_name: clientName,
+            service_name: serviceData?.name,
+          });
+        }
+
+        if (employeeId) {
+          await this.notifyEmployeeAssignment(employeeId, {
+            appointmentId: data.id,
+            providerName,
+            appointmentDate,
+            appointmentTime,
+            serviceName: serviceData?.name,
+            clientName,
+            status: 'created',
+          });
+        }
+      } catch (notificationError) {
+        console.warn('⚠️ [BOOKING SERVICE] Error sending notifications for new appointment:', notificationError);
+      }
+
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -793,6 +1637,142 @@ export class BookingService {
     }
   }
 
+  static async getEmployeeAppointments(userId?: string): Promise<Appointment[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const employee = await this.getEmployeeProfile(userId || user.id);
+      if (!employee) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(*),
+          profiles!appointments_client_id_fkey(id, display_name, phone)
+        `)
+        .eq('employee_id', employee.id)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching employee appointments:', error);
+      return [];
+    }
+  }
+
+  static async getDiscoverySections(): Promise<DiscoverySection[]> {
+    try {
+      const { data, error } = await supabase
+        .from('discovery_sections' as any)
+        .select(`
+          id,
+          slug,
+          title,
+          subtitle,
+          layout,
+          feature_flag,
+          priority,
+          discovery_section_items (
+            id,
+            section_id,
+            provider_id,
+            service_id,
+            headline,
+            subheadline,
+            badge,
+            sort_order,
+            is_active,
+            metadata,
+            providers (
+              id,
+              user_id,
+              name,
+              business_name,
+              bio,
+              address,
+              phone,
+              email,
+              logo_url,
+              website,
+              lat,
+              lng,
+              timezone,
+              category,
+              rating,
+              total_reviews,
+              is_active,
+              created_at,
+              updated_at,
+              tagline,
+              mission,
+              hero_image_url,
+              cover_video_url,
+              specialties,
+              loyalty_enabled
+            ),
+            services (
+              id,
+              provider_id,
+              name,
+              description,
+              price_amount,
+              price_currency,
+              duration_minutes,
+              is_active,
+              created_at,
+              updated_at
+            )
+          )
+        `)
+        .eq('is_active', true)
+        .order('priority', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const sections = ((data as any[]) || []).filter((section) =>
+        BookingService.isFeatureEnabled(section.feature_flag)
+      );
+
+      return sections.map((section) => ({
+        id: section.id,
+        slug: section.slug,
+        title: section.title,
+        subtitle: section.subtitle,
+        layout: section.layout,
+        feature_flag: section.feature_flag,
+        priority: section.priority,
+        items:
+          (section.discovery_section_items || [])
+            .filter((item: any) => item?.is_active !== false)
+            .sort((a: any, b: any) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+            .map((item: any) => ({
+              id: item.id,
+              section_id: item.section_id,
+              provider_id: item.provider_id,
+              service_id: item.service_id,
+              headline: item.headline,
+              subheadline: item.subheadline,
+              badge: item.badge,
+              sort_order: item.sort_order ?? 0,
+              metadata: item.metadata || null,
+              provider: item.providers || null,
+              service: item.services || null,
+            })) as DiscoverySectionItem[],
+      })) as DiscoverySection[];
+    } catch (error) {
+      console.error('Error fetching discovery sections:', error);
+      return [];
+    }
+  }
+
   // 💹 Obtener ingresos del proveedor para el mes actual (sumatoria de servicios de citas completadas)
   static async getProviderRevenueThisMonth(userId?: string): Promise<{ currency: string; amount: number }> {
     try {
@@ -865,10 +1845,204 @@ export class BookingService {
     }
   }
 
+  static async getProviderLoyaltySummary(providerId: string, userId?: string): Promise<ProviderLoyaltySummary | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const targetUserId = userId || user?.id;
+      if (!targetUserId) {
+        return null;
+      }
+
+      const { data: balanceRow, error: balanceError } = await supabase
+        .from('provider_loyalty_balances' as any)
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('client_id', targetUserId)
+        .maybeSingle();
+
+      if (balanceError) {
+        console.error('Error fetching loyalty balance:', balanceError);
+      }
+
+      const { data: activityRows, error: activityError } = await supabase
+        .from('provider_loyalty_activity' as any)
+        .select('id, provider_id, client_id, points_change, reason, source, created_at')
+        .eq('provider_id', providerId)
+        .eq('client_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (activityError) {
+        console.error('Error fetching loyalty activity:', activityError);
+      }
+
+      const balance = balanceRow ?? null;
+      const pointsBalance = balance?.points_balance ?? 0;
+      const totalEarned = balance?.total_earned ?? 0;
+      const totalRedeemed = balance?.total_redeemed ?? 0;
+      const tier = balance?.tier ?? 'Bronce';
+
+      const remainder = pointsBalance % LOYALTY_REWARD_STEP;
+      const pointsToNextReward =
+        remainder === 0 ? LOYALTY_REWARD_STEP : LOYALTY_REWARD_STEP - remainder;
+      const nextRewardAt = pointsBalance + pointsToNextReward;
+
+      return {
+        pointsBalance,
+        tier,
+        totalEarned,
+        totalRedeemed,
+        nextRewardAt,
+        pointsToNextReward,
+        recentActivity: (activityRows as ProviderLoyaltyActivity[]) || [],
+      };
+    } catch (error) {
+      console.error('Error fetching loyalty summary:', error);
+      return null;
+    }
+  }
+
+  static async getProviderDashboardMetrics(userId?: string): Promise<ProviderDashboardMetrics> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const provider = await this.getProviderById(userId || user.id);
+      if (!provider) {
+        return {
+          revenue: { currency: 'USD', amount: 0 },
+          monthlyAppointments: 0,
+          upcomingAppointments: 0,
+          pendingAppointments: 0,
+          confirmedAppointments: 0,
+          completedAppointments: 0,
+          cancelledAppointments: 0,
+          noShowAppointments: 0,
+          noShowRate: 0,
+          rebookingRate: 0,
+          repeatClients: 0,
+          totalClientsServed: 0,
+          reminderEligibleAppointments: 0,
+        };
+      }
+
+      const now = new Date();
+      const lookbackStart = new Date(now);
+      lookbackStart.setDate(lookbackStart.getDate() - 90);
+      const lookbackIso = lookbackStart.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('id, status, appointment_date, appointment_time, client_id')
+        .eq('provider_id', provider.id)
+        .gte('appointment_date', lookbackIso);
+
+      if (error) {
+        throw error;
+      }
+
+      const appointments = data || [];
+      const nowMs = now.getTime();
+
+      const parseDateTime = (apt: any): Date | null => {
+        if (!apt?.appointment_date) return null;
+        const time = typeof apt.appointment_time === 'string' && apt.appointment_time.length > 0
+          ? apt.appointment_time
+          : '00:00';
+        const candidate = new Date(`${apt.appointment_date}T${time}`);
+        if (Number.isNaN(candidate.getTime())) {
+          return null;
+        }
+        return candidate;
+      };
+
+      const pendingAppointments = appointments.filter((apt) => apt.status === 'pending').length;
+      const confirmedAppointments = appointments.filter((apt) => apt.status === 'confirmed').length;
+      const completedAppointments = appointments.filter((apt) => apt.status === 'done').length;
+      const cancelledAppointments = appointments.filter((apt) => apt.status === 'cancelled').length;
+      const noShowAppointments = appointments.filter((apt) => apt.status === 'no_show').length;
+
+      const upcomingAppointments = appointments.filter((apt) => {
+        if (!(apt.status === 'pending' || apt.status === 'confirmed')) {
+          return false;
+        }
+        const appointmentDate = parseDateTime(apt);
+        if (!appointmentDate) return false;
+        return appointmentDate.getTime() >= nowMs;
+      }).length;
+
+      const reminderEligibleAppointments = appointments.filter((apt) => {
+        if (apt.status !== 'confirmed') return false;
+        const appointmentDate = parseDateTime(apt);
+        if (!appointmentDate) return false;
+        const diffMinutes = (appointmentDate.getTime() - nowMs) / 60000;
+        return diffMinutes > 0 && diffMinutes <= 24 * 60;
+      }).length;
+
+      const completedForRebooking = appointments.filter((apt) => apt.status === 'done');
+      const clientVisitCounts = new Map<string, number>();
+      completedForRebooking.forEach((apt) => {
+        if (!apt.client_id) return;
+        const current = clientVisitCounts.get(apt.client_id) || 0;
+        clientVisitCounts.set(apt.client_id, current + 1);
+      });
+
+      const totalClientsServed = clientVisitCounts.size;
+      const repeatClients = Array.from(clientVisitCounts.values()).filter((count) => count > 1).length;
+      const rebookingRate = totalClientsServed > 0
+        ? Number(((repeatClients / totalClientsServed) * 100).toFixed(1))
+        : 0;
+
+      const attendanceDenominator = completedAppointments + noShowAppointments;
+      const noShowRate = attendanceDenominator > 0
+        ? Number(((noShowAppointments / attendanceDenominator) * 100).toFixed(1))
+        : 0;
+
+      const revenue = await this.getProviderRevenueThisMonth(userId || user.id);
+      const monthlyAppointments = await this.getMonthlyAppointmentsCount(userId || user.id);
+
+      return {
+        revenue,
+        monthlyAppointments,
+        upcomingAppointments,
+        pendingAppointments,
+        confirmedAppointments,
+        completedAppointments,
+        cancelledAppointments,
+        noShowAppointments,
+        noShowRate,
+        rebookingRate,
+        repeatClients,
+        totalClientsServed,
+        reminderEligibleAppointments,
+      };
+    } catch (error) {
+      console.error('Error getting provider dashboard metrics:', error);
+      return {
+        revenue: { currency: 'USD', amount: 0 },
+        monthlyAppointments: 0,
+        upcomingAppointments: 0,
+        pendingAppointments: 0,
+        confirmedAppointments: 0,
+        completedAppointments: 0,
+        cancelledAppointments: 0,
+        noShowAppointments: 0,
+        noShowRate: 0,
+        rebookingRate: 0,
+        repeatClients: 0,
+        totalClientsServed: 0,
+        reminderEligibleAppointments: 0,
+      };
+    }
+  }
+
   // 📍 Actualizar estado de cita (confirmar/rechazar)
   static async updateAppointmentStatus(
     appointmentId: string,
-    status: 'confirmed' | 'cancelled' | 'done'
+    status: 'pending' | 'confirmed' | 'cancelled' | 'done' | 'no_show'
   ): Promise<Appointment> {
     try {
       const { data, error } = await supabase
@@ -882,24 +2056,101 @@ export class BookingService {
 
       // Enviar notificaciones según el estado
       try {
+        const [
+          { data: providerData, error: providerError },
+          { data: clientProfile, error: clientError },
+          { data: serviceInfo, error: serviceError },
+        ] = await Promise.all([
+          supabase
+            .from('providers')
+            .select('business_name, user_id')
+            .eq('id', data.provider_id)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('display_name, full_name')
+            .eq('id', data.client_id)
+            .maybeSingle(),
+          supabase
+            .from('services')
+            .select('name')
+            .eq('id', data.service_id)
+            .maybeSingle(),
+        ]);
+
+        if (providerError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load provider for notifications:', providerError);
+        }
+        if (clientError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load client profile for notifications:', clientError);
+        }
+        if (serviceError) {
+          console.warn('⚠️ [BOOKING SERVICE] Could not load service for notifications:', serviceError);
+        }
+
+        const providerName = providerData?.business_name || 'tu proveedor';
+        const providerUserId = providerData?.user_id as string | undefined;
+        const clientName =
+          (clientProfile as any)?.display_name ||
+          (clientProfile as any)?.full_name ||
+          'Cliente';
+        const serviceName = serviceInfo?.name;
+
         if (status === 'confirmed') {
           await NotificationService.notifyAppointmentConfirmation(
             data.client_id,
             {
               id: data.id,
-              provider_name: data.provider?.business_name,
+              provider_name: providerName,
               appointment_date: data.appointment_date,
+              appointment_time: data.appointment_time,
             }
           );
+
+          if (data.employee_id) {
+            await this.notifyEmployeeAssignment(data.employee_id, {
+              appointmentId: data.id,
+              providerName,
+              appointmentDate: data.appointment_date,
+              appointmentTime: data.appointment_time,
+              serviceName,
+              clientName,
+              status: 'confirmed',
+            });
+          }
         } else if (status === 'cancelled') {
           await NotificationService.notifyAppointmentCancellation(
             data.client_id,
             {
               id: data.id,
-              provider_name: data.provider?.business_name,
+              provider_name: providerName,
             },
             true // isClient
           );
+
+          if (providerUserId) {
+            await NotificationService.notifyAppointmentCancellation(
+              providerUserId,
+              {
+                id: data.id,
+                provider_name: providerName,
+                client_name: clientName,
+              },
+              false // notify provider
+            );
+          }
+
+          if (data.employee_id) {
+            await this.notifyEmployeeAssignment(data.employee_id, {
+              appointmentId: data.id,
+              providerName,
+              appointmentDate: data.appointment_date,
+              appointmentTime: data.appointment_time,
+              serviceName,
+              clientName,
+              status: 'cancelled',
+            });
+          }
         }
       } catch (notificationError) {
         console.error('Error sending status notification:', notificationError);
@@ -921,6 +2172,11 @@ export class BookingService {
   // 📍 Cancelar cita (método específico)
   static async cancelAppointment(appointmentId: string): Promise<Appointment> {
     return this.updateAppointmentStatus(appointmentId, 'cancelled');
+  }
+
+  // 📍 Marcar cita como no-show
+  static async markAppointmentNoShow(appointmentId: string): Promise<Appointment> {
+    return this.updateAppointmentStatus(appointmentId, 'no_show');
   }
 
   // 📍 Actualizar cita (para reprogramación)
@@ -947,7 +2203,7 @@ export class BookingService {
       // First, get the current appointment to check permissions
       const { data: currentAppointment, error: fetchError } = await supabase
         .from('appointments')
-        .select('client_id, provider_id, service_id')
+        .select('client_id, provider_id, service_id, appointment_date, appointment_time, employee_id')
         .eq('id', appointmentId)
         .single();
         
@@ -976,6 +2232,25 @@ export class BookingService {
         throw new Error('No tienes permisos para actualizar esta cita');
       }
       
+      const targetDate = updateData.appointment_date || currentAppointment.appointment_date;
+      const targetTime = updateData.appointment_time || currentAppointment.appointment_time;
+      const targetServiceId = updateData.service_id || currentAppointment.service_id;
+
+      if (targetDate && targetTime && (updateData.appointment_date || updateData.appointment_time || updateData.service_id)) {
+        const validation = await this.validateAppointmentSlot({
+          providerId: currentAppointment.provider_id,
+          serviceId: targetServiceId,
+          appointmentDate: targetDate,
+          appointmentTime: targetTime,
+          employeeId: currentAppointment.employee_id || undefined,
+          ignoreAppointmentId: appointmentId,
+        });
+
+        if (!validation.ok) {
+          throw new Error(validation.message || 'Este horario ya no está disponible.');
+        }
+      }
+      
       // If date/time is being updated, we need to recalculate timestamps
       let updatePayload: any = { ...updateData };
       
@@ -984,12 +2259,11 @@ export class BookingService {
         
         // Get service duration to calculate end timestamp
         let durationMinutes = 30; // default
-        const serviceId = updateData.service_id || currentAppointment.service_id;
-        if (serviceId) {
+        if (targetServiceId) {
           const { data: serviceData } = await supabase
             .from('services')
             .select('duration_minutes')
-            .eq('id', serviceId)
+            .eq('id', targetServiceId)
             .single();
           
           durationMinutes = serviceData?.duration_minutes || 30;
@@ -1366,6 +2640,7 @@ export class BookingService {
     phone?: string;
     email?: string;
     is_active?: boolean;
+    website?: string;
   }): Promise<Provider> {
     try {
       // Crear el proveedor
@@ -1380,6 +2655,7 @@ export class BookingService {
           address: providerData.address || '',
           phone: providerData.phone || '',
           email: providerData.email || '',
+          website: providerData.website || '',
           timezone: 'America/Caracas',
           rating: 0.0,
           total_reviews: 0,
@@ -1409,6 +2685,10 @@ export class BookingService {
           is_owner: true,
           is_active: true,
           custom_schedule_enabled: false,
+          profile_id: providerData.user_id,
+          email: providerData.email || null,
+          inviteStatus: 'accepted',
+          role: 'owner',
         });
         console.log('✅ [BOOKING SERVICE] Owner created as employee automatically');
       } catch (employeeError) {
@@ -1433,6 +2713,7 @@ export class BookingService {
       phone?: string;
       email?: string;
       logo_url?: string;
+      website?: string;
     }
   ): Promise<Provider | null> {
     try {
@@ -1448,6 +2729,7 @@ export class BookingService {
           phone: updateData.phone,
           email: updateData.email,
           logo_url: updateData.logo_url,
+          website: updateData.website,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)
@@ -1816,9 +3098,13 @@ export class BookingService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Extract providers from the join result
-      return (data || []).map(item => item.providers as Provider);
+
+      const rows = (data ?? []) as Array<{ provider_id: string; providers: Provider | Provider[] }>; 
+      const providersList = rows
+        .map(row => (Array.isArray(row.providers) ? row.providers[0] : row.providers))
+        .filter((provider): provider is Provider => Boolean(provider));
+
+      return providersList;
     } catch (error) {
       console.error('Error getting favorite providers:', error);
       throw error;
@@ -1875,6 +3161,21 @@ export class BookingService {
       console.error('Error removing from favorites:', error);
       throw error;
     }
+  }
+
+  private static timeStringToMinutes(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private static minutesToTimeLabel(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  }
+
+  private static rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+    return aStart < bEnd && aEnd > bStart;
   }
 
   // Check if provider is in user's favorites

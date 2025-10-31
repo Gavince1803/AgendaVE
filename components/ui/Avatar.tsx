@@ -7,6 +7,8 @@ import {
     Text,
     View,
     ViewStyle,
+    StyleProp,
+    TextStyle,
 } from 'react-native';
 
 interface AvatarProps {
@@ -16,7 +18,7 @@ interface AvatarProps {
   variant?: 'circle' | 'rounded' | 'square';
   backgroundColor?: string;
   textColor?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Avatar({
@@ -28,18 +30,18 @@ export function Avatar({
   textColor,
   style,
 }: AvatarProps) {
-  const avatarStyle = [
+  const avatarStyle: StyleProp<ViewStyle> = [
     styles.base,
-    styles[size],
-    styles[variant],
-    backgroundColor && { backgroundColor },
+    styles[size] as ViewStyle,
+    styles[variant] as ViewStyle,
+    backgroundColor ? { backgroundColor } : undefined,
     style,
   ];
 
-  const textStyle = [
+  const textStyle: StyleProp<TextStyle> = [
     styles.text,
-    styles[`${size}Text`],
-    textColor && { color: textColor },
+    styles[`${size}Text`] as TextStyle,
+    textColor ? { color: textColor } : undefined,
   ];
 
   const getInitials = (name: string) => {
@@ -109,7 +111,7 @@ const styles = StyleSheet.create({
   
   // Texto
   text: {
-    fontWeight: DesignTokens.typography.fontWeights.semibold,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.textSecondary,
     textAlign: 'center',
   },

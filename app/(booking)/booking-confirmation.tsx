@@ -84,28 +84,27 @@ export default function BookingConfirmationScreen() {
 
       // Intentar enviar notificaciones push (no bloquear la UX si falla)
       try {
-        // Notificar al cliente con push notification (solo Apple Push para producción)
-        if (user?.id) {
-          await NotificationService.notifyAppointmentConfirmation(user.id, {
-            id: created.id,
-            provider_name: providerName,
-            appointment_date: selectedDate,
-          });
-        }
+<<<<<<< HEAD
+        // Notificar al cliente (confirmación/local)
+        await NotificationService.sendLocalNotification({
+          title: 'Reserva creada',
+          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
+          data: { type: 'booking_created', appointment_id: created.id },
+        });
 
-        // Notificar al proveedor sobre nueva reserva
-        try {
-          const providerDetails = await BookingService.getProviderDetails(providerId as string);
-          if (providerDetails?.user_id) {
-            await NotificationService.notifyNewAppointment(providerDetails.user_id, {
-              id: created.id,
-              client_name: user?.profile?.display_name || user?.email || 'Cliente',
-              service_name: serviceName,
-            });
-          }
-        } catch (e) {
-          console.warn('Provider notification skipped:', e);
-        }
+        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
+        // a través de BookingService.createAppointment.
+=======
+        // Notificar al cliente (confirmación/local)
+        await NotificationService.sendLocalNotification({
+          title: 'Reserva creada',
+          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
+          data: { type: 'booking_created', appointment_id: created.id },
+        });
+
+        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
+        // a través de BookingService.createAppointment.
+>>>>>>> 4f028a25ab1f4ddd6bcf58b02d23bab2d9ec4dd4
       } catch (notifyErr) {
         console.warn('Push notifications failed or unavailable:', notifyErr);
       }
@@ -238,7 +237,7 @@ export default function BookingConfirmationScreen() {
             </Text>
             <View style={styles.notesInput}>
               <Text style={styles.notesPlaceholder}>
-                Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.
+                {'Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.'}
               </Text>
             </View>
           </Card>

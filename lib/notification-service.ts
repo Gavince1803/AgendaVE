@@ -8,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -209,6 +211,32 @@ export class NotificationService {
     }
   }
 
+  static async notifyEmployeeNewAppointment(
+    employeeProfileId: string,
+    appointmentData: any
+  ): Promise<void> {
+    try {
+      const timeLabel = appointmentData.appointment_time
+        ? ` a las ${appointmentData.appointment_time}`
+        : '';
+
+      const notification: NotificationData = {
+        title: 'Nueva cita asignada 📆',
+        body: `${appointmentData.service_name || 'Servicio'} en ${appointmentData.provider_name}${timeLabel}`,
+        data: {
+          type: 'employee_new_appointment',
+          appointment_id: appointmentData.id,
+          provider_name: appointmentData.provider_name,
+          client_name: appointmentData.client_name,
+        },
+      };
+
+      await this.sendPushNotification(employeeProfileId, notification);
+    } catch (error) {
+      console.error('Error notifying employee new appointment:', error);
+    }
+  }
+
   /**
    * Notificar confirmación de cita al cliente
    */
@@ -217,9 +245,12 @@ export class NotificationService {
     appointmentData: any
   ): Promise<void> {
     try {
+      const timeLabel = appointmentData.appointment_time
+        ? ` a las ${appointmentData.appointment_time}`
+        : '';
       const notification: NotificationData = {
         title: 'Cita Confirmada ✅',
-        body: `Tu cita en ${appointmentData.provider_name} ha sido confirmada para ${appointmentData.appointment_date}`,
+        body: `Tu cita en ${appointmentData.provider_name} ha sido confirmada para ${appointmentData.appointment_date}${timeLabel}`,
         data: {
           type: 'appointment_confirmed',
           appointment_id: appointmentData.id,

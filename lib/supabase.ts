@@ -73,6 +73,7 @@ export type Database = {
           id: string;
           email: string;
           full_name: string | null;
+          display_name: string | null;
           role: 'client' | 'provider' | 'admin';
           phone: string | null;
           avatar_url: string | null;
@@ -83,6 +84,7 @@ export type Database = {
           id: string;
           email: string;
           full_name?: string | null;
+          display_name?: string | null;
           role?: 'client' | 'provider' | 'admin';
           phone?: string | null;
           avatar_url?: string | null;
@@ -93,6 +95,7 @@ export type Database = {
           id?: string;
           email?: string;
           full_name?: string | null;
+          display_name?: string | null;
           role?: 'client' | 'provider' | 'admin';
           phone?: string | null;
           avatar_url?: string | null;
@@ -112,6 +115,7 @@ export type Database = {
           phone: string | null;
           email: string | null;
           logo_url: string | null;
+          website: string | null;
           lat: number | null;
           lng: number | null;
           timezone: string;
@@ -133,6 +137,7 @@ export type Database = {
           phone?: string | null;
           email?: string | null;
           logo_url?: string | null;
+          website?: string | null;
           lat?: number | null;
           lng?: number | null;
           timezone?: string;
@@ -154,6 +159,7 @@ export type Database = {
           phone?: string | null;
           email?: string | null;
           logo_url?: string | null;
+          website?: string | null;
           lat?: number | null;
           lng?: number | null;
           timezone?: string;
@@ -337,4 +343,3 @@ export type Database = {
     };
   };
 };
-

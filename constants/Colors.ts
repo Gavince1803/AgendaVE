@@ -113,6 +113,7 @@ const wellness = {
     700: '#09855a',
     800: '#0d6a4a',
     900: '#0f573e',
+    950: '#063829',
   },
 };
 
@@ -130,6 +131,7 @@ const semantic = {
     700: '#047857',
     800: '#065f46',
     900: '#064e3b',
+    950: '#022c22',
   },
   warning: {
     50: '#fffbeb',
@@ -142,6 +144,7 @@ const semantic = {
     700: '#b45309',
     800: '#92400e',
     900: '#78350f',
+    950: '#451a03',
   },
   error: {
     50: '#fef2f2',
@@ -154,6 +157,7 @@ const semantic = {
     700: '#b91c1c',
     800: '#991b1b',
     900: '#7f1d1d',
+    950: '#431313',
   },
   info: {
     50: '#f0f8ff',
@@ -166,6 +170,7 @@ const semantic = {
     700: '#005bb5',
     800: '#004a96',
     900: '#003d7a',
+    950: '#001f3a',
   },
 };
 
@@ -189,10 +194,10 @@ export const Colors = {
     accentBg: accent[50],
     
     // Modern surface system
-    background: '#ffffff', // Pure white for premium feel
-    surface: gray[50], // #fafbfc - Subtle warm tint
-    surfaceVariant: gray[100], // #f2f4f7 - Modern card backgrounds
-    surfaceContainer: gray[200], // #e5e9ed - Elevated containers
+    background: '#f8f9fc', // Soft neutral backdrop
+    surface: '#ffffff', // Cards pop over tinted canvas
+    surfaceVariant: '#f3f5f9', // Secondary cards / inputs
+    surfaceContainer: '#e7ebf3', // Elevated containers and highlights
     
     // Sophisticated text hierarchy
     text: gray[900], // #111827 - Rich, readable black
@@ -482,25 +487,25 @@ export const ComponentColors = {
     errorPressed: semantic.error[600],
   },
   
-  // Premium card system
+    // Premium card system
   card: {
-    background: '#ffffff', // Pure white
+    background: '#ffffff', // Clean neutral card surface
     backgroundDark: gray[900],
-    border: gray[200], // #e5e9ed - Modern subtle borders
+    border: '#e1e6f0',
     borderDark: gray[700],
     shadow: 'rgba(17, 24, 39, 0.06)', // Warm, soft shadows
     shadowDark: 'rgba(0, 0, 0, 0.25)',
   },
-  
+
   // Modern surfaces
   surface: '#ffffff',
-  border: gray[200],
+  border: '#e1e6f0',
   
   // Premium input system
   input: {
     background: '#ffffff',
     backgroundDark: gray[800],
-    border: gray[300], // #d1d8e0 - Visible but not harsh
+    border: '#d7deeb', // Subtle neutral border
     borderDark: gray[600],
     borderFocused: primary[500], // #0c8ce8 - Premium focus state
     borderFocusedDark: primary[400],
