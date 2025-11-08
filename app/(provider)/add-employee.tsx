@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  type TextStyle,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -76,13 +77,7 @@ export default function AddEmployeeScreen() {
         throw new Error('Proveedor no encontrado');
       }
 
-<<<<<<< HEAD
-      // Create employee
-      const employee = await BookingService.createEmployee({
-        provider_id: provider.id,
-=======
       const invite = await BookingService.inviteEmployee({
->>>>>>> 4f028a25ab1f4ddd6bcf58b02d23bab2d9ec4dd4
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
@@ -97,42 +92,24 @@ export default function AddEmployeeScreen() {
         inviteToken: invite.inviteToken,
       });
 
-<<<<<<< HEAD
-      // Send invitation email if email provided
-      if (formData.email && formData.email.trim()) {
+      if (formData.email.trim()) {
         try {
-          console.log('📧 Sending invitation email to employee...');
-          const token = await EmailService.createInvitationToken(employee.id, provider.id);
-          const invitationLink = EmailService.generateInvitationLink(employee.id, provider.id, token);
-          
           await EmailService.sendEmployeeInvitation(
             formData.email.trim(),
             formData.name.trim(),
             provider.business_name || provider.name,
-            invitationLink
+            invite.inviteUrl
           );
-          
-          console.log('📧 ✅ Invitation email sent successfully');
         } catch (emailError) {
-          console.warn('⚠️ Could not send invitation email:', emailError);
-          // Don't fail the employee creation if email fails
+          console.warn('⚠️ No se pudo enviar el email de invitación:', emailError);
         }
       }
 
-      Alert.alert(
-        'Éxito',
-        formData.email 
-          ? `${formData.name} ha sido agregado al equipo. Se ha enviado un email de invitación a ${formData.email}`
-          : `${formData.name} ha sido agregado al equipo correctamente`,
-        [{ text: 'OK', onPress: () => router.back() }]
-=======
-      const inviteUrl = invite.inviteUrl;
-      const inviteToken = invite.inviteToken;
-      const inviteMessage = `Hola ${formData.name},\nTe invito a unirte al equipo ${provider.business_name || ''} en AgendaVE.\n\nEnlace: ${inviteUrl}\nCódigo: ${inviteToken}\n\nDescarga la app AgendaVE, inicia sesión o crea tu cuenta y usa el código para aceptar la invitación.`;
+      const inviteMessage = `Hola ${formData.name},\nTe invito a unirte al equipo ${provider.business_name || ''} en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}\n\nDescarga la app AgendaVE, inicia sesión o crea tu cuenta y usa el código para aceptar la invitación.`;
 
       Alert.alert(
         'Invitación creada',
-        `Comparte este enlace con ${formData.name}:\n${inviteUrl}\n\nCódigo: ${inviteToken}`,
+        `Comparte este enlace con ${formData.name}:\n${invite.inviteUrl}\n\nCódigo: ${invite.inviteToken}`,
         [
           {
             text: 'Compartir',
@@ -150,7 +127,6 @@ export default function AddEmployeeScreen() {
             onPress: () => router.back(),
           }
         ]
->>>>>>> 4f028a25ab1f4ddd6bcf58b02d23bab2d9ec4dd4
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating employee', error);
@@ -361,7 +337,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
     marginBottom: DesignTokens.spacing.xs,
   },
@@ -379,7 +355,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
   },
@@ -388,7 +364,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.sm,
   },
@@ -428,7 +404,7 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.xs,
   },

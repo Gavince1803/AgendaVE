@@ -1,9 +1,9 @@
 // 📱 Pantalla de Reserva de Servicio
 // Permite al cliente seleccionar fecha y hora para reservar un servicio
 
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -11,6 +11,7 @@ import {
     ScrollView,
     StyleSheet,
     TouchableOpacity,
+    type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -27,17 +28,11 @@ export default function BookServiceScreen() {
   const { 
     providerId, 
     serviceId, 
-    serviceName, 
-    servicePrice, 
-    serviceDuration,
     rescheduleId,
     mode
   } = useLocalSearchParams<{
     providerId: string;
     serviceId: string;
-    serviceName: string;
-    servicePrice: string;
-    serviceDuration: string;
     rescheduleId?: string;
     mode?: string;
   }>();
@@ -70,19 +65,7 @@ export default function BookServiceScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const timeSectionYRef = useRef<number>(0);
 
-  useEffect(() => {
-    if (providerId && serviceId) {
-      loadData();
-    }
-  }, [providerId, serviceId]);
-
-  useEffect(() => {
-    if (selectedDate && providerId) {
-      loadAvailableSlots();
-    }
-  }, [selectedDate, providerId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!providerId || !serviceId) return;
     
     try {
@@ -109,9 +92,9 @@ export default function BookServiceScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [log, providerId, serviceId]);
 
-  const loadAvailableSlots = async () => {
+  const loadAvailableSlots = useCallback(async () => {
     if (!providerId || !selectedDate) return;
     
     try {
@@ -144,7 +127,15 @@ export default function BookServiceScreen() {
       log.error(LogCategory.SERVICE, 'Error loading available slots', error);
       setAvailableSlots([]);
     }
-  };
+  }, [providerId, selectedDate, serviceId, log]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    loadAvailableSlots();
+  }, [loadAvailableSlots]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -153,10 +144,10 @@ export default function BookServiceScreen() {
     setRefreshing(false);
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (_event: DateTimePickerEvent, nextDate?: Date) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      setSelectedDate(selectedDate);
+    if (nextDate) {
+      setSelectedDate(nextDate);
       setSelectedTime(''); // Reset selected time when date changes
       // Smooth scroll to time slots section shortly after selecting the date
       setTimeout(() => {
@@ -233,8 +224,8 @@ export default function BookServiceScreen() {
   }, [
     selectedTime,
     selectedDate,
-    service?.id,
-    provider?.id,
+    service,
+    provider,
     rescheduleId,
     mode,
     defaultValidationSettings,
@@ -365,12 +356,6 @@ export default function BookServiceScreen() {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
-  };
-
-  const isDateValid = (date: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date >= today;
   };
 
   if (loading) {
@@ -609,7 +594,7 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   serviceDetails: {
@@ -634,7 +619,7 @@ const styles = StyleSheet.create({
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
   },
   serviceDescription: {
@@ -649,7 +634,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
@@ -683,7 +668,7 @@ const styles = StyleSheet.create({
     marginTop: DesignTokens.spacing.md,
     color: Colors.light.success,
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   slotWarningCard: {
     marginTop: DesignTokens.spacing.md,
@@ -718,7 +703,7 @@ const styles = StyleSheet.create({
   timeSlotText: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
     textAlign: 'center',
   },
   selectedTimeSlotText: {

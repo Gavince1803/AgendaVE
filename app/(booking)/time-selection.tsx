@@ -2,11 +2,12 @@ import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { CalendarSkeleton, TimeSlotsSkeleton } from '@/components/ui/LoadingStates';
 import { TimeSlots } from '@/components/ui/TimeSlots';
 import { Colors } from '@/constants/Colors';
 import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -14,7 +15,15 @@ import {
   StyleSheet,
   Text,
   View,
+  TouchableOpacity,
 } from 'react-native';
+
+type NextSlotSuggestion = {
+  date: string;
+  time: string;
+  label: string;
+  subtitle: string;
+};
 
 export default function TimeSelectionScreen() {
   const { 
@@ -36,43 +45,12 @@ export default function TimeSelectionScreen() {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const [bookedDates] = useState<string[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
+  const [nextAvailableSlots, setNextAvailableSlots] = useState<NextSlotSuggestion[]>([]);
 
-  // Generar fechas disponibles (próximos 7 días)
-  const generateAvailableDates = () => {
-    const dates = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      
-      const isToday = i === 0;
-      const isTomorrow = i === 1;
-      
-      dates.push({
-        date: date.toISOString().split('T')[0],
-        displayDate: date.toLocaleDateString('es-ES', { 
-          weekday: 'long', 
-          day: 'numeric', 
-          month: 'long' 
-        }),
-        shortDate: date.toLocaleDateString('es-ES', { 
-          day: 'numeric', 
-          month: 'short' 
-        }),
-        isToday,
-        isTomorrow,
-        isAvailable: true, // En una app real, esto vendría del backend
-      });
-    }
-    
-    return dates;
-  };
-
-  // Generar horarios disponibles
-  const generateAvailableTimes = (date: string) => {
+  // Generar horarios mock cuando Supabase falla
+  const generateMockTimes = (date: string) => {
     const times = [];
     const startHour = 9;
     const endHour = 18;
@@ -95,13 +73,6 @@ export default function TimeSelectionScreen() {
   };
 
   // Cargar fechas disponibles al inicio y cuando cambian los parámetros clave
-  useEffect(() => {
-    if (providerId && serviceId && !loadingDates) {
-      console.log('🔴 [TIME SELECTION] Loading available dates for:', { employeeId, providerId, serviceId });
-      loadAvailableDates();
-    }
-  }, [employeeId, providerId, serviceId]);
-
   // Auto-scroll to calendar on mount to show it immediately
   useEffect(() => {
     // Scroll to show calendar after initial load, keeping some of service card visible
@@ -112,11 +83,41 @@ export default function TimeSelectionScreen() {
     }, 300);
   }, []);
 
+  const fetchSlots = useCallback(async (date: string) => {
+    if (!providerId || !serviceId) {
+      return [];
+    }
+
+    if (employeeId && employeeId !== '') {
+      console.log('🔴 [TIME SELECTION] Loading employee slots for:', { employeeId, providerId, date, serviceId });
+      return BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
+    }
+
+    console.log('🔴 [TIME SELECTION] Loading provider slots for:', { providerId, date, serviceId });
+    return BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
+  }, [employeeId, providerId, serviceId]);
+
+  const loadAvailableTimes = useCallback(async (date: string) => {
+    setLoadingTimes(true);
+    try {
+      const times = await fetchSlots(date);
+      setAvailableTimes(times);
+      console.log('🔴 [TIME SELECTION] Loaded times:', { date, serviceId, serviceDuration, timesCount: times.length, employeeId });
+      return times;
+    } catch (error) {
+      console.error('Error loading available times:', error);
+      const mockTimes = generateMockTimes(date);
+      setAvailableTimes(mockTimes.map(t => t.time));
+      return mockTimes.map(t => t.time);
+    } finally {
+      setLoadingTimes(false);
+    }
+  }, [fetchSlots, serviceDuration, employeeId, serviceId]);
+
   // Cargar horarios disponibles cuando se selecciona una fecha
   useEffect(() => {
     if (selectedDate && providerId) {
       loadAvailableTimes(selectedDate);
-      // Auto-scroll a la sección de franjas horarias
       setTimeout(() => {
         if (scrollRef.current && timeSlotsYRef.current > 0) {
           scrollRef.current.scrollTo({ y: timeSlotsYRef.current - 12, animated: true });
@@ -125,44 +126,72 @@ export default function TimeSelectionScreen() {
     } else {
       setAvailableTimes([]);
     }
-  }, [selectedDate, providerId]);
+  }, [selectedDate, providerId, loadAvailableTimes]);
 
-  const loadAvailableTimes = async (date: string) => {
-    setLoadingTimes(true);
-    try {
-      let times: string[] = [];
-      
-      // Use employee-specific availability if employee is selected
-      if (employeeId && employeeId !== '') {
-        console.log('🔴 [TIME SELECTION] Loading employee slots for:', { employeeId, providerId, date, serviceId });
-        times = await BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
-      } else {
-        console.log('🔴 [TIME SELECTION] Loading provider slots for:', { providerId, date, serviceId });
-        times = await BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
-      }
-      
-      setAvailableTimes(times);
-      console.log('🔴 [TIME SELECTION] Loaded times:', { date, serviceId, serviceDuration, timesCount: times.length, employeeId });
-    } catch (error) {
-      console.error('Error loading available times:', error);
-      // Fallback a horarios mock si hay error
-      const mockTimes = generateAvailableTimes(date);
-      setAvailableTimes(mockTimes.map(t => t.time));
-    } finally {
-      setLoadingTimes(false);
+  useEffect(() => {
+    if (selectedDate && !selectedTime && availableTimes.length > 0) {
+      setSelectedTime(availableTimes[0]);
     }
-  };
+  }, [selectedDate, selectedTime, availableTimes]);
 
-  const loadAvailableDates = async () => {
-    if (loadingDates) {
+  const prefetchNextSlots = useCallback(async (dates: string[]) => {
+    if (!dates.length || !providerId || !serviceId) {
+      setNextAvailableSlots([]);
+      return;
+    }
+
+    const suggestions: NextSlotSuggestion[] = [];
+    for (const date of dates) {
+      let slots: string[] = [];
+      try {
+        if (employeeId && employeeId !== '') {
+          slots = await BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
+        } else {
+          slots = await BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
+        }
+      } catch (error) {
+        console.warn('🔴 [TIME SELECTION] Prefetch slots failed:', error);
+      }
+
+      if (slots.length > 0) {
+        const formatted = new Date(date).toLocaleDateString('es-ES', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        });
+        suggestions.push({
+          date,
+          time: slots[0],
+          label: formatted,
+          subtitle: `${slots[0]} • ${serviceName}`,
+        });
+      }
+      if (suggestions.length >= 3) {
+        break;
+      }
+    }
+
+    setNextAvailableSlots(suggestions);
+  }, [employeeId, providerId, serviceId, serviceName]);
+
+  const selectedDateRef = useRef<string | null>(selectedDate);
+
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  const loadingDatesRef = useRef(false);
+
+  const loadAvailableDates = useCallback(async () => {
+    if (loadingDatesRef.current) {
       console.log('🔴 [TIME SELECTION] Already loading dates, skipping...');
       return;
     }
-    
+
+    loadingDatesRef.current = true;
     setLoadingDates(true);
     try {
       console.log('🔴 [TIME SELECTION] Loading available dates for employee/provider:', { employeeId, providerId });
-      const availableDatesArray = [];
       const today = new Date();
       
       // Optimized: Check availability for fewer days initially (next 14 days)
@@ -222,10 +251,11 @@ export default function TimeSelectionScreen() {
       });
       
       setAvailableDates(validDates);
+      if (!selectedDateRef.current && validDates.length > 0) {
+        setSelectedDate(validDates[0]);
+      }
+      prefetchNextSlots(validDates.slice(0, 5));
       
-      // En una implementación real, aquí se cargarían las fechas ocupadas desde Supabase
-      // const bookedDates = await BookingService.getBookedDates(providerId as string);
-      // setBookedDates(bookedDates);
     } catch (error) {
       console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
       // Fallback: show next 7 days if there's an error
@@ -238,25 +268,54 @@ export default function TimeSelectionScreen() {
       }
       setAvailableDates(fallbackDates);
     } finally {
+      loadingDatesRef.current = false;
       setLoadingDates(false);
     }
-  };
+  }, [employeeId, providerId, serviceId, prefetchNextSlots]);
 
-  const onRefresh = React.useCallback(() => {
+  useEffect(() => {
+    if (providerId && serviceId) {
+      console.log('🔴 [TIME SELECTION] Loading available dates for:', { employeeId, providerId, serviceId });
+      loadAvailableDates();
+    }
+  }, [employeeId, providerId, serviceId, loadAvailableDates]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+    await loadAvailableDates();
+    if (selectedDate) {
+      await loadAvailableTimes(selectedDate);
+    }
+    setRefreshing(false);
+  }, [loadAvailableDates, loadAvailableTimes, selectedDate]);
 
-  const handleDateSelect = (date: string) => {
+  const handleDateSelect = useCallback((date: string) => {
     setSelectedDate(date);
     setSelectedTime(''); // Reset time when date changes
-  };
+  }, []);
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
   };
+
+  const selectNextAvailableDate = useCallback(() => {
+    if (!availableDates.length) {
+      return;
+    }
+    const currentIndex = selectedDate ? availableDates.findIndex((date) => date === selectedDate) : -1;
+    const nextIndex = currentIndex >= 0 && currentIndex < availableDates.length - 1 ? currentIndex + 1 : 0;
+    handleDateSelect(availableDates[nextIndex]);
+  }, [availableDates, selectedDate, handleDateSelect]);
+
+  const handleQuickSlotSelect = useCallback(async (slot: NextSlotSuggestion) => {
+    handleDateSelect(slot.date);
+    const times = await loadAvailableTimes(slot.date);
+    if (times?.includes(slot.time)) {
+      setSelectedTime(slot.time);
+    } else if (times && times.length > 0) {
+      setSelectedTime(times[0]);
+    }
+  }, [handleDateSelect, loadAvailableTimes]);
 
   const handleContinue = () => {
     if (!selectedDate || !selectedTime) {
@@ -335,16 +394,55 @@ export default function TimeSelectionScreen() {
 
         {/* Calendario */}
         {loadingDates ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Cargando fechas disponibles...</Text>
-          </View>
+          <CalendarSkeleton />
+        ) : availableDates.length === 0 ? (
+          <Card variant="elevated" padding="medium" style={styles.emptyStateCard}>
+            <IconSymbol name="calendar.badge.clock" size={22} color={Colors.light.primary} />
+            <Text style={styles.emptyStateTitle}>Sin disponibilidad inmediata</Text>
+            <Text style={styles.emptyStateCopy}>
+              No encontramos horarios en las próximas dos semanas. Actualiza más tarde o prueba con otro profesional.
+            </Text>
+            <Button
+              title="Actualizar disponibilidad"
+              onPress={onRefresh}
+              variant="primary"
+              size="medium"
+              style={styles.emptyStateButton}
+            />
+          </Card>
         ) : (
-          <Calendar
-            selectedDate={selectedDate}
-            onDateSelect={handleDateSelect}
-            availableDates={availableDates}
-            bookedDates={bookedDates}
-          />
+          <>
+            <Calendar
+              selectedDate={selectedDate}
+              onDateSelect={handleDateSelect}
+              availableDates={availableDates}
+              bookedDates={bookedDates}
+            />
+            {nextAvailableSlots.length > 0 && (
+              <View style={styles.quickSlotContainer}>
+                <Text style={styles.sectionTitle}>Sugerencias rápidas</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.quickSlotScroll}
+                >
+                  {nextAvailableSlots.map((slot) => (
+                    <TouchableOpacity
+                      key={`${slot.date}-${slot.time}`}
+                      style={styles.quickSlotPill}
+                      onPress={() => handleQuickSlotSelect(slot)}
+                    >
+                      <IconSymbol name="calendar.badge.clock" size={18} color={Colors.light.primary} />
+                      <View style={styles.quickSlotText}>
+                        <Text style={styles.quickSlotLabel}>{slot.label}</Text>
+                        <Text style={styles.quickSlotSubLabel}>{slot.subtitle}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </>
         )}
 
         {/* Franjas horarias */}
@@ -355,17 +453,39 @@ export default function TimeSelectionScreen() {
               timeSlotsYRef.current = e.nativeEvent.layout.y;
             }}
           >
-            <TimeSlots
-              slots={availableTimes.map(time => ({
-                time,
-                isAvailable: true,
-                isSelected: selectedTime === time,
-                duration: parseInt(serviceDuration as string),
-              }))}
-              selectedTime={selectedTime}
-              onTimeSelect={handleTimeSelect}
-              slotDuration={parseInt(serviceDuration as string)}
-            />
+            <Text style={styles.sectionTitle}>Horarios disponibles</Text>
+            {loadingTimes ? (
+              <TimeSlotsSkeleton />
+            ) : availableTimes.length === 0 ? (
+              <Card variant="outlined" padding="medium" style={styles.emptySlotsCard}>
+                <IconSymbol name="clock" size={20} color={Colors.light.warning} />
+                <View style={styles.emptySlotsContent}>
+                  <Text style={styles.emptySlotsTitle}>Sin espacios en esta fecha</Text>
+                  <Text style={styles.emptySlotsCopy}>
+                    Prueba con otra fecha o selecciona una sugerencia rápida.
+                  </Text>
+                </View>
+                <Button
+                  title="Ver siguiente fecha"
+                  onPress={selectNextAvailableDate}
+                  variant="outline"
+                  size="small"
+                  style={styles.emptySlotsButton}
+                />
+              </Card>
+            ) : (
+              <TimeSlots
+                slots={availableTimes.map(time => ({
+                  time,
+                  isAvailable: true,
+                  isSelected: selectedTime === time,
+                  duration: parseInt(serviceDuration as string),
+                }))}
+                selectedTime={selectedTime}
+                onTimeSelect={handleTimeSelect}
+                slotDuration={parseInt(serviceDuration as string)}
+              />
+            )}
           </View>
         )}
 
@@ -553,6 +673,26 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 16,
   },
+  emptySlotsCard: {
+    marginTop: 12,
+    gap: 12,
+  },
+  emptySlotsContent: {
+    gap: 4,
+  },
+  emptySlotsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.light.text,
+  },
+  emptySlotsCopy: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  emptySlotsButton: {
+    alignSelf: 'flex-start',
+  },
   selectionSummary: {
     paddingHorizontal: 20,
     marginBottom: 20,
@@ -607,6 +747,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.light.textSecondary,
     textAlign: 'center',
+  },
+  emptyStateCard: {
+    marginHorizontal: 16,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+    textAlign: 'center',
+  },
+  emptyStateCopy: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    alignSelf: 'stretch',
+  },
+  quickSlotContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  quickSlotScroll: {
+    paddingVertical: 8,
+  },
+  quickSlotPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    marginRight: 12,
+  },
+  quickSlotText: {
+    flexDirection: 'column',
+    gap: 2,
+  },
+  quickSlotLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+    textTransform: 'capitalize',
+  },
+  quickSlotSubLabel: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
   },
   requirementText: {
     fontSize: 14,

@@ -12,8 +12,20 @@ import {
     Alert,
     Platform,
     StyleSheet,
-    View
+    View,
 } from 'react-native';
+
+type OwnerField =
+  | 'fullName'
+  | 'email'
+  | 'phone'
+  | 'businessName'
+  | 'businessType'
+  | 'address'
+  | 'password'
+  | 'confirmPassword';
+
+type OwnerErrors = Partial<Record<OwnerField, string>>;
 
 export default function RegisterOwnerScreen() {
   const [fullName, setFullName] = useState('');
@@ -25,31 +37,40 @@ export default function RegisterOwnerScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<OwnerErrors>({});
   const { signUp } = useAuth();
 
-  const businessTypes = [
-    'Peluquería',
-    'Barbería',
-    'Spa',
-    'Estética',
-    'Masajes',
-    'Uñas',
-    'Otro'
-  ];
+  const validateFields = () => {
+    const nextErrors: OwnerErrors = {};
+
+    if (!fullName.trim()) {
+      nextErrors.fullName = 'Ingresa el nombre del propietario.';
+    }
+    if (!email.trim() || !email.includes('@')) {
+      nextErrors.email = 'Ingresa un correo válido.';
+    }
+    if (!phone.trim()) {
+      nextErrors.phone = 'Ingresa un teléfono de contacto.';
+    }
+    if (!businessName.trim()) {
+      nextErrors.businessName = 'Ingresa el nombre del negocio.';
+    }
+    if (!businessType.trim()) {
+      nextErrors.businessType = 'Describe el tipo de negocio.';
+    }
+    if (password.length < 6) {
+      nextErrors.password = 'Debe tener al menos 6 caracteres.';
+    }
+    if (password !== confirmPassword) {
+      nextErrors.confirmPassword = 'Las contraseñas no coinciden.';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword || !businessName || !businessType || !phone) {
-      Alert.alert('Error', 'Por favor completa todos los campos obligatorios');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+    if (!validateFields()) {
       return;
     }
 
@@ -76,8 +97,9 @@ export default function RegisterOwnerScreen() {
           }
         ]
       );
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al registrarse');
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error('Error al registrarse');
+      Alert.alert('Error', err.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }
@@ -124,29 +146,41 @@ export default function RegisterOwnerScreen() {
               <SimpleInput
                 label="Nombre Completo *"
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(text) => {
+                  setFullName(text);
+                  setErrors((prev) => ({ ...prev, fullName: undefined }));
+                }}
                 placeholder="Tu nombre completo"
                 autoCapitalize="words"
+                error={errors.fullName}
               />
 
               <SimpleInput
                 label="Email *"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
                 placeholder="tu@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                error={errors.email}
               />
 
               <SimpleInput
                 label="Teléfono *"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(text) => {
+                  setPhone(text);
+                  setErrors((prev) => ({ ...prev, phone: undefined }));
+                }}
                 placeholder="+58 412 123 4567"
                 keyboardType="numeric"
                 autoCapitalize="none"
                 autoCorrect={false}
+                error={errors.phone}
               />
             </View>
 
@@ -157,18 +191,26 @@ export default function RegisterOwnerScreen() {
               <SimpleInput
                 label="Nombre del Negocio *"
                 value={businessName}
-                onChangeText={setBusinessName}
+                onChangeText={(text) => {
+                  setBusinessName(text);
+                  setErrors((prev) => ({ ...prev, businessName: undefined }));
+                }}
                 placeholder="Mi Peluquería"
                 autoCapitalize="words"
                 autoCorrect={false}
+                error={errors.businessName}
               />
 
               <SimpleInput
                 label="Tipo de Negocio *"
                 value={businessType}
-                onChangeText={setBusinessType}
+                onChangeText={(text) => {
+                  setBusinessType(text);
+                  setErrors((prev) => ({ ...prev, businessType: undefined }));
+                }}
                 placeholder="Peluquería, Barbería, Spa..."
                 autoCapitalize="words"
+                error={errors.businessType}
               />
 
               <SimpleInput
@@ -187,19 +229,27 @@ export default function RegisterOwnerScreen() {
               <SimpleInput
                 label="Contraseña *"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
                 placeholder="Mínimo 6 caracteres"
                 secureTextEntry
                 autoCapitalize="none"
+                error={errors.password}
               />
 
               <SimpleInput
                 label="Confirmar Contraseña *"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                }}
                 placeholder="Repite tu contraseña"
                 secureTextEntry
                 autoCapitalize="none"
+                error={errors.confirmPassword}
               />
             </View>
 

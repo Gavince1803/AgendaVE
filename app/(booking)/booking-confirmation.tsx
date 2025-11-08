@@ -14,6 +14,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from 'react-native';
 
@@ -53,6 +54,28 @@ export default function BookingConfirmationScreen() {
     });
   };
 
+  const formatDurationValue = (value?: string | string[]) => {
+    const rawValue = Array.isArray(value) ? value[0] : value;
+    if (!rawValue) {
+      return null;
+    }
+
+    const minutes = Number(rawValue);
+    if (Number.isNaN(minutes)) {
+      return rawValue;
+    }
+
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}min` : `${hours}h`;
+  };
+
+  const durationLabel = formatDurationValue(serviceDuration);
+
   const handleConfirmBooking = async () => {
     if (!user) {
       Alert.alert('Error', 'Debes estar autenticado para hacer una reserva');
@@ -62,17 +85,6 @@ export default function BookingConfirmationScreen() {
     setLoading(true);
     
     try {
-      // Crear la reserva usando el servicio
-      const bookingData = {
-        client_id: user.id,
-        provider_id: providerId as string,
-        service_id: parseInt(serviceId as string),
-        appointment_date: selectedDate as string,
-        appointment_time: selectedTime as string,
-        status: 'pending' as const,
-        notes: notes || undefined,
-      };
-
       const created = await BookingService.createAppointment(
         providerId as string,
         serviceId as string,
@@ -84,7 +96,6 @@ export default function BookingConfirmationScreen() {
 
       // Intentar enviar notificaciones push (no bloquear la UX si falla)
       try {
-<<<<<<< HEAD
         // Notificar al cliente (confirmación/local)
         await NotificationService.sendLocalNotification({
           title: 'Reserva creada',
@@ -94,17 +105,6 @@ export default function BookingConfirmationScreen() {
 
         // La notificación push para el proveedor y el empleado asignado se maneja en el backend
         // a través de BookingService.createAppointment.
-=======
-        // Notificar al cliente (confirmación/local)
-        await NotificationService.sendLocalNotification({
-          title: 'Reserva creada',
-          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
-          data: { type: 'booking_created', appointment_id: created.id },
-        });
-
-        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
-        // a través de BookingService.createAppointment.
->>>>>>> 4f028a25ab1f4ddd6bcf58b02d23bab2d9ec4dd4
       } catch (notifyErr) {
         console.warn('Push notifications failed or unavailable:', notifyErr);
       }
@@ -202,6 +202,16 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryValue}>{selectedTime}</Text>
               </View>
             </View>
+
+            {durationLabel && (
+              <View style={styles.summaryItem}>
+                <IconSymbol name="timer" size={20} color={Colors.light.primary} />
+                <View style={styles.summaryContent}>
+                  <Text style={styles.summaryLabel}>Duración</Text>
+                  <Text style={styles.summaryValue}>{durationLabel}</Text>
+                </View>
+              </View>
+            )}
             
             <View style={styles.summaryItem}>
               <IconSymbol name="dollarsign.circle" size={20} color={Colors.light.primary} />
@@ -235,11 +245,17 @@ export default function BookingConfirmationScreen() {
             <Text style={styles.notesLabel}>
               ¿Hay algo específico que quieras mencionar para tu cita?
             </Text>
-            <View style={styles.notesInput}>
-              <Text style={styles.notesPlaceholder}>
-                {'Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.'}
-              </Text>
-            </View>
+            <TextInput
+              style={styles.notesInput}
+              multiline
+              placeholder='Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos"...'
+              placeholderTextColor={Colors.light.textSecondary}
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={240}
+              textAlignVertical="top"
+            />
+            <Text style={styles.notesCounter}>{`${notes.length}/240`}</Text>
           </Card>
         </View>
 
@@ -404,11 +420,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     minHeight: 80,
-  },
-  notesPlaceholder: {
-    fontSize: 14,
     color: Colors.light.text,
-    fontStyle: 'italic',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  notesCounter: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    textAlign: 'right',
+    marginTop: 8,
   },
   termsContainer: {
     flexDirection: 'row',

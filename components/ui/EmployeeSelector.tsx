@@ -5,6 +5,7 @@ import { IconSymbol } from './IconSymbol';
 import { Avatar } from './Avatar';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { Employee } from '@/lib/booking-service';
+import { EmployeeCarouselSkeleton } from './LoadingStates';
 
 interface EmployeeSelectorProps {
   employees: Employee[];
@@ -26,11 +27,7 @@ export function EmployeeSelector({
   selectedService = null
 }: EmployeeSelectorProps) {
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Cargando empleados...</Text>
-      </View>
-    );
+    return <EmployeeCarouselSkeleton />;
   }
 
   if (employees.length === 0) {
@@ -147,14 +144,6 @@ export function EmployeeSelector({
 const styles = StyleSheet.create({
   container: {
     marginBottom: DesignTokens.spacing['2xl'],
-  },
-  loadingContainer: {
-    padding: DesignTokens.spacing['2xl'],
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
   },
   emptyContainer: {
     padding: DesignTokens.spacing['2xl'],

@@ -12,7 +12,8 @@ import {
     Alert,
     Platform,
     StyleSheet,
-    View
+    View,
+    type TextStyle,
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -31,13 +32,14 @@ export default function LoginScreen() {
     try {
       await signIn(email, password);
       router.replace('/(tabs)');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Mejorar el mensaje de error para casos específicos
-      let errorMessage = error.message || 'Error al iniciar sesión';
+      const err = error instanceof Error ? error : new Error('Error al iniciar sesión');
+      let errorMessage = err.message || 'Error al iniciar sesión';
       
-      if (error.message?.includes('Invalid login credentials')) {
+      if (err.message?.includes('Invalid login credentials')) {
         errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.\n\nSi acabas de registrarte, asegúrate de confirmar tu email haciendo clic en el enlace que te enviamos.';
-      } else if (error.message?.includes('Email not confirmed')) {
+      } else if (err.message?.includes('Email not confirmed')) {
         errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación.';
       }
       
@@ -198,13 +200,13 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: DesignTokens.typography.fontSizes['4xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.textOnPrimary,
     letterSpacing: -1,
   },
   title: {
     fontSize: DesignTokens.typography.fontSizes['3xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
     marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
@@ -222,7 +224,7 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing['2xl'],
     textAlign: 'center',
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
     marginHorizontal: DesignTokens.spacing.lg,
     color: Colors.light.textSecondary,
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   footer: {
     flexDirection: 'row',

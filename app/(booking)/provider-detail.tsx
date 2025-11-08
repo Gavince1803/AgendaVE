@@ -2,20 +2,25 @@
 // Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
-  View
+  TouchableOpacity,
+  View,
+  type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/IconSymbol';
+import { MediaGallerySkeleton, ProviderProfileSkeleton } from '@/components/ui/LoadingStates';
 import { MotionFadeIn } from '@/components/ui/MotionFadeIn';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -51,30 +56,29 @@ export default function ProviderDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const log = useLogger();
+  const logRef = useRef(log);
 
   useEffect(() => {
-    if (providerId) {
-      loadProviderData();
+    logRef.current = log;
+  }, [log]);
+
+  const loadFavoriteStatus = useCallback(async () => {
+    if (!providerId) return;
+    
+    try {
+      const favoriteStatus = await BookingService.isProviderFavorite(providerId);
+      setIsFavorite(favoriteStatus);
+    } catch (error) {
+      logRef.current.error(LogCategory.SERVICE, 'Error loading favorite status', error);
     }
   }, [providerId]);
 
-  // Refresh data when screen gains focus (e.g., returning from rating screen)
-  useFocusEffect(
-    useCallback(() => {
-      if (providerId) {
-        log.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
-        loadProviderData();
-      }
-    }, [providerId])
-  );
-
-
-  const loadProviderData = async () => {
+  const loadProviderData = useCallback(async () => {
     if (!providerId) return;
     
     try {
       setLoading(true);
-      log.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
+      logRef.current.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
 
       // Cargar datos en paralelo
       const loyaltyPromise = isClient
@@ -113,7 +117,7 @@ export default function ProviderDetailScreen() {
       // Load favorite status
       await loadFavoriteStatus();
 
-      log.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
+      logRef.current.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
         provider: providerData?.business_name,
         servicesCount: servicesData.length,
         availabilityCount: availabilityData.length,
@@ -125,23 +129,28 @@ export default function ProviderDetailScreen() {
         totalReviews: providerData?.total_reviews
       });
     } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading provider data', error);
+      logRef.current.error(LogCategory.SERVICE, 'Error loading provider data', error);
       Alert.alert('Error', 'No se pudo cargar la información del proveedor');
     } finally {
       setLoading(false);
     }
-  };
+  }, [providerId, isClient, loadFavoriteStatus]);
 
-  const loadFavoriteStatus = async () => {
-    if (!providerId) return;
-    
-    try {
-      const favoriteStatus = await BookingService.isProviderFavorite(providerId);
-      setIsFavorite(favoriteStatus);
-    } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading favorite status', error);
-    }
-  };
+  useEffect(() => {
+    loadProviderData();
+  }, [loadProviderData]);
+
+  // Refresh data when screen gains focus (e.g., returning from rating screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (!providerId) {
+        return;
+      }
+
+      logRef.current.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
+      loadProviderData();
+    }, [providerId, loadProviderData])
+  );
 
   const handleToggleFavorite = async () => {
     if (!providerId || !provider) return;
@@ -222,6 +231,61 @@ export default function ProviderDetailScreen() {
       }));
   };
 
+  const handleCallProvider = () => {
+    if (!provider?.phone) return;
+    Linking.openURL(`tel:${provider.phone}`);
+  };
+
+  const handleOpenMaps = () => {
+    if (!provider?.address) return;
+    const encoded = encodeURIComponent(provider.address);
+    const url = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    Linking.openURL(url);
+  };
+
+  const handleShareProvider = async () => {
+    if (!provider) return;
+    try {
+      await Share.share({
+        message: `Descubre ${provider.business_name} en AgendaVE. Reserva tu cita en ${provider.address || 'su local'}.`,
+      });
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error sharing provider', error);
+    }
+  };
+
+  const quickActions = [
+    {
+      id: 'call',
+      label: 'Llamar',
+      icon: 'phone' as IconSymbolName,
+      onPress: handleCallProvider,
+      disabled: !provider?.phone,
+    },
+    {
+      id: 'directions',
+      label: 'Cómo llegar',
+      icon: 'location',
+      onPress: handleOpenMaps,
+      disabled: !provider?.address,
+    },
+    {
+      id: 'share',
+      label: 'Compartir',
+      icon: 'share',
+      onPress: handleShareProvider,
+      disabled: false,
+    },
+  ];
+
+  const handleHighlightPress = (highlight: ProviderHighlight) => {
+    if (!highlight.description) {
+      return;
+    }
+
+    Alert.alert(highlight.title, highlight.description);
+  };
+
   const renderStars = (rating: number) => {
     const stars = [];
     const fullStars = Math.floor(rating);
@@ -252,9 +316,9 @@ export default function ProviderDetailScreen() {
   if (loading) {
     return (
       <TabSafeAreaView style={styles.container}>
-        <ThemedView style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Cargando información...</ThemedText>
-        </ThemedView>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ProviderProfileSkeleton />
+        </ScrollView>
       </TabSafeAreaView>
     );
   }
@@ -360,6 +424,34 @@ export default function ProviderDetailScreen() {
                 ))}
               </View>
             )}
+
+            <View style={styles.quickActionsRow}>
+              {quickActions.map((action) => (
+                <TouchableOpacity
+                  key={action.id}
+                  style={[
+                    styles.quickActionButton,
+                    action.disabled && styles.quickActionDisabled,
+                  ]}
+                  onPress={action.onPress}
+                  disabled={action.disabled}
+                >
+                  <IconSymbol
+                    name={action.icon}
+                    size={18}
+                    color={action.disabled ? Colors.light.textSecondary : Colors.light.primary}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.quickActionLabel,
+                      action.disabled && styles.quickActionLabelDisabled,
+                    ]}
+                  >
+                    {action.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {provider.bio && (
@@ -381,26 +473,28 @@ export default function ProviderDetailScreen() {
                 contentContainerStyle={styles.highlightScroll}
               >
                 {highlights.map((highlight) => (
-                  <Card key={highlight.id} variant="elevated" style={styles.highlightCard}>
-                    <View style={styles.highlightHeader}>
-                      <View style={styles.highlightIconWrapper}>
-                        <IconSymbol
-                          name={(highlight.icon as any) || 'star'}
-                          size={18}
-                          color={Colors.light.primary}
-                        />
-                      </View>
-                      {highlight.badge && (
-                        <View style={styles.highlightBadge}>
-                          <ThemedText style={styles.highlightBadgeText}>{highlight.badge}</ThemedText>
+                  <TouchableOpacity key={highlight.id} onPress={() => handleHighlightPress(highlight)} activeOpacity={0.9}>
+                    <Card variant="elevated" style={styles.highlightCard}>
+                      <View style={styles.highlightHeader}>
+                        <View style={styles.highlightIconWrapper}>
+                          <IconSymbol
+                            name={(highlight.icon as IconSymbolName) || 'star'}
+                            size={18}
+                            color={Colors.light.primary}
+                          />
                         </View>
+                        {highlight.badge && (
+                          <View style={styles.highlightBadge}>
+                            <ThemedText style={styles.highlightBadgeText}>{highlight.badge}</ThemedText>
+                          </View>
+                        )}
+                      </View>
+                      <ThemedText style={styles.highlightTitle}>{highlight.title}</ThemedText>
+                      {highlight.description && (
+                        <ThemedText style={styles.highlightDescription}>{highlight.description}</ThemedText>
                       )}
-                    </View>
-                    <ThemedText style={styles.highlightTitle}>{highlight.title}</ThemedText>
-                    {highlight.description && (
-                      <ThemedText style={styles.highlightDescription}>{highlight.description}</ThemedText>
-                    )}
-                  </Card>
+                    </Card>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             </ThemedView>
@@ -449,25 +543,29 @@ export default function ProviderDetailScreen() {
           )}
         </ThemedView>
 
-        {media.length > 0 && (
+        {(media.length > 0 || refreshing) && (
           <MotionFadeIn delay={100}>
             <ThemedView style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Galería</ThemedText>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.galleryScroll}
-              >
-                {media.map((item) => (
-                  <Image
-                    key={item.id}
-                    source={{ uri: item.thumbnail_url || item.url }}
-                    style={styles.galleryImage}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ))}
-              </ScrollView>
+              {media.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.galleryScroll}
+                >
+                  {media.map((item) => (
+                    <Image
+                      key={item.id}
+                      source={{ uri: item.thumbnail_url || item.url }}
+                      style={styles.galleryImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ))}
+                </ScrollView>
+              ) : (
+                <MediaGallerySkeleton />
+              )}
             </ThemedView>
           </MotionFadeIn>
         )}
@@ -812,7 +910,7 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   tagline: {
@@ -823,7 +921,7 @@ const styles = StyleSheet.create({
   category: {
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.primary,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -854,6 +952,35 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.sm,
     marginTop: DesignTokens.spacing.md,
   },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: DesignTokens.spacing.lg,
+  },
+  quickActionButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: DesignTokens.radius.xl,
+    paddingVertical: DesignTokens.spacing.sm,
+    paddingHorizontal: DesignTokens.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DesignTokens.spacing.sm,
+    marginRight: DesignTokens.spacing.sm,
+  },
+  quickActionDisabled: {
+    opacity: 0.4,
+  },
+  quickActionLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  quickActionLabelDisabled: {
+    color: Colors.light.textSecondary,
+  },
   specialtyChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -866,7 +993,7 @@ const styles = StyleSheet.create({
   specialtyText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primaryDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   bio: {
     fontSize: DesignTokens.typography.fontSizes.base,
@@ -923,11 +1050,11 @@ const styles = StyleSheet.create({
   highlightBadgeText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primary,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   highlightTitle: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.xs,
   },
@@ -972,7 +1099,7 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: DesignTokens.typography.fontSizes.md,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   teamRole: {
@@ -1028,12 +1155,12 @@ const styles = StyleSheet.create({
   },
   loyaltyPoints: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
   },
   loyaltyTier: {
     fontSize: DesignTokens.typography.fontSizes['xl'],
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.accent,
   },
   loyaltyLabel: {
@@ -1048,7 +1175,7 @@ const styles = StyleSheet.create({
   },
   loyaltyEmptyTitle: {
     fontSize: DesignTokens.typography.fontSizes.md,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   loyaltyButton: {
@@ -1068,7 +1195,7 @@ const styles = StyleSheet.create({
   loyaltyActivityReason: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   loyaltyActivityDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,
@@ -1076,7 +1203,7 @@ const styles = StyleSheet.create({
   },
   loyaltyActivityPoints: {
     fontSize: DesignTokens.typography.fontSizes.md,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
   },
   loyaltyPointsEarned: {
     color: Colors.light.success,
@@ -1086,7 +1213,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
@@ -1115,7 +1242,7 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.xs,
   },
@@ -1142,11 +1269,11 @@ const styles = StyleSheet.create({
   serviceMetaText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primaryDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
   },
   bookButton: {
@@ -1175,7 +1302,7 @@ const styles = StyleSheet.create({
   },
   availabilityTitle: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   availabilitySubtitle: {
@@ -1198,7 +1325,7 @@ const styles = StyleSheet.create({
   },
   availabilityDay: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   availabilityPill: {
@@ -1213,7 +1340,7 @@ const styles = StyleSheet.create({
   availabilitySlot: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.primaryDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   emptyAvailability: {
     alignItems: 'center',
@@ -1245,7 +1372,7 @@ const styles = StyleSheet.create({
   },
   reviewerName: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   verifiedBadge: {
@@ -1260,7 +1387,7 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.successDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   reviewStars: {
     flexDirection: 'row',
@@ -1269,7 +1396,7 @@ const styles = StyleSheet.create({
   reviewHighlight: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.primaryDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   reviewComment: {
     fontSize: DesignTokens.typography.fontSizes.sm,
@@ -1306,7 +1433,7 @@ const styles = StyleSheet.create({
   },
   emptyServicesText: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     textAlign: 'center',
     marginTop: DesignTokens.spacing.md,

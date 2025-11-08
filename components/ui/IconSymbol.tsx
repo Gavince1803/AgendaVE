@@ -7,7 +7,7 @@ import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 type IconMapping = Record<string, ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING | string;
+export type IconSymbolName = keyof typeof MAPPING | string;
 
 /**
  * Add your SF Symbols to Material Icons mappings here.
@@ -27,6 +27,7 @@ const MAPPING: IconMapping = {
   'calendar.day.timeline.left': 'event',
   'calendar.day.timeline.trailing': 'event',
   'clock': 'access-time',
+  'timer': 'timer',
   'scissors': 'content-cut',
   'scissors.badge.ellipsis': 'content-cut',
   'plus': 'add',

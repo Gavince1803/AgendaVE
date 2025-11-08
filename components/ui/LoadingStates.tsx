@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   RefreshControl,
+  ScrollView,
 } from 'react-native';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { ThemedText } from '@/components/ThemedText';
@@ -157,6 +158,109 @@ export const ServiceListSkeleton: React.FC = () => (
         </View>
       </View>
     ))}
+  </View>
+);
+
+// 🧑‍🎨 Provider Profile Skeleton
+export const ProviderProfileSkeleton: React.FC = () => (
+  <View style={styles.skeletonContainer}>
+    <SkeletonBox width="100%" height={200} borderRadius={24} style={styles.providerHeroSkeleton} />
+    <View style={styles.providerProfileCard}>
+      <SkeletonBox width="60%" height={28} borderRadius={8} />
+      <SkeletonBox width="40%" height={18} borderRadius={8} style={{ marginTop: 12 }} />
+      <SkeletonBox width="80%" height={16} borderRadius={8} style={{ marginTop: 8 }} />
+      <View style={styles.providerActionsRow}>
+        {[...Array(3)].map((_, index) => (
+          <SkeletonBox key={index} width={100} height={44} borderRadius={24} />
+        ))}
+      </View>
+      {[...Array(2)].map((_, index) => (
+        <SkeletonBox key={index} width="100%" height={80} borderRadius={16} style={{ marginTop: 16 }} />
+      ))}
+    </View>
+  </View>
+);
+
+// ⭐ Review List Skeleton
+export const ReviewListSkeleton: React.FC = () => (
+  <View style={styles.skeletonContainer}>
+    {[...Array(3)].map((_, index) => (
+      <View key={index} style={styles.reviewSkeletonCard}>
+        <View style={styles.reviewSkeletonHeader}>
+          <SkeletonBox width={48} height={48} borderRadius={24} />
+          <View style={styles.reviewSkeletonInfo}>
+            <SkeletonBox width={120} height={18} borderRadius={6} />
+            <SkeletonBox width={80} height={14} borderRadius={6} style={{ marginTop: 6 }} />
+          </View>
+          <SkeletonBox width={80} height={20} borderRadius={10} />
+        </View>
+        <SkeletonBox width="100%" height={16} borderRadius={6} />
+        <SkeletonBox width="85%" height={16} borderRadius={6} style={{ marginTop: 8 }} />
+        <SkeletonBox width="70%" height={16} borderRadius={6} style={{ marginTop: 8 }} />
+      </View>
+    ))}
+  </View>
+);
+
+// 📅 Calendar Skeleton
+export const CalendarSkeleton: React.FC = () => (
+  <View style={styles.calendarSkeleton}>
+    <SkeletonBox width="60%" height={24} borderRadius={12} />
+    <View style={styles.calendarSkeletonRow}>
+      {[...Array(5)].map((_, index) => (
+        <SkeletonBox key={index} width={60} height={52} borderRadius={16} />
+      ))}
+    </View>
+  </View>
+);
+
+// ⏱️ Time Slots Skeleton
+export const TimeSlotsSkeleton: React.FC = () => (
+  <View style={styles.timeSlotsSkeleton}>
+    <SkeletonBox width="40%" height={20} borderRadius={10} />
+    <View style={styles.timeSlotsSkeletonGrid}>
+      {[...Array(8)].map((_, index) => (
+        <SkeletonBox key={index} width="30%" height={40} borderRadius={12} />
+      ))}
+    </View>
+  </View>
+);
+
+// 👥 Employee Carousel Skeleton
+export const EmployeeCarouselSkeleton: React.FC = () => (
+  <View style={styles.employeeSkeletonSection}>
+    <SkeletonBox width="50%" height={22} borderRadius={8} />
+    <SkeletonBox width="60%" height={16} borderRadius={8} style={{ marginTop: 8 }} />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.employeeSkeletonRow}
+    >
+      {[...Array(3)].map((_, index) => (
+        <View key={index} style={styles.employeeSkeletonCard}>
+          <SkeletonBox width={80} height={80} borderRadius={40} />
+          <SkeletonBox width="90%" height={18} borderRadius={8} style={{ marginTop: 12 }} />
+          <SkeletonBox width="70%" height={14} borderRadius={8} style={{ marginTop: 6 }} />
+          <SkeletonBox width="100%" height={36} borderRadius={12} style={{ marginTop: 12 }} />
+        </View>
+      ))}
+    </ScrollView>
+  </View>
+);
+
+// 🖼️ Media Gallery Skeleton
+export const MediaGallerySkeleton: React.FC = () => (
+  <View style={styles.gallerySkeletonSection}>
+    <SkeletonBox width="40%" height={22} borderRadius={10} />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.gallerySkeletonRow}
+    >
+      {[...Array(4)].map((_, index) => (
+        <SkeletonBox key={index} width={180} height={140} borderRadius={20} />
+      ))}
+    </ScrollView>
   </View>
 );
 
@@ -336,6 +440,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
   },
+  providerHeroSkeleton: {
+    marginBottom: DesignTokens.spacing.lg,
+  },
+  providerProfileCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: DesignTokens.radius['2xl'],
+    padding: DesignTokens.spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  providerActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.sm,
+  },
 
   // Appointment Skeleton
   appointmentSkeletonCard: {
@@ -375,6 +495,77 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
+  },
+
+  // Review Skeleton
+  reviewSkeletonCard: {
+    padding: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.surface,
+    borderRadius: DesignTokens.radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  reviewSkeletonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.md,
+  },
+  reviewSkeletonInfo: {
+    flex: 1,
+  },
+
+  // Calendar Skeleton
+  calendarSkeleton: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.md,
+  },
+  calendarSkeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  // Time Slots Skeleton
+  timeSlotsSkeleton: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.md,
+  },
+  timeSlotsSkeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    justifyContent: 'space-between',
+  },
+  employeeSkeletonSection: {
+    paddingHorizontal: DesignTokens.spacing['2xl'],
+    paddingVertical: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.sm,
+  },
+  employeeSkeletonRow: {
+    gap: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.sm,
+  },
+  employeeSkeletonCard: {
+    width: 160,
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    alignItems: 'center',
+  },
+  gallerySkeletonSection: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingBottom: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.sm,
+  },
+  gallerySkeletonRow: {
+    gap: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    paddingRight: DesignTokens.spacing.lg,
   },
 
   // Error State Styles

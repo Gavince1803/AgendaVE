@@ -2,10 +2,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmployeeSelector } from '@/components/ui/EmployeeSelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { ServiceListSkeleton } from '@/components/ui/LoadingStates';
 import { Colors } from '@/constants/Colors';
-import { BookingService, Employee } from '@/lib/booking-service';
+import { BookingService, Employee, Service } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Platform,
     RefreshControl,
@@ -15,12 +16,17 @@ import {
     View,
 } from 'react-native';
 
+type ExtendedService = Service & {
+  category_label?: string;
+  isPopular?: boolean;
+};
+
 export default function ServiceSelectionScreen() {
   const { providerId, providerName, preselectedServiceId, preselectedServiceName, preselectedServicePrice, preselectedServiceDuration } = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedService, setSelectedService] = useState<number | null>(null);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<ExtendedService[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [employeesLoading, setEmployeesLoading] = useState(true);
@@ -30,65 +36,65 @@ export default function ServiceSelectionScreen() {
   const servicesSectionYRef = useRef<number>(0);
   const bottomSectionYRef = useRef<number>(0);
 
-  // Cargar servicios del proveedor
-  useEffect(() => {
-    if (providerId) {
-      loadServices();
-      loadEmployees();
-    }
-  }, [providerId]);
-
-  // Auto-select preselected service if provided
-  useEffect(() => {
-    if (preselectedServiceId && services.length > 0) {
-      const serviceId = parseInt(preselectedServiceId as string);
-      setSelectedService(serviceId);
-    }
-  }, [preselectedServiceId, services]);
-
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     setLoading(true);
     try {
       const providerServices = await BookingService.getProviderServices(providerId as string);
-      setServices(providerServices);
+      setServices(providerServices as ExtendedService[]);
     } catch (error) {
       console.error('Error loading services:', error);
-      // Fallback a servicios mock si hay error
+      const now = new Date().toISOString();
+      const mockProviderId = (providerId as string) || 'mock-provider';
       setServices([
         {
-          id: 1,
+          id: 'mock-1',
+          provider_id: mockProviderId,
           name: 'Corte de Cabello',
           description: 'Corte profesional para damas y caballeros con lavado incluido',
-          price: 15,
-          duration: 30,
-          category: 'Peluquería',
+          price_amount: 15,
+          price_currency: 'USD',
+          duration_minutes: 30,
+          is_active: true,
+          created_at: now,
+          updated_at: now,
+          category_label: 'Peluquería',
           isPopular: true,
         },
         {
-          id: 2,
+          id: 'mock-2',
+          provider_id: mockProviderId,
           name: 'Peinado',
           description: 'Peinado para ocasiones especiales con productos profesionales',
-          price: 25,
-          duration: 45,
-          category: 'Peluquería',
+          price_amount: 25,
+          price_currency: 'USD',
+          duration_minutes: 45,
+          is_active: true,
+          created_at: now,
+          updated_at: now,
+          category_label: 'Peluquería',
           isPopular: false,
         },
         {
-          id: 3,
+          id: 'mock-3',
+          provider_id: mockProviderId,
           name: 'Tinte',
           description: 'Tinte profesional con productos de alta calidad y cuidado capilar',
-          price: 35,
-          duration: 60,
-          category: 'Coloración',
+          price_amount: 35,
+          price_currency: 'USD',
+          duration_minutes: 60,
+          is_active: true,
+          created_at: now,
+          updated_at: now,
+          category_label: 'Coloración',
           isPopular: true,
         },
       ]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [providerId]);
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setEmployeesLoading(true);
     console.log('🔴 [SERVICE SELECTION] Loading employees for provider:', providerId);
     try {
@@ -109,16 +115,29 @@ export default function ServiceSelectionScreen() {
     } finally {
       setEmployeesLoading(false);
     }
-  };
+  }, [providerId]);
 
-  const onRefresh = React.useCallback(() => {
+  useEffect(() => {
+    if (providerId) {
+      loadServices();
+      loadEmployees();
+    }
+  }, [providerId, loadServices, loadEmployees]);
+
+  useEffect(() => {
+    if (preselectedServiceId && services.length > 0) {
+      setSelectedService(preselectedServiceId as string);
+    }
+  }, [preselectedServiceId, services]);
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     Promise.all([loadServices(), loadEmployees()]).finally(() => {
       setRefreshing(false);
     });
-  }, [providerId]);
+  }, [loadServices, loadEmployees]);
 
-  const handleServiceSelect = (serviceId: number) => {
+  const handleServiceSelect = (serviceId: string) => {
     setSelectedService(serviceId);
     // Smooth scroll to bottom section (continue button) once a service is selected
     setTimeout(() => {
@@ -162,15 +181,17 @@ export default function ServiceSelectionScreen() {
       const service = services.find(s => s.id === selectedService);
       if (service) {
         console.log('🔴 [SERVICE SELECTION] Using selected service from list');
+        const servicePriceValue = service.price_amount ?? 0;
+        const serviceDurationValue = service.duration_minutes ?? 30;
         router.push({
           pathname: '/(booking)/time-selection',
           params: {
             providerId,
             providerName,
-            serviceId: service.id.toString(),
+            serviceId: service.id,
             serviceName: service.name,
-            servicePrice: service.price_amount?.toString() || service.price?.toString() || '0',
-            serviceDuration: service.duration_minutes?.toString() || service.duration?.toString() || '30',
+            servicePrice: servicePriceValue.toString(),
+            serviceDuration: serviceDurationValue.toString(),
             employeeId: selectedEmployee?.id || '',
             employeeName: selectedEmployee?.name || '',
           },
@@ -181,7 +202,9 @@ export default function ServiceSelectionScreen() {
     }
   };
 
-  const selectedServiceData = selectedService ? services.find(s => s.id === selectedService) : null;
+  const selectedServiceData = selectedService
+    ? services.find((s) => s.id === selectedService)
+    : null;
 
   return (
     <View style={styles.container}>
@@ -251,11 +274,15 @@ export default function ServiceSelectionScreen() {
             }
           }}
           loading={employeesLoading}
-          selectedService={selectedServiceData ? {
-            name: selectedServiceData.name,
-            price: selectedServiceData.price_amount || selectedServiceData.price || 0,
-            duration: selectedServiceData.duration_minutes || selectedServiceData.duration || 0
-          } : null}
+          selectedService={
+            selectedServiceData
+              ? {
+                  name: selectedServiceData.name,
+                  price: selectedServiceData.price_amount ?? 0,
+                  duration: selectedServiceData.duration_minutes ?? 0,
+                }
+              : null
+          }
         />
 
         {/* Lista de servicios - only show if no service is preselected */}
@@ -268,9 +295,7 @@ export default function ServiceSelectionScreen() {
           >
             <Text style={styles.sectionTitle}>Servicios Disponibles</Text>
             {loading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Cargando servicios...</Text>
-              </View>
+              <ServiceListSkeleton />
             ) : (
               <View style={styles.servicesList}>
                 {services.map((service) => (
@@ -296,12 +321,12 @@ export default function ServiceSelectionScreen() {
                         )}
                       </View>
                       <Text style={styles.serviceDescription}>{service.description}</Text>
-                      <Text style={styles.serviceCategory}>{service.category}</Text>
+                      <Text style={styles.serviceCategory}>{service.category_label || 'Servicio'}</Text>
                     </View>
                     
                     <View style={styles.servicePricing}>
-                      <Text style={styles.servicePrice}>${service.price_amount || service.price || 0}</Text>
-                      <Text style={styles.serviceDuration}>{service.duration_minutes || service.duration || 0} min</Text>
+                      <Text style={styles.servicePrice}>${service.price_amount ?? 0}</Text>
+                      <Text style={styles.serviceDuration}>{service.duration_minutes ?? 0} min</Text>
                     </View>
                   </View>
 

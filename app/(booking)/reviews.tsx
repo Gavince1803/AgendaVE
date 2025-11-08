@@ -2,12 +2,13 @@
 // Muestra todas las reseñas de un proveedor específico
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TouchableOpacity
+  TouchableOpacity,
+  type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -15,6 +16,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { ReviewListSkeleton } from '@/components/ui/LoadingStates';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Review } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
@@ -28,35 +30,49 @@ export default function ReviewsScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [ratingFilter, setRatingFilter] = useState<'all' | '5' | '4+' | '3-'>('all');
+  const [highlightOnly, setHighlightOnly] = useState(false);
   const log = useLogger();
+  const logRef = useRef(log);
+
+  useEffect(() => {
+    logRef.current = log;
+  }, [log]);
+
+  const ratingFilterOptions: { id: typeof ratingFilter; label: string }[] = [
+    { id: 'all', label: 'Todas' },
+    { id: '5', label: '5 ⭐' },
+    { id: '4+', label: '4+ ⭐' },
+    { id: '3-', label: '≤3 ⭐' },
+  ];
+
+  const loadReviews = useCallback(async () => {
+    if (!providerId) return;
+    
+    try {
+      setLoading(true);
+      logRef.current.info(LogCategory.DATABASE, 'Loading provider reviews', { providerId });
+
+      const reviewsData = await BookingService.getProviderReviews(providerId);
+      setReviews(reviewsData);
+      
+      logRef.current.info(LogCategory.DATABASE, 'Reviews loaded successfully', {
+        reviewsCount: reviewsData.length,
+        providerId
+      });
+    } catch (error) {
+      logRef.current.error(LogCategory.SERVICE, 'Error loading reviews', error);
+      setReviews([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [providerId]);
 
   useEffect(() => {
     if (providerId) {
       loadReviews();
     }
-  }, [providerId]);
-
-  const loadReviews = async () => {
-    if (!providerId) return;
-    
-    try {
-      setLoading(true);
-      log.info(LogCategory.DATABASE, 'Loading provider reviews', { providerId });
-
-      const reviewsData = await BookingService.getProviderReviews(providerId);
-      setReviews(reviewsData);
-      
-      log.info(LogCategory.DATABASE, 'Reviews loaded successfully', {
-        reviewsCount: reviewsData.length,
-        providerId
-      });
-    } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading reviews', error);
-      setReviews([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [providerId, loadReviews]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -114,12 +130,61 @@ export default function ReviewsScreen() {
     });
   };
 
+  const formatRelativeTime = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+      return 'Hoy';
+    }
+    if (diffDays === 1) {
+      return 'Hace 1 día';
+    }
+    if (diffDays < 7) {
+      return `Hace ${diffDays} días`;
+    }
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) {
+      return `Hace ${diffWeeks} semana${diffWeeks > 1 ? 's' : ''}`;
+    }
+    const diffMonths = Math.floor(diffDays / 30);
+    return `Hace ${diffMonths} mes${diffMonths !== 1 ? 'es' : ''}`;
+  };
+
+  const hasHighlights = useMemo(() => reviews.some(review => !!review.highlight), [reviews]);
+
+  const filteredReviews = useMemo(() => {
+    let list = [...reviews];
+
+    if (ratingFilter === '5') {
+      list = list.filter((review) => review.rating === 5);
+    } else if (ratingFilter === '4+') {
+      list = list.filter((review) => review.rating >= 4);
+    } else if (ratingFilter === '3-') {
+      list = list.filter((review) => review.rating <= 3);
+    }
+
+    if (highlightOnly) {
+      list = list.filter((review) => !!review.highlight);
+    }
+
+    return list;
+  }, [reviews, ratingFilter, highlightOnly]);
+
+  const filtersActive = ratingFilter !== 'all' || highlightOnly;
+
+  const clearFilters = () => {
+    setRatingFilter('all');
+    setHighlightOnly(false);
+  };
+
   if (loading) {
     return (
       <TabSafeAreaView style={styles.container}>
-        <ThemedView style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Cargando reseñas...</ThemedText>
-        </ThemedView>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ReviewListSkeleton />
+        </ScrollView>
       </TabSafeAreaView>
     );
   }
@@ -192,49 +257,125 @@ export default function ReviewsScreen() {
               </ThemedView>
             </Card>
 
+            {/* Filters */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersContainer}
+            >
+              {ratingFilterOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.filterChip,
+                    ratingFilter === option.id && styles.filterChipActive,
+                  ]}
+                  onPress={() => setRatingFilter(option.id)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.filterChipText,
+                      ratingFilter === option.id && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+
+              {hasHighlights && (
+                <TouchableOpacity
+                  style={[styles.filterChip, highlightOnly && styles.filterChipActive]}
+                  onPress={() => setHighlightOnly((prev) => !prev)}
+                >
+                  <ThemedText
+                    style={[
+                      styles.filterChipText,
+                      highlightOnly && styles.filterChipTextActive,
+                    ]}
+                  >
+                    Con destacados
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+
+              {filtersActive && (
+                <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                  <ThemedText style={styles.clearFiltersText}>Limpiar filtros</ThemedText>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+
             {/* Reviews List */}
             <ThemedView style={styles.reviewsSection}>
               <ThemedText style={styles.reviewsTitle}>
-                Todas las Reseñas ({reviews.length})
+                Todas las Reseñas ({filteredReviews.length})
               </ThemedText>
               
-              {reviews.map((review, index) => (
-                <Card key={review.id} variant="outlined" style={styles.reviewCard}>
-                  <ThemedView style={styles.reviewHeader}>
-                    <ThemedView style={styles.reviewerInfo}>
-                      <ThemedView style={styles.reviewerAvatar}>
-                        <IconSymbol name="person.circle" size={24} color={Colors.light.primary} />
+              {filteredReviews.length > 0 ? (
+                filteredReviews.map((review, index) => (
+                  <Card key={review.id} variant="outlined" style={styles.reviewCard}>
+                    <ThemedView style={styles.reviewHeader}>
+                      <ThemedView style={styles.reviewerInfo}>
+                        <ThemedView style={styles.reviewerAvatar}>
+                          <IconSymbol name="person.circle" size={24} color={Colors.light.primary} />
+                        </ThemedView>
+                        <ThemedView style={styles.reviewerDetails}>
+                          <ThemedText style={styles.reviewerName}>
+                            {review.client?.display_name || `Cliente ${index + 1}`}
+                          </ThemedText>
+                          <ThemedText style={styles.reviewDate}>
+                            {formatDate(review.created_at)}
+                          </ThemedText>
+                          <ThemedText style={styles.reviewRelative}>
+                            {formatRelativeTime(review.created_at)}
+                          </ThemedText>
+                        </ThemedView>
                       </ThemedView>
-                      <ThemedView style={styles.reviewerDetails}>
-                        <ThemedText style={styles.reviewerName}>
-                          {review.client?.display_name || `Cliente ${index + 1}`}
-                        </ThemedText>
-                        <ThemedText style={styles.reviewDate}>
-                          {formatDate(review.created_at)}
-                        </ThemedText>
+                      <ThemedView style={styles.reviewStars}>
+                        {renderStars(review.rating)}
                       </ThemedView>
                     </ThemedView>
-                    <ThemedView style={styles.reviewStars}>
-                      {renderStars(review.rating)}
-                    </ThemedView>
-                  </ThemedView>
-                  
-                  {review.comment && (
-                    <ThemedText style={styles.reviewComment}>
-                      {review.comment}
-                    </ThemedText>
-                  )}
-                  
-                  {review.service && (
-                    <ThemedView style={styles.serviceInfo}>
-                      <IconSymbol name="scissors" size={14} color={Colors.light.textSecondary} />
-                      <ThemedText style={styles.serviceName}>
-                        {review.service.name}
+                    
+                    {review.highlight && (
+                      <ThemedView style={styles.highlightPill}>
+                        <IconSymbol name="sparkles" size={14} color={Colors.light.accent} />
+                        <ThemedText style={styles.highlightText}>{review.highlight}</ThemedText>
+                      </ThemedView>
+                    )}
+                    
+                    {review.comment && (
+                      <ThemedText style={styles.reviewComment}>
+                        {review.comment}
                       </ThemedText>
-                    </ThemedView>
+                    )}
+                    
+                    {review.service && (
+                      <ThemedView style={styles.serviceInfo}>
+                        <IconSymbol name="scissors" size={14} color={Colors.light.textSecondary} />
+                        <ThemedText style={styles.serviceName}>
+                          {review.service.name}
+                        </ThemedText>
+                      </ThemedView>
+                    )}
+                  </Card>
+                ))
+              ) : (
+                <Card variant="elevated" style={styles.filteredEmptyCard}>
+                  <IconSymbol name="line.3.horizontal.decrease" size={28} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.filteredEmptyTitle}>
+                    No hay reseñas con estos filtros
+                  </ThemedText>
+                  <ThemedText style={styles.filteredEmptyCopy}>
+                    Ajusta los filtros para ver más experiencias de clientes.
+                  </ThemedText>
+                  {filtersActive && (
+                    <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                      <ThemedText style={styles.clearFiltersText}>Limpiar filtros</ThemedText>
+                    </TouchableOpacity>
                   )}
                 </Card>
-              ))}
+              )}
             </ThemedView>
           </>
         ) : (
@@ -284,7 +425,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     textAlign: 'center',
   },
@@ -317,7 +458,7 @@ const styles = StyleSheet.create({
   },
   averageRating: {
     fontSize: DesignTokens.typography.fontSizes['4xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
     marginBottom: DesignTokens.spacing.sm,
   },
@@ -368,7 +509,7 @@ const styles = StyleSheet.create({
   },
   reviewsTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.lg,
   },
@@ -395,13 +536,17 @@ const styles = StyleSheet.create({
   },
   reviewerName: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: 2,
   },
   reviewDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
+  },
+  reviewRelative: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textTertiary,
   },
   reviewStars: {
     flexDirection: 'row',
@@ -426,6 +571,21 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     fontStyle: 'italic',
   },
+  highlightPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.surfaceVariant,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.lg,
+    alignSelf: 'flex-start',
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  highlightText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -434,7 +594,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginTop: DesignTokens.spacing.lg,
     marginBottom: DesignTokens.spacing.md,
@@ -445,5 +605,54 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  filtersContainer: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingBottom: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.full,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    marginRight: DesignTokens.spacing.sm,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  filterChipText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  filterChipTextActive: {
+    color: Colors.light.textOnPrimary,
+  },
+  clearFiltersButton: {
+    justifyContent: 'center',
+    paddingHorizontal: DesignTokens.spacing.md,
+  },
+  clearFiltersText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+  },
+  filteredEmptyCard: {
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing['2xl'],
+  },
+  filteredEmptyTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  filteredEmptyCopy: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

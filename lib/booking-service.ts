@@ -4,8 +4,8 @@ import { supabase } from './supabase';
 
 const ACTIVE_FEATURE_FLAGS = (process.env.EXPO_PUBLIC_FEATURE_FLAGS || '')
   .split(',')
-  .map((flag) => flag.trim())
-  .filter((flag) => flag.length > 0);
+  .map((flag: string) => flag.trim())
+  .filter((flag: string) => flag.length > 0);
 
 const LOYALTY_REWARD_STEP = 100;
 const INVITE_TOKEN_TTL_HOURS = 48;
@@ -1699,7 +1699,6 @@ export class BookingService {
               phone,
               email,
               logo_url,
-              website,
               lat,
               lng,
               timezone,
