@@ -844,7 +844,23 @@ export class BookingService {
       custom_schedule_enabled: false,
     });
 
-    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'agendave://accept-invite'}?token=${inviteToken}`;
+
+    // Enviar el email de invitación
+    try {
+      const { EmailService } = await import('./email-service');
+      await EmailService.sendEmployeeInvitation(
+        email.trim().toLowerCase(),
+        name.trim(),
+        provider.business_name || 'AgendaVE',
+        inviteUrl
+      );
+      console.log('✅ [BOOKING SERVICE] Invitation email sent successfully to:', email);
+    } catch (emailError) {
+      console.error('⚠️ [BOOKING SERVICE] Failed to send invitation email:', emailError);
+      // No lanzar error para que la invitación se cree de todas formas
+      // El owner puede compartir manualmente el link
+    }
 
     return { employee, inviteToken, inviteUrl, expiresAt };
   }
@@ -885,7 +901,7 @@ export class BookingService {
 
     if (updateError) throw updateError;
 
-    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite'}?token=${inviteToken}`;
+    const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'agendave://accept-invite'}?token=${inviteToken}`;
 
     return { inviteToken, inviteUrl, expiresAt };
   }
@@ -1135,6 +1151,9 @@ export class BookingService {
 
       const availableSlots: string[] = [];
       let currentMinute = dayStartMinutes;
+      // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
+      const slotIncrement = Math.min(15, serviceDuration);
+      
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
         const slotEnd = slotStart + serviceDuration;
@@ -1142,7 +1161,7 @@ export class BookingService {
         const slotEndWithBuffer = slotEnd + settings.bufferAfterMinutes;
 
         if (slotStartWithBuffer < dayStartMinutes || slotEndWithBuffer > dayEndMinutes) {
-          currentMinute += 30;
+          currentMinute += slotIncrement;
           continue;
         }
 
@@ -1165,7 +1184,7 @@ export class BookingService {
           availableSlots.push(this.minutesToTimeLabel(slotStart));
         }
 
-        currentMinute += 30;
+        currentMinute += slotIncrement;
       }
 
       return availableSlots;
@@ -1238,6 +1257,9 @@ export class BookingService {
 
       const availableSlots: string[] = [];
       let currentMinute = dayStartMinutes;
+      // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
+      const slotIncrement = Math.min(15, serviceDuration);
+      
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
         const slotEnd = slotStart + serviceDuration;
@@ -1245,7 +1267,7 @@ export class BookingService {
         const slotEndWithBuffer = slotEnd + settings.bufferAfterMinutes;
 
         if (slotStartWithBuffer < dayStartMinutes || slotEndWithBuffer > dayEndMinutes) {
-          currentMinute += 30;
+          currentMinute += slotIncrement;
           continue;
         }
 
@@ -1268,7 +1290,7 @@ export class BookingService {
           availableSlots.push(this.minutesToTimeLabel(slotStart));
         }
 
-        currentMinute += 30;
+        currentMinute += slotIncrement;
       }
 
       return availableSlots;
@@ -1514,6 +1536,12 @@ export class BookingService {
           'Cliente';
 
         if (providerUserId) {
+          console.log('🔔 [BOOKING SERVICE] Sending notification to provider:', {
+            providerUserId,
+            providerName,
+            clientName,
+            serviceName: serviceData?.name,
+          });
           await NotificationService.notifyNewAppointment(providerUserId, {
             id: data.id,
             provider_id: providerId,
@@ -1523,6 +1551,9 @@ export class BookingService {
             client_name: clientName,
             service_name: serviceData?.name,
           });
+          console.log('✅ [BOOKING SERVICE] Provider notification sent successfully');
+        } else {
+          console.warn('⚠️ [BOOKING SERVICE] Provider user ID not found, cannot send notification');
         }
 
         if (employeeId) {

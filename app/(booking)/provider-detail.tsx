@@ -614,7 +614,7 @@ export default function ProviderDetailScreen() {
             <ThemedView style={styles.section}>
               <Card variant="elevated" style={styles.loyaltyCard}>
                 <View style={styles.loyaltyHeader}>
-                  <View>
+                  <View style={styles.loyaltyHeaderText}>
                     <ThemedText style={styles.sectionTitle}>Programa de Lealtad</ThemedText>
                     <ThemedText style={styles.loyaltySubtitle}>
                       Acumula puntos en cada visita para canjear beneficios exclusivos.
@@ -1134,8 +1134,12 @@ const styles = StyleSheet.create({
   loyaltyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: DesignTokens.spacing.md,
+  },
+  loyaltyHeaderText: {
+    flex: 1,
+    flexShrink: 1,
   },
   loyaltySubtitle: {
     fontSize: DesignTokens.typography.fontSizes.sm,

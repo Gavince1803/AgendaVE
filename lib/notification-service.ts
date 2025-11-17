@@ -141,6 +141,9 @@ export class NotificationService {
     notification: NotificationData
   ): Promise<void> {
     try {
+      console.log('📤 [NOTIFICATION SERVICE] Sending push notification to user:', userId);
+      console.log('📤 [NOTIFICATION SERVICE] Notification:', notification);
+      
       // Obtener tokens del usuario
       const { data: tokens, error } = await supabase
         .from('device_push_tokens')
@@ -149,14 +152,17 @@ export class NotificationService {
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error fetching user tokens:', error);
+        console.error('❌ [NOTIFICATION SERVICE] Error fetching user tokens:', error);
         return;
       }
 
       if (!tokens || tokens.length === 0) {
-        console.log('No active tokens found for user');
+        console.warn('⚠️ [NOTIFICATION SERVICE] No active tokens found for user:', userId);
+        console.warn('⚠️ [NOTIFICATION SERVICE] User may need to register their device token');
         return;
       }
+      
+      console.log('✅ [NOTIFICATION SERVICE] Found', tokens.length, 'active token(s) for user');
 
       // Enviar notificación a todos los tokens del usuario
       const messages = tokens.map(tokenData => ({

@@ -382,6 +382,7 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     marginHorizontal: DesignTokens.spacing['2xl'],
+    marginTop: DesignTokens.spacing.lg,
     marginBottom: DesignTokens.spacing['2xl'],
   },
   profileContent: {
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: DesignTokens.spacing.xl,
-    paddingVertical: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
   },

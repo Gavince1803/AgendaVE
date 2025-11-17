@@ -22,28 +22,65 @@ export class EmailService {
       
       const emailData = {
         to: employeeEmail,
-        subject: `Invitación para unirse a ${businessName} en AgendaVE`,
+        subject: `🎉 Invitación para unirse a ${businessName} en AgendaVE`,
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #3b82f6;">¡Bienvenido a AgendaVE!</h2>
-            <p>Hola ${employeeName},</p>
-            <p>Has sido invitado a unirte al equipo de <strong>${businessName}</strong> en AgendaVE.</p>
-            <p>Para aceptar la invitación y configurar tu cuenta, haz clic en el siguiente enlace:</p>
-            <div style="margin: 30px 0;">
-              <a href="${invitationLink}" 
-                 style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                Aceptar Invitación
-              </a>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; background-color: #f5f5f5;">
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 40px auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <!-- Header -->
+              <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 40px 30px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">🎉 ¡Bienvenido!</h1>
+                <p style="color: rgba(255, 255, 255, 0.9); margin: 10px 0 0; font-size: 16px;">AgendaVE</p>
+              </div>
+              
+              <!-- Content -->
+              <div style="padding: 40px 30px;">
+                <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">Hola <strong>${employeeName}</strong>,</p>
+                <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+                  Has sido invitado a unirte al equipo de <strong style="color: #3b82f6;">${businessName}</strong> en AgendaVE.
+                </p>
+                
+                <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 24px 0; border-radius: 4px;">
+                  <p style="color: #1e40af; margin: 0; font-size: 14px; line-height: 1.6;">
+                    <strong>📝 Pasos para aceptar:</strong><br>
+                    1️⃣ Descarga la app AgendaVE<br>
+                    2️⃣ Inicia sesión o crea tu cuenta<br>
+                    3️⃣ Haz clic en el botón de abajo
+                  </p>
+                </div>
+                
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 32px 0;">
+                  <a href="${invitationLink}" 
+                     style="display: inline-block; background-color: #3b82f6; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">
+                    Aceptar Invitación →
+                  </a>
+                </div>
+                
+                <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+                  <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px;"><strong>Si el botón no funciona:</strong></p>
+                  <p style="color: #6b7280; font-size: 12px; margin: 0; word-break: break-all;">
+                    Copia y pega este enlace:<br>
+                    <a href="${invitationLink}" style="color: #3b82f6;">${invitationLink}</a>
+                  </p>
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div style="background-color: #f9fafb; padding: 24px 30px; border-top: 1px solid #e5e7eb;">
+                <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center; line-height: 1.5;">
+                  Este correo fue enviado desde AgendaVE.<br>
+                  Si no esperabas este correo, puedes ignorarlo de forma segura.
+                </p>
+              </div>
             </div>
-            <p style="color: #666; font-size: 14px;">
-              Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:<br>
-              <a href="${invitationLink}" style="color: #3b82f6;">${invitationLink}</a>
-            </p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-            <p style="color: #999; font-size: 12px;">
-              Este correo fue enviado desde AgendaVE. Si no esperabas este correo, puedes ignorarlo.
-            </p>
-          </div>
+          </body>
+          </html>
         `,
         text: `
 Hola ${employeeName},

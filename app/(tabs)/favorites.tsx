@@ -7,6 +7,7 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { FavoritesSkeleton } from '@/components/ui/LoadingStates';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -205,9 +206,7 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={styles.loadingState}>
-            <ThemedText style={styles.loadingText}>Cargando favoritos...</ThemedText>
-          </View>
+          <FavoritesSkeleton />
         ) : favoriteProviders.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="heart" size={64} color={Colors.light.textTertiary} />
@@ -249,15 +248,15 @@ const styles = StyleSheet.create({
     paddingBottom: DesignTokens.spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: DesignTokens.typography.fontSizes['3xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
     color: Colors.light.primary,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
-    lineHeight: 22,
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
   },
   favoritesSection: {
     flex: 1,
@@ -268,23 +267,23 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    paddingVertical: DesignTokens.spacing['5xl'],
+    paddingHorizontal: DesignTokens.spacing['2xl'],
   },
   emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
   },
   emptyStateSubtext: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.sm,
+    marginBottom: DesignTokens.spacing['2xl'],
   },
   exploreButton: {
     marginTop: 8,
@@ -293,7 +292,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   providerCard: {
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   providerContent: {
     marginBottom: 16,
@@ -306,25 +305,25 @@ const styles = StyleSheet.create({
   providerImage: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: DesignTokens.radius.lg,
     backgroundColor: Colors.light.surfaceVariant,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: DesignTokens.spacing.md,
   },
   providerInfo: {
     flex: 1,
   },
   providerName: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerCategory: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
-    marginBottom: 6,
+    marginBottom: DesignTokens.spacing.sm,
   },
   providerStatus: {
     flexDirection: 'row',
@@ -333,8 +332,8 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 6,
     height: 6,
-    borderRadius: 3,
-    marginRight: 6,
+    borderRadius: DesignTokens.radius.xs,
+    marginRight: DesignTokens.spacing.xs,
   },
   statusText: {
     fontSize: 12,
@@ -367,7 +366,8 @@ const styles = StyleSheet.create({
   },
   providerActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
+    marginTop: DesignTokens.spacing.md,
   },
   actionButton: {
     flex: 1,

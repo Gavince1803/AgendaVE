@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService, Provider, ProviderDashboardMetrics } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router, Href } from 'expo-router';
+import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
 import React from 'react';
 import {
   Alert,
@@ -125,6 +126,15 @@ function ClientHomeScreen() {
   ];
 
 
+  // Show skeleton while loading
+  if (loading) {
+    return (
+      <TabSafeAreaView style={styles.container}>
+        <HomeDashboardSkeleton />
+      </TabSafeAreaView>
+    );
+  }
+
   return (
     <TabSafeAreaView style={styles.container}>
       <ScrollView 
@@ -228,11 +238,7 @@ function ClientHomeScreen() {
         </View>
         
         <View style={styles.providersList}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ThemedText style={styles.loadingText}>Cargando proveedores...</ThemedText>
-            </View>
-          ) : featuredProviders.length > 0 ? (
+          {featuredProviders.length > 0 ? (
             featuredProviders.map((provider) => (
               <Card
                 key={provider.id}
@@ -901,7 +907,7 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.lg,
   },
   providerCard: {
-    marginBottom: 0,
+    marginBottom: DesignTokens.spacing.lg,
   },
   providerHeader: {
     flexDirection: 'row',
