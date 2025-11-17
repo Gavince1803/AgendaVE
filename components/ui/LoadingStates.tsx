@@ -122,6 +122,69 @@ export const ProviderListSkeleton: React.FC = () => (
   </View>
 );
 
+// 💖 Favorites Screen Skeleton
+export const FavoritesSkeleton: React.FC = () => (
+  <View style={styles.skeletonContainer}>
+    {[...Array(3)].map((_, index) => (
+      <View key={index} style={styles.providerSkeletonCard}>
+        <SkeletonBox width={48} height={48} borderRadius={24} />
+        <View style={styles.providerSkeletonContent}>
+          <SkeletonBox width="60%" height={18} borderRadius={4} />
+          <SkeletonBox width="40%" height={14} borderRadius={4} style={{ marginTop: 8 }} />
+          <View style={styles.providerSkeletonRow}>
+            <SkeletonBox width={60} height={14} borderRadius={4} />
+            <SkeletonBox width={80} height={14} borderRadius={4} />
+          </View>
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+// 🏠 Home Dashboard Skeleton
+export const HomeDashboardSkeleton: React.FC = () => (
+  <View style={styles.skeletonContainer}>
+    {/* Header */}
+    <View style={{ padding: 16, marginBottom: 16 }}>
+      <SkeletonBox width="60%" height={32} borderRadius={8} />
+      <SkeletonBox width="80%" height={16} borderRadius={4} style={{ marginTop: 12 }} />
+    </View>
+    
+    {/* Categories */}
+    <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+      <SkeletonBox width="50%" height={20} borderRadius={6} style={{ marginBottom: 12 }} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {[...Array(4)].map((_, index) => (
+            <View key={index} style={{ alignItems: 'center' }}>
+              <SkeletonBox width={80} height={80} borderRadius={16} />
+              <SkeletonBox width={60} height={12} borderRadius={4} style={{ marginTop: 8 }} />
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+    
+    {/* Featured Providers */}
+    <View style={{ paddingHorizontal: 16 }}>
+      <SkeletonBox width="50%" height={20} borderRadius={6} style={{ marginBottom: 12 }} />
+      {[...Array(2)].map((_, index) => (
+        <View key={index} style={styles.providerSkeletonCard}>
+          <SkeletonBox width={56} height={56} borderRadius={28} />
+          <View style={styles.providerSkeletonContent}>
+            <SkeletonBox width="70%" height={18} borderRadius={4} />
+            <SkeletonBox width="50%" height={14} borderRadius={4} style={{ marginTop: 8 }} />
+            <View style={styles.providerSkeletonRow}>
+              <SkeletonBox width={60} height={14} borderRadius={4} />
+              <SkeletonBox width={80} height={32} borderRadius={16} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  </View>
+);
+
 // 🗓️ Appointment List Skeleton
 export const AppointmentListSkeleton: React.FC = () => (
   <View style={styles.skeletonContainer}>

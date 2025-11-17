@@ -14,12 +14,29 @@ interface EmailRequest {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+    })
+  }
+
   try {
     // Only allow POST requests
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 405, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     }
 
@@ -30,7 +47,31 @@ serve(async (req) => {
     if (!to || !subject || !html) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: to, subject, html' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 400, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
+      )
+    }
+
+    // Check if Resend API key is configured
+    if (!RESEND_API_KEY) {
+      console.error('❌ RESEND_API_KEY not configured')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Email service not configured',
+          message: 'RESEND_API_KEY environment variable is missing. Please configure it in Supabase dashboard.'
+        }),
+        { 
+          status: 500, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     }
 
@@ -57,7 +98,13 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ success: true, data }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 200, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     } else {
       const error = await res.text()
@@ -65,7 +112,13 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ error: 'Failed to send email', details: error }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 500, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     }
   } catch (error) {
@@ -73,7 +126,13 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        } 
+      }
     )
   }
 })

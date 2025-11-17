@@ -2,6 +2,29 @@
 
 This guide explains how to set up email invitations for employees in AgendaVE.
 
+## ⚠️ Current Status
+
+**Issue**: Email invitations are failing with "Edge Function returned a non-2xx status code"
+
+**What's Working**:
+- ✅ Employees are being created successfully
+- ✅ Invitation tokens are generated
+- ✅ The app continues to function
+
+**What's Not Working**:
+- ❌ Invitation emails are not being sent
+- ❌ The Edge Function needs `RESEND_API_KEY` configured
+
+**Quick Fix** (5 minutes):
+1. Sign up at [resend.com](https://resend.com) (free)
+2. Get your API key
+3. In Supabase Dashboard → Edge Functions → Secrets
+4. Add: `RESEND_API_KEY` = your key
+5. Done! Emails will start working immediately ✅
+
+**Temporary Workaround**:
+Employees can still be invited! Just copy the invitation link from the app and share it manually with your team members.
+
 ## Overview
 
 The email invitation system allows providers to send invitation links to employees when they're added to the team. The system uses:

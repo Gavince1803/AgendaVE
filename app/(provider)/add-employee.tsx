@@ -92,6 +92,8 @@ export default function AddEmployeeScreen() {
         inviteToken: invite.inviteToken,
       });
 
+      // Try to send email invitation
+      let emailSent = false;
       if (formData.email.trim()) {
         try {
           await EmailService.sendEmployeeInvitation(
@@ -100,16 +102,23 @@ export default function AddEmployeeScreen() {
             provider.business_name || provider.name,
             invite.inviteUrl
           );
+          emailSent = true;
+          console.log('✅ Email de invitación enviado exitosamente');
         } catch (emailError) {
           console.warn('⚠️ No se pudo enviar el email de invitación:', emailError);
+          emailSent = false;
         }
       }
 
       const inviteMessage = `Hola ${formData.name},\nTe invito a unirte al equipo ${provider.business_name || ''} en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}\n\nDescarga la app AgendaVE, inicia sesión o crea tu cuenta y usa el código para aceptar la invitación.`;
 
+      const emailStatusMessage = emailSent 
+        ? `✅ Email enviado a ${formData.email}\n\n` 
+        : formData.email ? `⚠️ El email no pudo ser enviado. Comparte el enlace manualmente.\n\n` : '';
+
       Alert.alert(
-        'Invitación creada',
-        `Comparte este enlace con ${formData.name}:\n${invite.inviteUrl}\n\nCódigo: ${invite.inviteToken}`,
+        '✅ Empleado Agregado',
+        `${emailStatusMessage}Comparte este enlace con ${formData.name}:\n\n${invite.inviteUrl}\n\nCódigo: ${invite.inviteToken}`,
         [
           {
             text: 'Compartir',
