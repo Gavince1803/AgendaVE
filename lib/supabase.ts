@@ -42,9 +42,7 @@ const getStorage = () => {
 };
 
 // Crear cliente de Supabase solo si las credenciales están configuradas
-console.log('🔴 [SUPABASE] Creando cliente de Supabase...');
-console.log('🔴 [SUPABASE] supabaseUrl disponible:', !!supabaseUrl);
-console.log('🔴 [SUPABASE] supabaseAnonKey disponible:', !!supabaseAnonKey);
+// Crear cliente de Supabase solo si las credenciales están configuradas
 
 // Use a placeholder URL if missing to prevent crash, but auth will fail
 const fallbackUrl = 'https://placeholder.supabase.co';
