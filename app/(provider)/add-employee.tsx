@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -11,7 +12,6 @@ import {
   View,
   type TextStyle,
 } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -19,17 +19,17 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
 import { EmailService } from '@/lib/email-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function AddEmployeeScreen() {
   const { user } = useAuth();
   const log = useLogger();
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     position: '',
@@ -38,15 +38,15 @@ export default function AddEmployeeScreen() {
     phone: '',
   });
 
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const validateForm = () => {
-    const newErrors: {[key: string]: string} = {};
-    
+    const newErrors: { [key: string]: string } = {};
+
     if (!formData.name.trim()) {
       newErrors.name = 'El nombre es requerido';
     }
-    
+
     if (!formData.position.trim()) {
       newErrors.position = 'El puesto es requerido';
     }
@@ -70,7 +70,7 @@ export default function AddEmployeeScreen() {
 
     try {
       setSaving(true);
-      
+
       // Get provider info first
       const provider = await BookingService.getProviderById(user.id);
       if (!provider) {
@@ -112,8 +112,8 @@ export default function AddEmployeeScreen() {
 
       const inviteMessage = `Hola ${formData.name},\nTe invito a unirte al equipo ${provider.business_name || ''} en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}\n\nDescarga la app AgendaVE, inicia sesión o crea tu cuenta y usa el código para aceptar la invitación.`;
 
-      const emailStatusMessage = emailSent 
-        ? `✅ Email enviado a ${formData.email}\n\n` 
+      const emailStatusMessage = emailSent
+        ? `✅ Email enviado a ${formData.email}\n\n`
         : formData.email ? `⚠️ El email no pudo ser enviado. Comparte el enlace manualmente.\n\n` : '';
 
       Alert.alert(
@@ -125,6 +125,7 @@ export default function AddEmployeeScreen() {
             onPress: async () => {
               try {
                 await Share.share({ message: inviteMessage });
+                router.back();
               } catch (shareError) {
                 console.warn('Error sharing invite:', shareError);
               }
@@ -138,8 +139,9 @@ export default function AddEmployeeScreen() {
         ]
       );
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo agregar el empleado';
       log.error(LogCategory.SERVICE, 'Error creating employee', error);
-      Alert.alert('Error', 'No se pudo agregar el empleado');
+      Alert.alert('Error', message);
     } finally {
       setSaving(false);
     }
@@ -166,7 +168,7 @@ export default function AddEmployeeScreen() {
         <KeyboardAvoidingView
           style={styles.flexContent}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -175,120 +177,120 @@ export default function AddEmployeeScreen() {
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             showsVerticalScrollIndicator={false}
           >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>Agregar Empleado</Text>
-              <Text style={styles.subtitle}>
-                Agrega un nuevo miembro a tu equipo de trabajo
-              </Text>
-            </View>
-          </View>
-
-          {/* Form */}
-          <Card variant="elevated" style={styles.formCard}>
-            <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Información Básica</Text>
-              
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Nombre Completo *</Text>
-                <TextInput
-                  style={[styles.textInput, errors.name ? styles.inputError : undefined]}
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Ej: María González"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="words"
-                  textContentType="name"
-                  returnKeyType="next"
-                />
-                {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Puesto *</Text>
-                <TextInput
-                  style={[styles.textInput, errors.position ? styles.inputError : undefined]}
-                  value={formData.position}
-                  onChangeText={(text) => setFormData({ ...formData, position: text })}
-                  placeholder="Ej: Barbero, Estilista, Colorista"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                />
-                {errors.position ? <Text style={styles.errorText}>{errors.position}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Descripción</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea, errors.bio ? styles.inputError : undefined]}
-                  value={formData.bio}
-                  onChangeText={(text) => setFormData({ ...formData, bio: text })}
-                  placeholder="Breve descripción de la experiencia y especialidades"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="sentences"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  returnKeyType="default"
-                />
-                {errors.bio ? <Text style={styles.errorText}>{errors.bio}</Text> : null}
-              </View>
-            </View>
-
-            <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Información de Contacto</Text>
-              
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Email</Text>
-                <TextInput
-                  style={[styles.textInput, errors.email ? styles.inputError : undefined]}
-                  value={formData.email}
-                  onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  placeholder="empleado@email.com"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-                {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Teléfono</Text>
-                <TextInput
-                  style={[styles.textInput, errors.phone ? styles.inputError : undefined]}
-                  value={formData.phone}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  placeholder="+58 XXX XXX XXXX"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  returnKeyType="done"
-                />
-                {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
-              </View>
-            </View>
-          </Card>
-
-          {/* Information Card */}
-          <Card variant="outlined" style={styles.infoCard}>
-            <View style={styles.infoContent}>
-              <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
-              <View style={styles.infoText}>
-                <Text style={styles.infoTitle}>Información Importante</Text>
-                <Text style={styles.infoDescription}>
-                  • Los campos marcados con * son obligatorios{'\n'}
-                  • El empleado recibirá un enlace para crear su cuenta{'\n'}
-                  • Puedes configurar horarios personalizados más tarde
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerContent}>
+                <Text style={styles.title}>Agregar Empleado</Text>
+                <Text style={styles.subtitle}>
+                  Agrega un nuevo miembro a tu equipo de trabajo
                 </Text>
               </View>
             </View>
-          </Card>
-          <View style={styles.bottomSpacing} />
+
+            {/* Form */}
+            <Card variant="elevated" style={styles.formCard}>
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Información Básica</Text>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Nombre Completo *</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.name ? styles.inputError : undefined]}
+                    value={formData.name}
+                    onChangeText={(text) => setFormData({ ...formData, name: text })}
+                    placeholder="Ej: María González"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    textContentType="name"
+                    returnKeyType="next"
+                  />
+                  {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Puesto *</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.position ? styles.inputError : undefined]}
+                    value={formData.position}
+                    onChangeText={(text) => setFormData({ ...formData, position: text })}
+                    placeholder="Ej: Barbero, Estilista, Colorista"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                  {errors.position ? <Text style={styles.errorText}>{errors.position}</Text> : null}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Descripción</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea, errors.bio ? styles.inputError : undefined]}
+                    value={formData.bio}
+                    onChangeText={(text) => setFormData({ ...formData, bio: text })}
+                    placeholder="Breve descripción de la experiencia y especialidades"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="sentences"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    returnKeyType="default"
+                  />
+                  {errors.bio ? <Text style={styles.errorText}>{errors.bio}</Text> : null}
+                </View>
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Información de Contacto</Text>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.email ? styles.inputError : undefined]}
+                    value={formData.email}
+                    onChangeText={(text) => setFormData({ ...formData, email: text })}
+                    placeholder="empleado@email.com"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                  {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Teléfono</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.phone ? styles.inputError : undefined]}
+                    value={formData.phone}
+                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                    placeholder="+58 XXX XXX XXXX"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="phone-pad"
+                    textContentType="telephoneNumber"
+                    returnKeyType="done"
+                  />
+                  {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+                </View>
+              </View>
+            </Card>
+
+            {/* Information Card */}
+            <Card variant="outlined" style={styles.infoCard}>
+              <View style={styles.infoContent}>
+                <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
+                <View style={styles.infoText}>
+                  <Text style={styles.infoTitle}>Información Importante</Text>
+                  <Text style={styles.infoDescription}>
+                    • Los campos marcados con * son obligatorios{'\n'}
+                    • El empleado recibirá un enlace para crear su cuenta{'\n'}
+                    • Puedes configurar horarios personalizados más tarde
+                  </Text>
+                </View>
+              </View>
+            </Card>
+            <View style={styles.bottomSpacing} />
           </ScrollView>
         </KeyboardAvoidingView>
 

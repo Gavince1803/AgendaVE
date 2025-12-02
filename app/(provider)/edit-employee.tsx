@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -9,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -17,26 +17,25 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { BookingService } from '@/lib/booking-service';
-import { LogCategory, useLogger } from '@/lib/logger';
 import { useAuth } from '@/contexts/AuthContext';
+import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function EditEmployeeScreen() {
-  const { 
-    employeeId, 
-    name: initialName, 
-    email: initialEmail, 
+  const {
+    employeeId,
+    name: initialName,
+    email: initialEmail,
     phone: initialPhone,
     isOwner,
-    isActive 
+    isActive
   } = useLocalSearchParams();
-  
+
   const { user } = useAuth();
   const log = useLogger();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
-  
+
   const [formData, setFormData] = useState({
     name: '',
     position: '',
@@ -45,7 +44,7 @@ export default function EditEmployeeScreen() {
     phone: '',
   });
 
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     // Initialize form with passed data
@@ -60,12 +59,12 @@ export default function EditEmployeeScreen() {
   }, [initialName, initialEmail, initialPhone]);
 
   const validateForm = () => {
-    const newErrors: {[key: string]: string} = {};
-    
+    const newErrors: { [key: string]: string } = {};
+
     if (!formData.name.trim()) {
       newErrors.name = 'El nombre es requerido';
     }
-    
+
     if (!formData.position.trim()) {
       newErrors.position = 'El puesto es requerido';
     }
@@ -87,7 +86,7 @@ export default function EditEmployeeScreen() {
 
     try {
       setSaving(true);
-      
+
       // For now, we'll just show a success message
       // In a real implementation, you'd call BookingService.updateEmployee
       log.userAction('Edit employee', {
@@ -124,8 +123,8 @@ export default function EditEmployeeScreen() {
       `¿Estás seguro de que quieres eliminar a ${formData.name}? Esta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
+        {
+          text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -158,7 +157,7 @@ export default function EditEmployeeScreen() {
         <KeyboardAvoidingView
           style={styles.flexContent}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -167,148 +166,148 @@ export default function EditEmployeeScreen() {
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             showsVerticalScrollIndicator={false}
           >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>Editar Empleado</Text>
-              <Text style={styles.subtitle}>
-                Modifica los datos del miembro del equipo
-              </Text>
-            </View>
-          </View>
-
-          {/* Form */}
-          <Card variant="elevated" style={styles.formCard}>
-            <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Información Básica</Text>
-              
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Nombre Completo *</Text>
-                <TextInput
-                  style={[styles.textInput, errors.name ? styles.inputError : undefined]}
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  placeholder="Ej: María González"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="words"
-                  textContentType="name"
-                  returnKeyType="next"
-                />
-                {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Puesto *</Text>
-                <TextInput
-                  style={[styles.textInput, errors.position ? styles.inputError : undefined]}
-                  value={formData.position}
-                  onChangeText={(text) => setFormData({ ...formData, position: text })}
-                  placeholder="Ej: Barbero, Estilista, Colorista"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                />
-                {errors.position ? <Text style={styles.errorText}>{errors.position}</Text> : null}
-              </View>
-
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Descripción</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea, errors.bio ? styles.inputError : undefined]}
-                  value={formData.bio}
-                  onChangeText={(text) => setFormData({ ...formData, bio: text })}
-                  placeholder="Breve descripción de la experiencia y especialidades"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  autoCapitalize="sentences"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  returnKeyType="default"
-                />
-                {errors.bio ? <Text style={styles.errorText}>{errors.bio}</Text> : null}
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerContent}>
+                <Text style={styles.title}>Editar Empleado</Text>
+                <Text style={styles.subtitle}>
+                  Modifica los datos del miembro del equipo
+                </Text>
               </View>
             </View>
 
-            <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Información de Contacto</Text>
-              
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Email</Text>
-                <TextInput
-                  style={[styles.textInput, errors.email ? styles.inputError : undefined]}
-                  value={formData.email}
-                  onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  placeholder="empleado@email.com"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                />
-                {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
-              </View>
+            {/* Form */}
+            <Card variant="elevated" style={styles.formCard}>
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Información Básica</Text>
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Teléfono</Text>
-                <TextInput
-                  style={[styles.textInput, errors.phone ? styles.inputError : undefined]}
-                  value={formData.phone}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  placeholder="+58 XXX XXX XXXX"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  returnKeyType="done"
-                />
-                {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
-              </View>
-            </View>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Nombre Completo *</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.name ? styles.inputError : undefined]}
+                    value={formData.name}
+                    onChangeText={(text) => setFormData({ ...formData, name: text })}
+                    placeholder="Ej: María González"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    textContentType="name"
+                    returnKeyType="next"
+                  />
+                  {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+                </View>
 
-            {/* Employee Status */}
-            <View style={styles.formSection}>
-              <Text style={styles.sectionTitle}>Estado</Text>
-              <View style={styles.statusContainer}>
-                {isOwner === 'true' && (
-                  <View style={styles.ownerBadge}>
-                    <IconSymbol name="crown" size={16} color={Colors.light.warning} />
-                    <Text style={styles.ownerText}>Propietario</Text>
-                  </View>
-                )}
-                <View style={[styles.statusBadge, { 
-                  backgroundColor: isActive === 'true' ? Colors.light.success : Colors.light.error 
-                }]}>
-                  <Text style={styles.statusText}>
-                    {isActive === 'true' ? 'Activo' : 'Inactivo'}
-                  </Text>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Puesto *</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.position ? styles.inputError : undefined]}
+                    value={formData.position}
+                    onChangeText={(text) => setFormData({ ...formData, position: text })}
+                    placeholder="Ej: Barbero, Estilista, Colorista"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                  {errors.position ? <Text style={styles.errorText}>{errors.position}</Text> : null}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Descripción</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea, errors.bio ? styles.inputError : undefined]}
+                    value={formData.bio}
+                    onChangeText={(text) => setFormData({ ...formData, bio: text })}
+                    placeholder="Breve descripción de la experiencia y especialidades"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="sentences"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    returnKeyType="default"
+                  />
+                  {errors.bio ? <Text style={styles.errorText}>{errors.bio}</Text> : null}
                 </View>
               </View>
-            </View>
-          </Card>
 
-          {/* Danger Zone */}
-          {isOwner !== 'true' && (
-            <Card variant="outlined" style={styles.dangerCard}>
-              <View style={styles.dangerContent}>
-                <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.error} />
-                <View style={styles.dangerText}>
-                  <Text style={styles.dangerTitle}>Zona Peligrosa</Text>
-                  <Text style={styles.dangerDescription}>
-                    Eliminar este empleado removerá todos sus datos y no se podrá deshacer.
-                  </Text>
-                  <Button
-                    title="Eliminar Empleado"
-                    onPress={handleDelete}
-                    variant="outline"
-                    size="small"
-                    style={styles.deleteButton}
-                    icon={<IconSymbol name="trash" size={16} color={Colors.light.error} />}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Información de Contacto</Text>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.email ? styles.inputError : undefined]}
+                    value={formData.email}
+                    onChangeText={(text) => setFormData({ ...formData, email: text })}
+                    placeholder="empleado@email.com"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
                   />
+                  {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Teléfono</Text>
+                  <TextInput
+                    style={[styles.textInput, errors.phone ? styles.inputError : undefined]}
+                    value={formData.phone}
+                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                    placeholder="+58 XXX XXX XXXX"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="phone-pad"
+                    textContentType="telephoneNumber"
+                    returnKeyType="done"
+                  />
+                  {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+                </View>
+              </View>
+
+              {/* Employee Status */}
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>Estado</Text>
+                <View style={styles.statusContainer}>
+                  {isOwner === 'true' && (
+                    <View style={styles.ownerBadge}>
+                      <IconSymbol name="crown" size={16} color={Colors.light.warning} />
+                      <Text style={styles.ownerText}>Propietario</Text>
+                    </View>
+                  )}
+                  <View style={[styles.statusBadge, {
+                    backgroundColor: isActive === 'true' ? Colors.light.success : Colors.light.error
+                  }]}>
+                    <Text style={styles.statusText}>
+                      {isActive === 'true' ? 'Activo' : 'Inactivo'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </Card>
-          )}
-          <View style={styles.bottomSpacing} />
+
+            {/* Danger Zone */}
+            {isOwner !== 'true' && (
+              <Card variant="outlined" style={styles.dangerCard}>
+                <View style={styles.dangerContent}>
+                  <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.error} />
+                  <View style={styles.dangerText}>
+                    <Text style={styles.dangerTitle}>Zona Peligrosa</Text>
+                    <Text style={styles.dangerDescription}>
+                      Eliminar este empleado removerá todos sus datos y no se podrá deshacer.
+                    </Text>
+                    <Button
+                      title="Eliminar Empleado"
+                      onPress={handleDelete}
+                      variant="outline"
+                      size="small"
+                      style={styles.deleteButton}
+                      icon={<IconSymbol name="trash" size={16} color={Colors.light.error} />}
+                    />
+                  </View>
+                </View>
+              </Card>
+            )}
+            <View style={styles.bottomSpacing} />
           </ScrollView>
         </KeyboardAvoidingView>
 

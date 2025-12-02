@@ -20,7 +20,7 @@ export interface Provider {
   phone?: string;
   email?: string;
   logo_url?: string;
-  website?: string;
+
   lat?: number;
   lng?: number;
   timezone: string;
@@ -607,13 +607,21 @@ export class BookingService {
         return null;
       }
 
+      console.log('🔍 [BOOKING SERVICE] Buscando perfil de empleado para userId:', targetUser);
       const { data, error } = await supabase
         .from('employees')
         .select('*')
         .eq('profile_id', targetUser)
+        .eq('is_active', true)
+        .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('🔴 [BOOKING SERVICE] Error fetching employee profile:', error);
+        throw error;
+      }
+
+      console.log('🔍 [BOOKING SERVICE] Resultado búsqueda empleado:', data ? 'Encontrado' : 'No encontrado', data?.id);
       return data || null;
     } catch (error) {
       console.error('Error fetching employee profile:', error);
@@ -622,7 +630,7 @@ export class BookingService {
   }
 
   // 👥 Obtener disponibilidad de un empleado
-  static async getEmployeeAvailability(employeeId: string, dayOfWeek: number): Promise<{start_time: string, end_time: string, is_available: boolean}[]> {
+  static async getEmployeeAvailability(employeeId: string, dayOfWeek: number): Promise<{ start_time: string, end_time: string, is_available: boolean }[]> {
     try {
       const { data, error } = await supabase
         .rpc('get_employee_availability', {
@@ -657,7 +665,7 @@ export class BookingService {
 
   // 👥 Actualizar disponibilidad completa de un empleado
   static async updateEmployeeAvailability(
-    employeeId: string, 
+    employeeId: string,
     availability: Record<string, { enabled: boolean; startTime: string; endTime: string }>
   ): Promise<void> {
     try {
@@ -825,6 +833,25 @@ export class BookingService {
       throw new Error('No se encontró el proveedor para el usuario actual.');
     }
 
+    // Evitar duplicados por email o teléfono dentro del mismo proveedor
+    if (email || phone) {
+      const { data: existing, error: existingError } = await supabase
+        .from('employees')
+        .select('id, email, phone, is_active, invite_status')
+        .eq('provider_id', provider.id)
+        .eq('is_active', true)
+        .or([
+          email ? `email.eq.${email.trim().toLowerCase()}` : undefined,
+          phone ? `phone.eq.${phone}` : undefined,
+        ].filter(Boolean).join(','));
+
+      if (existingError) {
+        console.warn('🔴 [BOOKING SERVICE] Error checking duplicate employees:', existingError);
+      } else if (existing && existing.length > 0) {
+        throw new Error('Ya existe un empleado activo con este email o teléfono.');
+      }
+    }
+
     const inviteToken = BookingService.generateInviteToken();
     const expiresAt = BookingService.computeInviteExpiry();
 
@@ -906,8 +933,37 @@ export class BookingService {
     return { inviteToken, inviteUrl, expiresAt };
   }
 
+  static async deactivateEmployee(employeeId: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+
+    const provider = await this.getProviderById(user.id);
+    if (!provider) {
+      throw new Error('No tienes permisos para eliminar este empleado.');
+    }
+
+    const { error } = await supabase
+      .from('employees')
+      .update({
+        is_active: false,
+        invite_status: 'revoked',
+        invite_token: null,
+        invite_token_expires_at: null,
+      })
+      .eq('id', employeeId)
+      .eq('provider_id', provider.id);
+
+    if (error) {
+      console.error('🔴 [BOOKING SERVICE] Error deactivating employee:', error);
+      throw error;
+    }
+  }
+
   static async acceptEmployeeInvite(token: string): Promise<Employee> {
-    if (!token) {
+    const cleanedToken = token.trim();
+    if (!cleanedToken) {
       throw new Error('Token de invitación inválido');
     }
 
@@ -916,54 +972,25 @@ export class BookingService {
       throw new Error('Debes iniciar sesión para aceptar la invitación.');
     }
 
-    const { data: employee, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('invite_token', token)
-      .maybeSingle();
+    console.log('🔴 [BOOKING SERVICE] Accepting invite for token:', cleanedToken, 'user:', user.id);
 
-    if (error) throw error;
-    if (!employee) {
-      throw new Error('Invitación no encontrada o ya utilizada.');
+    console.log('🔴 [BOOKING SERVICE] Accepting invite via RPC for token:', cleanedToken);
+
+    const { data: updatedEmployee, error: rpcError } = await supabase.rpc('accept_employee_invite', {
+      token_input: cleanedToken
+    });
+
+    if (rpcError) {
+      console.error('🔴 [BOOKING SERVICE] Error accepting invite via RPC:', rpcError);
+      throw new Error(rpcError.message || 'Error al aceptar la invitación');
     }
 
-    if (employee.invite_token_expires_at) {
-      const expires = new Date(employee.invite_token_expires_at).getTime();
-      if (Date.now() > expires) {
-        throw new Error('La invitación ha expirado. Solicita un nuevo enlace al administrador.');
-      }
+    if (!updatedEmployee) {
+      throw new Error('No se pudo procesar la invitación.');
     }
 
-    const { error: updateError, data: updatedEmployee } = await supabase
-      .from('employees')
-      .update({
-        profile_id: user.id,
-        email: user.email,
-        invite_status: 'accepted',
-        invite_token: null,
-        invite_token_expires_at: null,
-        is_active: true,
-      })
-      .eq('id', employee.id)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-
-    // Ensure the profile role is set to employee
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        role: 'employee',
-        display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || updatedEmployee.name,
-      })
-      .eq('id', user.id);
-
-    if (profileError) {
-      console.warn('⚠️ [BOOKING SERVICE] Could not update profile role to employee:', profileError);
-    }
-
-    return updatedEmployee;
+    // Cast the result to Employee type since RPC returns JSON
+    return updatedEmployee as Employee;
   }
 
   static async notifyEmployeeAssignment(employeeId: string, payload: {
@@ -1006,6 +1033,18 @@ export class BookingService {
           provider_name: payload.providerName,
           appointment_date: payload.appointmentDate,
           appointment_time: payload.appointmentTime,
+        });
+        return;
+      }
+
+      if (payload.status === 'updated') {
+        await NotificationService.notifyEmployeeAppointmentUpdate(employee.profile_id, {
+          id: payload.appointmentId,
+          provider_name: payload.providerName,
+          appointment_date: payload.appointmentDate,
+          appointment_time: payload.appointmentTime,
+          service_name: payload.serviceName,
+          client_name: payload.clientName,
         });
         return;
       }
@@ -1063,7 +1102,7 @@ export class BookingService {
           .select('*')
           .eq('provider_id', providerId)
           .order('weekday, start_time');
-        
+
         data = result.data;
         error = result.error;
       }
@@ -1081,13 +1120,13 @@ export class BookingService {
     try {
       // First, run consistency check
       await this.checkAvailabilityConsistency(userId);
-      
+
       // Get the provider
       const provider = await this.getProviderById(userId);
       if (!provider) {
         return [];
       }
-      
+
       // Now get clean availability data
       return await this.getProviderAvailability(provider.id);
     } catch (error) {
@@ -1153,7 +1192,7 @@ export class BookingService {
       let currentMinute = dayStartMinutes;
       // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
       const slotIncrement = Math.min(15, serviceDuration);
-      
+
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
         const slotEnd = slotStart + serviceDuration;
@@ -1259,7 +1298,7 @@ export class BookingService {
       let currentMinute = dayStartMinutes;
       // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
       const slotIncrement = Math.min(15, serviceDuration);
-      
+
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
         const slotEnd = slotStart + serviceDuration;
@@ -1481,17 +1520,17 @@ export class BookingService {
 
       // Crear timestamp combinando fecha y hora
       const startTimestamp = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
-      
+
       // Obtener duración del servicio para calcular end_ts
       const { data: serviceData } = await supabase
         .from('services')
         .select('duration_minutes, name')
         .eq('id', serviceId)
         .single();
-      
+
       const durationMinutes = serviceData?.duration_minutes || 30;
       const endTimestamp = new Date(new Date(startTimestamp).getTime() + durationMinutes * 60000).toISOString();
-      
+
       const { data, error } = await supabase
         .from('appointments')
         .insert({
@@ -1593,7 +1632,7 @@ export class BookingService {
         .order('appointment_time', { ascending: true });
 
       if (appointmentsError) throw appointmentsError;
-      
+
       if (!appointments || appointments.length === 0) {
         return [];
       }
@@ -1604,10 +1643,10 @@ export class BookingService {
 
       // Fetch services and providers separately
       const [servicesData, providersData] = await Promise.all([
-        serviceIds.length > 0 
+        serviceIds.length > 0
           ? supabase.from('services').select('*').in('id', serviceIds)
           : { data: [], error: null },
-        providerIds.length > 0 
+        providerIds.length > 0
           ? supabase.from('providers').select('*').in('id', providerIds)
           : { data: [], error: null }
       ]);
@@ -1664,6 +1703,28 @@ export class BookingService {
       return data || [];
     } catch (error) {
       console.error('Error fetching provider appointments:', error);
+      throw error;
+    }
+  }
+
+  // 📍 Obtener citas por ID de proveedor (útil para empleados)
+  static async getAppointmentsByProviderId(providerId: string): Promise<Appointment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(*),
+          profiles!appointments_client_id_fkey(id, display_name, phone)
+        `)
+        .eq('provider_id', providerId)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching appointments by provider ID:', error);
       throw error;
     }
   }
@@ -1821,7 +1882,7 @@ export class BookingService {
       // Obtener citas completadas de este mes con el servicio asociado
       const { data: appointments, error } = await supabase
         .from('appointments')
-        .select(`appointment_date, status, services(price_amount, price_currency)`) 
+        .select(`appointment_date, status, services(price_amount, price_currency)`)
         .eq('provider_id', provider.id)
         .gte('appointment_date', startOfMonth)
         .lte('appointment_date', endOfMonth)
@@ -2221,29 +2282,29 @@ export class BookingService {
   ): Promise<Appointment> {
     try {
       console.log('🔴 [BOOKING SERVICE] Updating appointment:', appointmentId, updateData);
-      
+
       // Check authentication
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
         throw new Error('Usuario no autenticado');
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Authenticated user:', user.id);
-      
+
       // First, get the current appointment to check permissions
       const { data: currentAppointment, error: fetchError } = await supabase
         .from('appointments')
         .select('client_id, provider_id, service_id, appointment_date, appointment_time, employee_id')
         .eq('id', appointmentId)
         .single();
-        
+
       if (fetchError) {
         console.error('🔴 [BOOKING SERVICE] Error fetching appointment:', fetchError);
         throw new Error(`No se pudo obtener la cita: ${fetchError.message}`);
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Current appointment:', currentAppointment);
-      
+
       // Check if user is either the client or the provider
       let hasPermission = false;
       if (currentAppointment.client_id === user.id) {
@@ -2257,11 +2318,11 @@ export class BookingService {
           console.log('🔴 [BOOKING SERVICE] User is the provider - permission granted');
         }
       }
-      
+
       if (!hasPermission) {
         throw new Error('No tienes permisos para actualizar esta cita');
       }
-      
+
       const targetDate = updateData.appointment_date || currentAppointment.appointment_date;
       const targetTime = updateData.appointment_time || currentAppointment.appointment_time;
       const targetServiceId = updateData.service_id || currentAppointment.service_id;
@@ -2280,13 +2341,13 @@ export class BookingService {
           throw new Error(validation.message || 'Este horario ya no está disponible.');
         }
       }
-      
+
       // If date/time is being updated, we need to recalculate timestamps
       let updatePayload: any = { ...updateData };
-      
+
       if (updateData.appointment_date && updateData.appointment_time) {
         const startTimestamp = new Date(`${updateData.appointment_date}T${updateData.appointment_time}:00`).toISOString();
-        
+
         // Get service duration to calculate end timestamp
         let durationMinutes = 30; // default
         if (targetServiceId) {
@@ -2295,18 +2356,18 @@ export class BookingService {
             .select('duration_minutes')
             .eq('id', targetServiceId)
             .single();
-          
+
           durationMinutes = serviceData?.duration_minutes || 30;
         }
-        
+
         const endTimestamp = new Date(new Date(startTimestamp).getTime() + durationMinutes * 60000).toISOString();
-        
+
         updatePayload.start_ts = startTimestamp;
         updatePayload.end_ts = endTimestamp;
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Update payload:', updatePayload);
-      
+
       const { data, error } = await supabase
         .from('appointments')
         .update(updatePayload)
@@ -2318,8 +2379,50 @@ export class BookingService {
         console.error('🔴 [BOOKING SERVICE] Error updating appointment:', error);
         throw new Error(`Error al actualizar la cita: ${error.message}`);
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] ✅ Appointment updated successfully:', data);
+
+      // Notify employee if assigned
+      if (data.employee_id) {
+        try {
+          const [{ data: providerDetails }, { data: clientProfile }, { data: serviceData }] = await Promise.all([
+            supabase
+              .from('providers')
+              .select('business_name')
+              .eq('id', data.provider_id)
+              .maybeSingle(),
+            supabase
+              .from('profiles')
+              .select('display_name, full_name')
+              .eq('id', data.client_id)
+              .maybeSingle(),
+            supabase
+              .from('services')
+              .select('name')
+              .eq('id', data.service_id)
+              .maybeSingle(),
+          ]);
+
+          const providerName = providerDetails?.business_name || 'Tu negocio';
+          const clientName =
+            clientProfile?.display_name ||
+            clientProfile?.full_name ||
+            'Cliente';
+
+          await this.notifyEmployeeAssignment(data.employee_id, {
+            appointmentId: data.id,
+            providerName,
+            appointmentDate: data.appointment_date,
+            appointmentTime: data.appointment_time,
+            serviceName: serviceData?.name,
+            clientName,
+            status: 'updated',
+          });
+        } catch (notifyError) {
+          console.warn('⚠️ [BOOKING SERVICE] Error notifying employee of update:', notifyError);
+        }
+      }
+
       return data;
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error updating appointment:', error);
@@ -2364,7 +2467,7 @@ export class BookingService {
         }
         throw error;
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error checking existing review:', error);
@@ -2383,12 +2486,12 @@ export class BookingService {
       if (!user) throw new Error('Usuario no autenticado');
 
       console.log('🔴 [BOOKING SERVICE] Updating review:', { reviewId, rating, comment });
-      
+
       const updateData: any = {
         rating,
         comment: comment || null
       };
-      
+
       console.log('🔴 [BOOKING SERVICE] Update data:', updateData);
 
       const { data, error } = await supabase
@@ -2522,7 +2625,7 @@ export class BookingService {
   static async updateProviderRating(providerId: string): Promise<void> {
     try {
       console.log('🔴 [BOOKING SERVICE] Updating provider rating for:', providerId);
-      
+
       // Use secure database function that bypasses RLS
       const { data, error } = await supabase
         .rpc('update_provider_rating_secure', {
@@ -2533,21 +2636,21 @@ export class BookingService {
         console.error('🔴 [BOOKING SERVICE] Error calling rating function:', error);
         throw error;
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Rating function response:', data);
-      
+
       if (data && !data.success) {
         const errorMsg = data.error || 'Unknown error updating provider rating';
         console.error('🔴 [BOOKING SERVICE] Rating function failed:', errorMsg);
         throw new Error(errorMsg);
       }
-      
+
       console.log('🎉 [BOOKING SERVICE] ✅ Provider rating updated successfully!', {
         providerId,
         newRating: data?.new_rating,
         reviewCount: data?.review_count
       });
-      
+
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error updating provider rating:', error);
       // Fallback: Try direct update (will fail due to RLS but helps with debugging)
@@ -2557,18 +2660,18 @@ export class BookingService {
           .from('reviews')
           .select('rating')
           .eq('provider_id', providerId);
-          
+
         if (reviewsError) throw reviewsError;
-        
+
         let newRating = 0;
         let reviewCount = 0;
-        
+
         if (reviews && reviews.length > 0) {
           const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
           newRating = Math.round(averageRating * 100) / 100;
           reviewCount = reviews.length;
         }
-        
+
         const { error: updateError } = await supabase
           .from('providers')
           .update({
@@ -2576,14 +2679,14 @@ export class BookingService {
             total_reviews: reviewCount
           })
           .eq('id', providerId);
-          
+
         if (updateError) {
           console.error('🔴 [BOOKING SERVICE] Fallback update also failed (likely RLS):', updateError);
           throw updateError;
         }
-        
+
         console.log('🎉 [BOOKING SERVICE] ✅ Fallback update succeeded!');
-        
+
       } catch (fallbackError) {
         console.error('🔴 [BOOKING SERVICE] Fallback update failed:', fallbackError);
         throw error; // Throw the original error
@@ -2595,26 +2698,26 @@ export class BookingService {
   static async recalculateAllProviderRatings(): Promise<void> {
     try {
       console.log('🔄 [BOOKING SERVICE] Recalculating all provider ratings...');
-      
+
       // Get all providers
       const { data: providers, error: providersError } = await supabase
         .from('providers')
         .select('id')
         .eq('is_active', true);
-        
+
       if (providersError) throw providersError;
-      
+
       if (!providers || providers.length === 0) {
         console.log('🚨 [BOOKING SERVICE] No providers found');
         return;
       }
-      
+
       console.log(`🔴 [BOOKING SERVICE] Found ${providers.length} providers to update`);
-      
+
       // Update each provider
       let updated = 0;
       let errors = 0;
-      
+
       for (const provider of providers) {
         try {
           await this.updateProviderRating(provider.id);
@@ -2625,9 +2728,9 @@ export class BookingService {
           console.error(`🔴 [BOOKING SERVICE] Error updating provider ${provider.id}:`, error);
         }
       }
-      
+
       console.log(`🎉 [BOOKING SERVICE] ✅ Recalculation complete! Updated: ${updated}, Errors: ${errors}`);
-      
+
     } catch (error) {
       console.error('🔴 [BOOKING SERVICE] Error recalculating all provider ratings:', error);
       throw error;
@@ -2651,7 +2754,7 @@ export class BookingService {
       const appointmentDate = new Date(appointment.appointment_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       return appointment.status === 'done' && appointmentDate <= today;
     } catch (error) {
       console.error('Error checking if appointment can be rated:', error);
@@ -2670,7 +2773,7 @@ export class BookingService {
     phone?: string;
     email?: string;
     is_active?: boolean;
-    website?: string;
+
   }): Promise<Provider> {
     try {
       // Crear el proveedor
@@ -2685,17 +2788,16 @@ export class BookingService {
           address: providerData.address || '',
           phone: providerData.phone || '',
           email: providerData.email || '',
-          website: providerData.website || '',
           timezone: 'America/Caracas',
           rating: 0.0,
           total_reviews: 0,
           is_active: providerData.is_active ?? true,
         })
-        .select()
+        .select('id, user_id, name, business_name, category, bio, address, phone, email, logo_url, lat, lng, timezone, rating, total_reviews, is_active, created_at, updated_at')
         .single();
 
       if (providerError) throw providerError;
-      
+
       // Automáticamente crear el propietario como empleado
       try {
         // Get the user profile to get the display name
@@ -2704,9 +2806,9 @@ export class BookingService {
           .select('display_name')
           .eq('id', providerData.user_id)
           .single();
-          
+
         const ownerName = profile?.display_name || providerData.name;
-        
+
         await this.createEmployee({
           provider_id: provider.id,
           name: ownerName,
@@ -2725,7 +2827,7 @@ export class BookingService {
         console.warn('⚠️ [BOOKING SERVICE] Could not create owner as employee:', employeeError);
         // No fallar la creación del proveedor por esto
       }
-      
+
       return provider;
     } catch (error) {
       console.error('Error creating provider:', error);
@@ -2733,8 +2835,58 @@ export class BookingService {
     }
   }
 
+  // ❌ Desactivar negocio y limpiar datos principales
+  static async deactivateProviderAccount(userId: string): Promise<void> {
+    console.log('🔴 [BOOKING SERVICE] Desactivando negocio para usuario:', userId);
+
+    const provider = await this.getProviderById(userId);
+    if (!provider) {
+      console.log('🔴 [BOOKING SERVICE] No se encontró proveedor para desactivar');
+      return;
+    }
+
+    const { error: servicesError } = await supabase
+      .from('services')
+      .update({ is_active: false })
+      .eq('provider_id', provider.id);
+
+    if (servicesError) {
+      console.error('🔴 [BOOKING SERVICE] Error desactivando servicios:', servicesError);
+    }
+
+    const { error: availabilityError } = await supabase
+      .from('availabilities')
+      .delete()
+      .eq('provider_id', provider.id);
+
+    if (availabilityError) {
+      console.error('🔴 [BOOKING SERVICE] Error eliminando disponibilidades:', availabilityError);
+    }
+
+    const { error: employeesError } = await supabase
+      .from('employees')
+      .update({ is_active: false })
+      .eq('provider_id', provider.id);
+
+    if (employeesError) {
+      console.error('🔴 [BOOKING SERVICE] Error desactivando empleados:', employeesError);
+    }
+
+    const { error: providerError } = await supabase
+      .from('providers')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', provider.id);
+
+    if (providerError) {
+      console.error('🔴 [BOOKING SERVICE] Error desactivando proveedor:', providerError);
+      throw providerError;
+    }
+
+    console.log('🔴 [BOOKING SERVICE] ✅ Negocio desactivado correctamente');
+  }
+
   static async updateProvider(
-    providerId: string, 
+    providerId: string,
     updateData: {
       business_name?: string;
       category?: string;
@@ -2743,12 +2895,12 @@ export class BookingService {
       phone?: string;
       email?: string;
       logo_url?: string;
-      website?: string;
+
     }
   ): Promise<Provider | null> {
     try {
       console.log('🔴 [BOOKING SERVICE] Actualizando proveedor:', providerId, updateData);
-      
+
       const { data, error } = await supabase
         .from('providers')
         .update({
@@ -2759,7 +2911,6 @@ export class BookingService {
           phone: updateData.phone,
           email: updateData.email,
           logo_url: updateData.logo_url,
-          website: updateData.website,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)
@@ -2785,15 +2936,15 @@ export class BookingService {
   ): Promise<void> {
     try {
       console.log('🔴 [BOOKING SERVICE] Actualizando disponibilidad para userId:', userId, availability);
-      
+
       // First, get the provider record to get the correct provider_id
       const provider = await this.getProviderById(userId);
       if (!provider) {
         throw new Error('Provider not found for user');
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Provider encontrado:', provider.id);
-      
+
       // Mapeo de días de la semana
       const weekdayMap: Record<string, number> = {
         'sunday': 0,
@@ -2831,7 +2982,7 @@ export class BookingService {
       if (availabilityRecords.length > 0) {
         // Try with is_active first, fall back without if it fails
         const recordsWithActive = availabilityRecords.map(record => ({ ...record, is_active: true }));
-        
+
         let { error: insertError } = await supabase
           .from('availabilities')
           .insert(recordsWithActive);
@@ -2842,7 +2993,7 @@ export class BookingService {
           const { error: retryError } = await supabase
             .from('availabilities')
             .insert(availabilityRecords);
-          
+
           if (retryError) {
             console.error('🔴 [BOOKING SERVICE] Error inserting availability (retry):', retryError);
             throw retryError;
@@ -2864,27 +3015,27 @@ export class BookingService {
   static async checkAvailabilityConsistency(userId: string): Promise<void> {
     try {
       console.log('🔴 [BOOKING SERVICE] Checking availability consistency for userId:', userId);
-      
+
       // Get the provider record
       const provider = await this.getProviderById(userId);
       if (!provider) {
         console.log('🔴 [BOOKING SERVICE] No provider found, skipping consistency check');
         return;
       }
-      
+
       // Check for duplicate or orphaned availability records
       const { data: availabilities, error } = await supabase
         .from('availabilities')
         .select('*')
         .eq('provider_id', provider.id);
-        
+
       if (error) {
         console.error('🔴 [BOOKING SERVICE] Error checking availabilities:', error);
         return;
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Found', availabilities?.length || 0, 'availability records');
-      
+
       // Group by weekday to find duplicates
       const weekdayGroups: Record<number, any[]> = {};
       availabilities?.forEach(av => {
@@ -2893,22 +3044,22 @@ export class BookingService {
         }
         weekdayGroups[av.weekday].push(av);
       });
-      
+
       // Remove duplicates, keeping the most recent
       for (const [weekday, records] of Object.entries(weekdayGroups)) {
         if (records.length > 1) {
           console.log('🔴 [BOOKING SERVICE] Found duplicate availability records for weekday', weekday);
-          
+
           // Sort by created_at and keep the most recent
           records.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           const toDelete = records.slice(1); // Keep first (most recent), delete rest
-          
+
           for (const record of toDelete) {
             const { error: deleteError } = await supabase
               .from('availabilities')
               .delete()
               .eq('id', record.id);
-              
+
             if (deleteError) {
               console.error('🔴 [BOOKING SERVICE] Error deleting duplicate:', deleteError);
             } else {
@@ -2936,38 +3087,38 @@ export class BookingService {
   ): Promise<Service> {
     try {
       console.log('🔴 [BOOKING SERVICE] Creating service for userId:', userId, serviceData);
-      
+
       // Check authentication state
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       console.log('🔴 [BOOKING SERVICE] Auth user:', authUser?.id, authUser?.email);
       console.log('🔴 [BOOKING SERVICE] Auth error:', authError);
-      
+
       if (!authUser) {
         throw new Error('Usuario no autenticado. Inicia sesión para crear servicios.');
       }
-      
+
       if (authUser.id !== userId) {
         console.log('🔴 [BOOKING SERVICE] Auth user ID mismatch:', { authUserId: authUser.id, requestedUserId: userId });
         throw new Error('No tienes permisos para crear servicios para este usuario.');
       }
-      
+
       // Also check the session to ensure it's active
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       console.log('🔴 [BOOKING SERVICE] Session active:', !!session);
       console.log('🔴 [BOOKING SERVICE] Session error:', sessionError);
-      
+
       if (!session) {
         throw new Error('Sesión expirada. Inicia sesión nuevamente.');
       }
-      
+
       // Get the provider record to get the correct provider_id
       const provider = await this.getProviderById(userId);
       if (!provider) {
         throw new Error('Provider not found for user');
       }
-      
+
       console.log('🔴 [BOOKING SERVICE] Provider encontrado:', provider.id);
-      
+
       const { data, error } = await supabase
         .from('services')
         .insert({
@@ -3009,7 +3160,7 @@ export class BookingService {
   ): Promise<Service> {
     try {
       console.log('🔴 [BOOKING SERVICE] Updating service:', serviceId, serviceData);
-      
+
       const { data, error } = await supabase
         .from('services')
         .update({
@@ -3037,26 +3188,26 @@ export class BookingService {
   static async deleteService(serviceId: string): Promise<void> {
     try {
       console.log('🔴 [BOOKING SERVICE] Deleting service:', serviceId);
-      
+
       // First check if there are any appointments using this service
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select('id, status')
         .eq('service_id', serviceId);
-        
+
       if (appointmentsError) {
         console.error('🔴 [BOOKING SERVICE] Error checking appointments:', appointmentsError);
         throw appointmentsError;
       }
-      
+
       if (appointments && appointments.length > 0) {
         console.log('🔴 [BOOKING SERVICE] Found', appointments.length, 'appointments using this service');
-        
+
         // Check if any are pending or confirmed
-        const activeAppointments = appointments.filter(apt => 
+        const activeAppointments = appointments.filter(apt =>
           apt.status === 'pending' || apt.status === 'confirmed'
         );
-        
+
         if (activeAppointments.length > 0) {
           throw new Error(
             `No se puede eliminar el servicio porque tiene ${activeAppointments.length} cita(s) pendiente(s) o confirmada(s). ` +
@@ -3064,7 +3215,7 @@ export class BookingService {
           );
         }
       }
-      
+
       const { error } = await supabase
         .from('services')
         .delete()
@@ -3072,7 +3223,7 @@ export class BookingService {
 
       if (error) {
         console.error('🔴 [BOOKING SERVICE] Error deleting service:', error);
-        
+
         // Provide better error messages
         if (error.code === '23503') {
           throw new Error('No se puede eliminar el servicio porque tiene citas asociadas.');
@@ -3091,7 +3242,7 @@ export class BookingService {
   }
 
   // ❤️ Favorites functionality
-  
+
   // Get user's favorite providers
   static async getFavoriteProviders(): Promise<Provider[]> {
     try {
@@ -3129,7 +3280,7 @@ export class BookingService {
 
       if (error) throw error;
 
-      const rows = (data ?? []) as Array<{ provider_id: string; providers: Provider | Provider[] }>; 
+      const rows = (data ?? []) as Array<{ provider_id: string; providers: Provider | Provider[] }>;
       const providersList = rows
         .map(row => (Array.isArray(row.providers) ? row.providers[0] : row.providers))
         .filter((provider): provider is Provider => Boolean(provider));
@@ -3251,7 +3402,7 @@ export class BookingService {
       providerIds.forEach(id => {
         favoriteStatuses[id] = false;
       });
-      
+
       data?.forEach(favorite => {
         favoriteStatuses[favorite.provider_id] = true;
       });

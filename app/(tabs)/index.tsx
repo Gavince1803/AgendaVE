@@ -2,15 +2,15 @@ import { ThemedText } from '@/components/ThemedText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService, Provider, ProviderDashboardMetrics } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { router, Href } from 'expo-router';
-import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
 import { Image as ExpoImage } from 'expo-image';
+import { Href, router } from 'expo-router';
 import React from 'react';
 import {
   Alert,
@@ -929,13 +929,9 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.lg,
   },
   providerCard: {
-<<<<<<< HEAD
-    marginBottom: DesignTokens.spacing.lg,
-=======
     width: '100%',
-    marginBottom: DesignTokens.spacing.md,
+    marginBottom: DesignTokens.spacing.lg,
     padding: 0,
->>>>>>> 44ddfa5 (feat: Global UI/UX upgrades, layout fixes, and skeleton loaders)
   },
   providerNameRow: {
     flexDirection: 'row',

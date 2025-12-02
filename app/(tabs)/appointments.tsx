@@ -6,6 +6,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ export default function AppointmentsScreen() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const log = useLogger();
+  const { activeRole, employeeProfile } = useAuth();
 
   useEffect(() => {
     loadAppointments();
@@ -33,17 +35,33 @@ export default function AppointmentsScreen() {
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      log.info(LogCategory.DATA, 'Loading provider appointments', { screen: 'Appointments' });
+      log.info(LogCategory.DATA, 'Loading appointments', { screen: 'Appointments', role: activeRole });
 
-      const appointmentsData = await BookingService.getProviderAppointments();
+      let appointmentsData: Appointment[] = [];
+
+      if (activeRole === 'employee') {
+        appointmentsData = await BookingService.getEmployeeAppointments();
+
+        // Fallback: if none returned, try provider appointments filtered by this employee id
+        if ((!appointmentsData || appointmentsData.length === 0) && employeeProfile?.id && employeeProfile?.provider_id) {
+          const providerAppointments = await BookingService.getAppointmentsByProviderId(employeeProfile.provider_id);
+          appointmentsData = providerAppointments.filter(
+            (apt: any) => apt.employee_id === employeeProfile.id || !apt.employee_id
+          );
+        }
+      } else {
+        appointmentsData = await BookingService.getProviderAppointments();
+      }
+
       setAppointments(appointmentsData);
 
-      log.info(LogCategory.DATA, 'Provider appointments loaded', {
+      log.info(LogCategory.DATA, 'Appointments loaded', {
         count: appointmentsData.length,
-        screen: 'Appointments'
+        screen: 'Appointments',
+        role: activeRole,
       });
     } catch (error) {
-      log.error(LogCategory.ERROR, 'Error loading provider appointments', error);
+      log.error(LogCategory.ERROR, 'Error loading appointments', error);
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -491,4 +509,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

@@ -1,19 +1,22 @@
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Share,
-  StyleSheet,
-  View
-} from 'react-native';
-
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService, Employee } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 
 export default function EmployeeManagementScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -147,10 +150,14 @@ export default function EmployeeManagementScreen() {
   };
 
   const ensureInviteDetails = async (employee: Employee) => {
-    if (employee.invite_status === 'pending' && employee.invite_token) {
+    const isExpired = employee.invite_token_expires_at
+      ? Date.now() > new Date(employee.invite_token_expires_at).getTime()
+      : false;
+
+    if (employee.invite_status === 'pending' && employee.invite_token && !isExpired) {
       return {
         inviteToken: employee.invite_token,
-        inviteUrl: `${inviteBaseUrl}?token = ${employee.invite_token} `,
+        inviteUrl: `${inviteBaseUrl}?token=${employee.invite_token}`,
         expiresAt: employee.invite_token_expires_at ?? '',
       };
     }
@@ -184,14 +191,13 @@ export default function EmployeeManagementScreen() {
 
   const deleteEmployee = async (employee: Employee) => {
     try {
-      // In a real implementation, you'd call an API to delete the employee
-      // For now, we'll just mark them as inactive
       log.userAction('Delete employee', {
         employeeId: employee.id,
         employeeName: employee.name
       });
 
-      // Update the employee list locally
+      await BookingService.deactivateEmployee(employee.id);
+
       setEmployees(prev => prev.filter(e => e.id !== employee.id));
 
       Alert.alert('Éxito', `${employee.name} ha sido eliminado correctamente`);
@@ -203,11 +209,157 @@ export default function EmployeeManagementScreen() {
 
   return (
     <TabSafeAreaView style={styles.container}>
-      <View style={styles.loadingContainer}>
-        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-      </View>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+        </View>
+      ) : (
+        <>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <Text style={styles.title}>Mi equipo</Text>
+              <Text style={styles.subtitle}>Gestiona tus empleados y sus horarios</Text>
+            </View>
+            <Button title="Agregar" size="small" onPress={handleAddEmployee} />
+          </View>
+
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {employees.length === 0 ? (
+              <Card variant="elevated" style={styles.emptyStateCard}>
+                <Text style={styles.emptyStateTitle}>Aún no tienes empleados</Text>
+                <Text style={styles.emptyStateText}>
+                  Invita a tu equipo para que puedan gestionar sus horarios y citas.
+                </Text>
+                <Button title="Agregar empleado" onPress={handleAddEmployee} fullWidth />
+              </Card>
+            ) : (
+              <View style={styles.employeeList}>
+                {employees.map((employee) => (
+                  <Card key={employee.id} variant="elevated" style={styles.employeeCard}>
+                    <View style={styles.employeeHeader}>
+                      <View style={styles.employeeInfo}>
+                        <Text style={styles.employeeName}>{employee.name}</Text>
+                        {employee.position ? (
+                          <Text style={styles.employeeDetail}>{employee.position}</Text>
+                        ) : null}
+                        {employee.email ? (
+                          <Text style={styles.employeeDetail}>{employee.email}</Text>
+                        ) : null}
+                        {employee.phone ? (
+                          <Text style={styles.employeeDetail}>{employee.phone}</Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.employeeBadges}>
+                        {employee.is_owner ? (
+                          <View style={styles.ownerBadge}>
+                            <Text style={styles.ownerBadgeText}>Propietario</Text>
+                          </View>
+                        ) : null}
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            employee.is_active ? styles.activeBadge : styles.inactiveBadge,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              employee.is_active ? styles.activeText : styles.inactiveText,
+                            ]}
+                          >
+                            {employee.is_active ? 'Activo' : 'Inactivo'}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            employee.profile_id ? styles.connectedBadge : styles.pendingBadge,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusBadgeText,
+                              employee.profile_id ? styles.connectedText : styles.pendingText,
+                            ]}
+                          >
+                            {employee.profile_id ? 'Conectado' : 'Invitado'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {!employee.profile_id && employee.invite_token ? (
+                      <View style={styles.inviteContainer}>
+                        <View style={styles.inviteInfoRow}>
+                          <Text style={styles.inviteText}>Invitación pendiente</Text>
+                        </View>
+                        <View style={styles.inviteButtons}>
+                          <Button
+                            title="Reenviar"
+                            size="small"
+                            variant="outline"
+                            onPress={() => ensureInviteDetails(employee).then(() => handleShareInvite(employee))}
+                          />
+                          <Button
+                            title="Compartir"
+                            size="small"
+                            onPress={() => handleShareInvite(employee)}
+                          />
+                        </View>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.employeeSchedule}>
+                      <View style={styles.scheduleInfo}>
+                        <Text style={styles.scheduleText}>
+                          Horario personalizado {employee.custom_schedule_enabled ? 'activado' : 'desactivado'}
+                        </Text>
+                      </View>
+                      <Button
+                        title="Horario"
+                        size="small"
+                        variant="outline"
+                        onPress={() => handleManageSchedule(employee)}
+                      />
+                    </View>
+
+                    <View style={styles.employeeActions}>
+                      {employee.is_owner ? (
+                        <Button
+                          title="Editar"
+                          size="small"
+                          variant="secondary"
+                          onPress={() => handleEditEmployee(employee)}
+                          fullWidth
+                        />
+                      ) : (
+                        <>
+                          <Button
+                            title="Editar"
+                            size="small"
+                            variant="secondary"
+                            onPress={() => handleEditEmployee(employee)}
+                            style={styles.actionButton}
+                          />
+                          <Button
+                            title="Eliminar"
+                            size="small"
+                            variant="outline"
+                            style={[styles.deleteButton, styles.actionButton]}
+                            onPress={() => handleDeleteEmployee(employee)}
+                          />
+                        </>
+                      )}
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </>
+      )}
     </TabSafeAreaView>
   );
 
@@ -379,13 +531,19 @@ const styles = StyleSheet.create({
   inviteButtons: {
     flexDirection: 'row',
     gap: DesignTokens.spacing.sm,
+    justifyContent: 'space-between',
   },
   employeeActions: {
     flexDirection: 'row',
     gap: DesignTokens.spacing.sm,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
   },
   deleteButton: {
     borderColor: Colors.light.error,
+  },
+  actionButton: {
+    flex: 1,
   },
   employeeSchedule: {
     flexDirection: 'row',

@@ -9,30 +9,54 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Toast } from '@/components/ui/Toast';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { BookingService, type Provider } from '@/lib/booking-service';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, activeRole, setActiveRole, employeeProfile, refreshUser } = useAuth();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
+  const [providerInfo, setProviderInfo] = useState<Provider | null>(null);
 
-  const isProvider = user?.profile?.role === 'provider';
+  const isProvider = activeRole === 'provider';
+  const isEmployee = activeRole === 'employee';
+  const canToggleEmployee = Boolean(isEmployee || employeeProfile || user?.profile?.role === 'employee');
+
+  useEffect(() => {
+    const loadProviderInfo = async () => {
+      try {
+        if (isEmployee && employeeProfile?.provider_id) {
+          const info = await BookingService.getProviderDetails(employeeProfile.provider_id);
+          setProviderInfo(info);
+        } else {
+          setProviderInfo(null);
+        }
+      } catch (error) {
+        console.warn('⚠️ [PROFILE] No se pudo cargar info del negocio para empleado:', error);
+        setProviderInfo(null);
+      }
+    };
+    loadProviderInfo();
+  }, [isEmployee, employeeProfile?.provider_id]);
 
   const handleSignOut = async () => {
     console.log('🔴 [PROFILE] handleSignOut llamado');
     console.log('🔴 [PROFILE] isSigningOut:', isSigningOut);
-    
+
     if (isSigningOut) {
       console.log('🔴 [PROFILE] Ya se está cerrando sesión, ignorando...');
       return;
     }
-    
+
     console.log('🔴 [PROFILE] Mostrando confirmación...');
-    
+
     // Use React Native Alert for mobile compatibility
     Alert.alert(
       'Cerrar Sesión',
@@ -49,17 +73,17 @@ export default function ProfileScreen() {
           onPress: async () => {
             console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
             setIsSigningOut(true);
-            
+
             try {
               console.log('🔴 [PROFILE] Llamando a signOut()...');
               await signOut();
               console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
-              
+
               setToastMessage('Sesión cerrada exitosamente');
               setToastType('success');
               setShowToast(true);
               // No navegación manual: el layout redirige automáticamente al login cuando user es null
-              
+
             } catch (error) {
               console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
               setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
@@ -71,6 +95,73 @@ export default function ProfileScreen() {
         }
       ]
     );
+  };
+
+  const handleDeleteAccount = () => {
+    if (!user || isDeletingAccount) return;
+
+    Alert.alert(
+      'Eliminar cuenta y negocio',
+      'Esto desactivará tu negocio, eliminará disponibilidad, pausará tus servicios y cerrará tu sesión. Esta acción es irreversible desde la app.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeletingAccount(true);
+              if (isProvider) {
+                await BookingService.deactivateProviderAccount(user.id);
+              }
+              await signOut();
+              setToastMessage('Cuenta eliminada y sesión cerrada');
+              setToastType('success');
+              setShowToast(true);
+            } catch (error) {
+              console.error('🔴 [PROFILE] ❌ Error eliminando cuenta:', error);
+              setToastMessage('No se pudo eliminar la cuenta. Inténtalo de nuevo.');
+              setToastType('error');
+              setShowToast(true);
+              setIsDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAcceptInvite = async () => {
+    const code = inviteCode.trim();
+    if (!code) {
+      setToastMessage('Ingresa un código válido');
+      setToastType('error');
+      setShowToast(true);
+      return;
+    }
+    try {
+      setIsAcceptingInvite(true);
+      await BookingService.acceptEmployeeInvite(code);
+      await refreshUser();
+      setActiveRole('employee');
+      setInviteCode('');
+      setToastMessage('Invitación aceptada. Ahora eres empleado.');
+      setToastType('success');
+      setShowToast(true);
+    } catch (error) {
+      console.error('🔴 [PROFILE] ❌ Error accepting invite:', error);
+      const message =
+        (error as any)?.message ||
+        (error instanceof Error ? error.message : 'No se pudo aceptar la invitación. Verifica el código o solicita uno nuevo.');
+      setToastMessage(message);
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsAcceptingInvite(false);
+    }
   };
 
   const menuItems = [
@@ -229,7 +320,18 @@ export default function ProfileScreen() {
           );
         },
       },
-    ] : [
+    ] : []),
+    ...(isEmployee ? [
+      {
+        id: 'employee-schedule',
+        title: 'Mi Horario',
+        icon: 'clock',
+        onPress: () => {
+          router.push('/(provider)/employee-schedule');
+        },
+      },
+    ] : []),
+    ...(!isProvider && !isEmployee ? [
       {
         id: 'favorites',
         title: 'Mis Favoritos',
@@ -238,7 +340,7 @@ export default function ProfileScreen() {
           router.push('/(tabs)/favorites');
         },
       },
-    ]),
+    ] : []),
     {
       id: 'privacy',
       title: 'Privacidad y Seguridad',
@@ -270,7 +372,7 @@ export default function ProfileScreen() {
 
   return (
     <TabSafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -283,12 +385,12 @@ export default function ProfileScreen() {
 
         <Card variant="elevated" style={styles.profileCard}>
           <View style={styles.profileContent}>
-            <Avatar 
+            <Avatar
               name={user?.profile?.display_name || 'Usuario'}
               size="xl"
               style={styles.avatar}
             />
-            
+
             <View style={styles.userInfo}>
               <ThemedText style={styles.userName}>
                 {user?.profile?.display_name || 'Usuario'}
@@ -301,17 +403,85 @@ export default function ProfileScreen() {
                   {user.profile.phone}
                 </ThemedText>
               )}
-              <Badge 
+              <Badge
                 variant={user?.profile?.role === 'provider' ? 'success' : 'primary'}
                 size="medium"
                 style={styles.roleBadge}
               >
-                {user?.profile?.role === 'client' ? 'Cliente' : 
-                 user?.profile?.role === 'provider' ? 'Proveedor' : 'Usuario'}
+                {user?.profile?.role === 'client' ? 'Cliente' :
+                  user?.profile?.role === 'provider' ? 'Proveedor' :
+                    user?.profile?.role === 'employee' ? 'Empleado' : 'Usuario'}
               </Badge>
             </View>
           </View>
+
+          {canToggleEmployee && (
+            <View style={styles.roleToggle}>
+              <ThemedText style={styles.roleToggleLabel}>Modo de trabajo</ThemedText>
+              <View style={styles.roleToggleButtons}>
+                <Button
+                  title="Cliente"
+                  size="small"
+                  variant={activeRole === 'client' ? 'primary' : 'outline'}
+                  onPress={() => setActiveRole('client')}
+                  style={styles.roleToggleButton}
+                  disabled={activeRole === 'client'}
+                />
+                <Button
+                  title="Empleado"
+                  size="small"
+                  variant={activeRole === 'employee' ? 'primary' : 'outline'}
+                  onPress={() => setActiveRole('employee')}
+                  style={styles.roleToggleButton}
+                  disabled={activeRole === 'employee'}
+                />
+              </View>
+            </View>
+          )}
         </Card>
+
+        {isEmployee && providerInfo && (
+          <Card variant="elevated" style={styles.businessCard}>
+            <ThemedText style={styles.businessTitle}>Mi negocio</ThemedText>
+            <ThemedText style={styles.businessName}>
+              {providerInfo.business_name || providerInfo.name}
+            </ThemedText>
+            {providerInfo.category ? (
+              <ThemedText style={styles.businessMeta}>{providerInfo.category}</ThemedText>
+            ) : null}
+            {providerInfo.address ? (
+              <ThemedText style={styles.businessMeta}>{providerInfo.address}</ThemedText>
+            ) : null}
+            {providerInfo.phone ? (
+              <ThemedText style={styles.businessMeta}>{providerInfo.phone}</ThemedText>
+            ) : null}
+          </Card>
+        )}
+
+        {!isProvider && !isEmployee && !employeeProfile && (
+          <Card variant="elevated" style={styles.inviteCard}>
+            <ThemedText style={styles.inviteTitle}>Unirme a un negocio</ThemedText>
+            <ThemedText style={styles.inviteDescription}>
+              Ingresa el código de invitación que te enviaron para conectarte como empleado.
+            </ThemedText>
+            <TextInput
+              style={styles.inviteInput}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              placeholder="Código de invitación"
+              placeholderTextColor={Colors.light.textSecondary}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Button
+              title={isAcceptingInvite ? 'Conectando...' : 'Conectar'}
+              onPress={handleAcceptInvite}
+              loading={isAcceptingInvite}
+              disabled={isAcceptingInvite}
+              fullWidth
+            />
+          </Card>
+        )}
 
         <Card variant="elevated" style={styles.menuCard}>
           {menuItems.map((item, index) => (
@@ -332,13 +502,37 @@ export default function ProfileScreen() {
           ))}
         </Card>
 
+        <Card variant="elevated" style={styles.dangerCard}>
+          <ThemedText style={styles.dangerTitle}>
+            {isProvider ? 'Eliminar negocio y cuenta' : 'Eliminar cuenta'}
+          </ThemedText>
+          <ThemedText style={styles.dangerDescription}>
+            {isProvider
+              ? 'Desactiva tu negocio, elimina la disponibilidad y pausa tus servicios. Tu sesión se cerrará al finalizar.'
+              : 'Elimina tu cuenta y cierra sesión en este dispositivo.'}
+          </ThemedText>
+          <Button
+            title={isDeletingAccount ? 'Eliminando...' : isProvider ? 'Eliminar negocio' : 'Eliminar cuenta'}
+            variant="error"
+            size="large"
+            loading={isDeletingAccount}
+            disabled={isDeletingAccount}
+            icon={!isDeletingAccount ? <IconSymbol name="trash" size={20} color={Colors.light.textOnPrimary} /> : undefined}
+            onPress={() => {
+              console.log('🔴 [PROFILE] Botón Eliminar Cuenta presionado');
+              handleDeleteAccount();
+            }}
+            style={styles.deleteButton}
+          />
+        </Card>
+
         <View style={styles.signOutSection}>
           <Button
             title={isSigningOut ? "Cerrando Sesión..." : "Cerrar Sesión"}
             variant="outline"
             size="large"
             loading={isSigningOut}
-            disabled={isSigningOut}
+            disabled={isSigningOut || isDeletingAccount}
             icon={!isSigningOut ? <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={Colors.light.error} /> : undefined}
             onPress={() => {
               console.log('🔴 [PROFILE] Botón Cerrar Sesión presionado');
@@ -392,6 +586,67 @@ const styles = StyleSheet.create({
   avatar: {
     marginBottom: DesignTokens.spacing.lg,
   },
+  roleToggle: {
+    marginTop: DesignTokens.spacing.md,
+    width: '100%',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  roleToggleLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  roleToggleButtons: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.md,
+  },
+  roleToggleButton: {
+    flex: 1,
+  },
+  inviteCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+    gap: DesignTokens.spacing.md,
+  },
+  businessCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+    gap: DesignTokens.spacing.xs,
+  },
+  businessTitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  businessName: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.text,
+  },
+  businessMeta: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  inviteTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.text,
+  },
+  inviteDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  inviteInput: {
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: DesignTokens.radius.lg,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.text,
+    backgroundColor: Colors.light.surface,
+  },
   userInfo: {
     alignItems: 'center',
   },
@@ -422,6 +677,27 @@ const styles = StyleSheet.create({
     marginHorizontal: DesignTokens.spacing['2xl'],
     marginBottom: DesignTokens.spacing['2xl'],
     paddingVertical: DesignTokens.spacing.sm,
+  },
+  dangerCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.xl,
+    backgroundColor: Colors.light.surface,
+    gap: DesignTokens.spacing.sm,
+  },
+  dangerTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    color: Colors.light.error,
+  },
+  dangerDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  deleteButton: {
+    marginTop: DesignTokens.spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
@@ -454,4 +730,3 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
 });
-

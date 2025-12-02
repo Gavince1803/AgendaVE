@@ -114,6 +114,9 @@ export default function EmployeeScheduleScreen() {
 
   const handleCustomScheduleToggle = async (enabled: boolean) => {
     try {
+      if (!employeeId) {
+        throw new Error('ID de empleado inválido');
+      }
       console.log('🔴 [EMPLOYEE SCHEDULE] Toggling custom schedule:', { employeeId, enabled });
       
       await BookingService.updateEmployeeCustomSchedule(employeeId, enabled);

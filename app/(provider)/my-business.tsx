@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -43,7 +44,7 @@ export default function MyBusinessScreen() {
     address: '',
     phone: '',
     email: '',
-    website: '',
+
   });
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function MyBusinessScreen() {
         address: providerData.address || '',
         phone: providerData.phone || '',
         email: providerData.email || '',
-        website: providerData.website || '',
+
       });
 
       // Cargar TODOS los servicios (activos e inactivos) para gestión
@@ -197,7 +198,7 @@ export default function MyBusinessScreen() {
         address: provider.address || '',
         phone: provider.phone || '',
         email: provider.email || '',
-        website: provider.website || '',
+
       });
     }
     setEditingBusiness(false);
@@ -238,7 +239,7 @@ export default function MyBusinessScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         <ScrollView
           style={styles.container}
@@ -409,21 +410,7 @@ export default function MyBusinessScreen() {
                   />
                 </View>
 
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Sitio Web</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={businessData.website}
-                    onChangeText={(text) => setBusinessData({ ...businessData, website: text })}
-                    placeholder="Sitio Web (opcional)"
-                    placeholderTextColor={Colors.light.textSecondary}
-                    keyboardType="url"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    textContentType="URL"
-                    returnKeyType="done"
-                  />
-                </View>
+
 
                 {/* Botones de acción al final del formulario */}
                 <View style={styles.formActions}>
@@ -480,10 +467,7 @@ export default function MyBusinessScreen() {
                   <ThemedText style={styles.infoLabel}>Email:</ThemedText>
                   <ThemedText style={styles.infoValue}>{provider?.email || 'No especificado'}</ThemedText>
                 </View>
-                <View style={styles.infoRow}>
-                  <ThemedText style={styles.infoLabel}>Sitio Web:</ThemedText>
-                  <ThemedText style={styles.infoValue}>{provider?.website || 'No especificado'}</ThemedText>
-                </View>
+
               </View>
             )}
           </Card>

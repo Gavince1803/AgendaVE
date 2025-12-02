@@ -84,7 +84,7 @@ export type Database = {
           email: string;
           full_name: string | null;
           display_name: string | null;
-          role: 'client' | 'provider' | 'admin';
+          role: 'client' | 'provider' | 'admin' | 'employee';
           phone: string | null;
           avatar_url: string | null;
           created_at: string;
@@ -95,7 +95,7 @@ export type Database = {
           email: string;
           full_name?: string | null;
           display_name?: string | null;
-          role?: 'client' | 'provider' | 'admin';
+          role?: 'client' | 'provider' | 'admin' | 'employee';
           phone?: string | null;
           avatar_url?: string | null;
           created_at?: string;
@@ -106,7 +106,7 @@ export type Database = {
           email?: string;
           full_name?: string | null;
           display_name?: string | null;
-          role?: 'client' | 'provider' | 'admin';
+          role?: 'client' | 'provider' | 'admin' | 'employee';
           phone?: string | null;
           avatar_url?: string | null;
           created_at?: string;
@@ -116,8 +116,7 @@ export type Database = {
       providers: {
         Row: {
           id: string;
-          owner_id: string;
-          user_id?: string;
+          user_id: string;
           name: string;
           business_name?: string;
           bio: string | null;
@@ -125,7 +124,6 @@ export type Database = {
           phone: string | null;
           email: string | null;
           logo_url: string | null;
-          website: string | null;
           lat: number | null;
           lng: number | null;
           timezone: string;
@@ -138,8 +136,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          owner_id: string;
-          user_id?: string;
+          user_id: string;
           name: string;
           business_name?: string;
           bio?: string | null;
@@ -147,7 +144,6 @@ export type Database = {
           phone?: string | null;
           email?: string | null;
           logo_url?: string | null;
-          website?: string | null;
           lat?: number | null;
           lng?: number | null;
           timezone?: string;
@@ -160,7 +156,6 @@ export type Database = {
         };
         Update: {
           id?: string;
-          owner_id?: string;
           user_id?: string;
           name?: string;
           business_name?: string;
@@ -169,7 +164,6 @@ export type Database = {
           phone?: string | null;
           email?: string | null;
           logo_url?: string | null;
-          website?: string | null;
           lat?: number | null;
           lng?: number | null;
           timezone?: string;
