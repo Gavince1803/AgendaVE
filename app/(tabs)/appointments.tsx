@@ -4,18 +4,19 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function AppointmentsScreen() {
@@ -33,13 +34,13 @@ export default function AppointmentsScreen() {
     try {
       setLoading(true);
       log.info(LogCategory.DATA, 'Loading provider appointments', { screen: 'Appointments' });
-      
+
       const appointmentsData = await BookingService.getProviderAppointments();
       setAppointments(appointmentsData);
-      
-      log.info(LogCategory.DATA, 'Provider appointments loaded', { 
+
+      log.info(LogCategory.DATA, 'Provider appointments loaded', {
         count: appointmentsData.length,
-        screen: 'Appointments' 
+        screen: 'Appointments'
       });
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error loading provider appointments', error);
@@ -58,22 +59,22 @@ export default function AppointmentsScreen() {
   // Filtrar citas por fecha
   const today = new Date().toISOString().split('T')[0];
   const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
-  
-  const upcomingAppointments = appointments.filter(apt => 
+
+  const upcomingAppointments = appointments.filter(apt =>
     apt.appointment_date > today && (apt.status === 'pending' || apt.status === 'confirmed')
   );
-  
-  const pastAppointments = appointments.filter(apt => 
+
+  const pastAppointments = appointments.filter(apt =>
     apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
   );
 
   const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
     try {
-      log.userAction('Appointment action', { 
-        appointmentId: appointment.id, 
+      log.userAction('Appointment action', {
+        appointmentId: appointment.id,
         action,
         status: appointment.status,
-        screen: 'Appointments' 
+        screen: 'Appointments'
       });
 
       let newStatus: 'confirmed' | 'cancelled' | 'done';
@@ -90,10 +91,10 @@ export default function AppointmentsScreen() {
       }
 
       await BookingService.updateAppointmentStatus(appointment.id, newStatus);
-      
+
       // Recargar citas
       await loadAppointments();
-      
+
       Alert.alert(
         'Éxito',
         `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
@@ -259,7 +260,7 @@ export default function AppointmentsScreen() {
       </ThemedView>
 
       {/* Appointments List */}
-      <ScrollView 
+      <ScrollView
         style={styles.appointmentsSection}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -274,19 +275,21 @@ export default function AppointmentsScreen() {
       >
         {loading ? (
           <View style={styles.loadingState}>
-            <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
+            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
+            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
           </View>
         ) : currentAppointments.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="calendar" size={64} color={Colors.light.textTertiary} />
             <ThemedText style={styles.emptyStateText}>
-              {selectedTab === 'today' 
-                ? 'No tienes citas hoy' 
+              {selectedTab === 'today'
+                ? 'No tienes citas hoy'
                 : 'No tienes citas próximas'}
             </ThemedText>
             <ThemedText style={styles.emptyStateSubtext}>
-              {selectedTab === 'today' 
-                ? 'Disfruta de tu día libre' 
+              {selectedTab === 'today'
+                ? 'Disfruta de tu día libre'
                 : 'Las nuevas citas aparecerán aquí'}
             </ThemedText>
           </View>

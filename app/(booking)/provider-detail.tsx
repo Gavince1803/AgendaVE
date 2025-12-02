@@ -22,8 +22,9 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/IconSymbol';
 import { MediaGallerySkeleton, ProviderProfileSkeleton } from '@/components/ui/LoadingStates';
 import { MotionFadeIn } from '@/components/ui/MotionFadeIn';
-import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Availability,
   BookingService,
@@ -35,7 +36,6 @@ import {
   Review,
   Service
 } from '@/lib/booking-service';
-import { useAuth } from '@/contexts/AuthContext';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { Image } from 'expo-image';
 
@@ -64,7 +64,7 @@ export default function ProviderDetailScreen() {
 
   const loadFavoriteStatus = useCallback(async () => {
     if (!providerId) return;
-    
+
     try {
       const favoriteStatus = await BookingService.isProviderFavorite(providerId);
       setIsFavorite(favoriteStatus);
@@ -75,7 +75,7 @@ export default function ProviderDetailScreen() {
 
   const loadProviderData = useCallback(async () => {
     if (!providerId) return;
-    
+
     try {
       setLoading(true);
       logRef.current.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
@@ -113,7 +113,7 @@ export default function ProviderDetailScreen() {
       setTeamMembers(teamData);
       setHighlights(highlightsData);
       setLoyaltySummary(loyaltyData);
-      
+
       // Load favorite status
       await loadFavoriteStatus();
 
@@ -154,26 +154,26 @@ export default function ProviderDetailScreen() {
 
   const handleToggleFavorite = async () => {
     if (!providerId || !provider) return;
-    
+
     try {
       setFavoriteLoading(true);
-      
+
       if (isFavorite) {
         await BookingService.removeFromFavorites(providerId);
-        log.userAction('Remove from favorites', { 
+        log.userAction('Remove from favorites', {
           providerId,
           providerName: provider.business_name,
           screen: 'ProviderDetail'
         });
       } else {
         await BookingService.addToFavorites(providerId);
-        log.userAction('Add to favorites', { 
+        log.userAction('Add to favorites', {
           providerId,
           providerName: provider.business_name,
           screen: 'ProviderDetail'
         });
       }
-      
+
       setIsFavorite(!isFavorite);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error toggling favorite', error);
@@ -189,12 +189,12 @@ export default function ProviderDetailScreen() {
   };
 
   const handleBookService = (service: Service) => {
-    log.userAction('Select service for booking', { 
-      serviceId: service.id, 
+    log.userAction('Select service for booking', {
+      serviceId: service.id,
       serviceName: service.name,
-      providerId: providerId 
+      providerId: providerId
     });
-    
+
     router.push({
       pathname: '/(booking)/service-selection',
       params: {
@@ -315,17 +315,17 @@ export default function ProviderDetailScreen() {
 
   if (loading) {
     return (
-      <TabSafeAreaView style={styles.container}>
+      <BookingSafeAreaView style={styles.container}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <ProviderProfileSkeleton />
         </ScrollView>
-      </TabSafeAreaView>
+      </BookingSafeAreaView>
     );
   }
 
   if (!provider) {
     return (
-      <TabSafeAreaView style={styles.container}>
+      <BookingSafeAreaView style={styles.container}>
         <ThemedView style={styles.errorContainer}>
           <ThemedText style={styles.errorText}>Proveedor no encontrado</ThemedText>
           <Button
@@ -334,14 +334,14 @@ export default function ProviderDetailScreen() {
             style={styles.backButton}
           />
         </ThemedView>
-      </TabSafeAreaView>
+      </BookingSafeAreaView>
     );
   }
 
   const availabilitySlots = formatAvailability(availability);
 
   return (
-    <TabSafeAreaView style={styles.container}>
+    <BookingSafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -370,7 +370,7 @@ export default function ProviderDetailScreen() {
                   <ThemedText style={styles.tagline}>{provider.tagline}</ThemedText>
                 )}
               </View>
-              
+
               <Button
                 title=""
                 variant="ghost"
@@ -388,7 +388,7 @@ export default function ProviderDetailScreen() {
                 }
               />
             </View>
-            
+
             {/* Rating */}
             <View style={styles.ratingContainer}>
               <View style={styles.starsContainer}>
@@ -406,7 +406,7 @@ export default function ProviderDetailScreen() {
                 <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
               </View>
             )}
-            
+
             {provider.phone && (
               <View style={styles.contactInfo}>
                 <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
@@ -760,7 +760,7 @@ export default function ProviderDetailScreen() {
                   variant="ghost"
                   size="small"
                   onPress={() => {
-                    log.userAction('View all reviews', { 
+                    log.userAction('View all reviews', {
                       providerId,
                       totalReviews: reviews.length,
                       screen: 'ProviderDetail'
@@ -821,7 +821,7 @@ export default function ProviderDetailScreen() {
                   variant="outline"
                   size="medium"
                   onPress={() => {
-                    log.userAction('View all reviews', { 
+                    log.userAction('View all reviews', {
                       providerId,
                       totalReviews: reviews.length,
                       screen: 'ProviderDetail'
@@ -840,7 +840,7 @@ export default function ProviderDetailScreen() {
           </ThemedView>
         )}
       </ScrollView>
-    </TabSafeAreaView>
+    </BookingSafeAreaView>
   );
 }
 

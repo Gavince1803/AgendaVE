@@ -1,24 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
-  RefreshControl,
-  ScrollView,
   Share,
   StyleSheet,
-  Text,
-  View,
+  View
 } from 'react-native';
-import { router } from 'expo-router';
 
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { BookingService, Employee } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function EmployeeManagementScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -42,17 +37,17 @@ export default function EmployeeManagementScreen() {
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    
+
     try {
       setLoading(true);
       console.log('🔴 [EMPLOYEE MANAGEMENT] Loading employees for user:', user.id);
-      
+
       // Add timeout to prevent infinite loading
       timeoutId = setTimeout(() => {
         console.warn('⚠️ [EMPLOYEE MANAGEMENT] Loading timeout - forcing loading to false');
         setLoading(false);
       }, 10000); // 10 second timeout
-      
+
       // Get provider info first
       const provider = await BookingService.getProviderById(user.id);
       console.log('🔴 [EMPLOYEE MANAGEMENT] Provider found:', provider);
@@ -73,14 +68,14 @@ export default function EmployeeManagementScreen() {
     } catch (error) {
       console.error('🔴 [EMPLOYEE MANAGEMENT] Error loading employees:', error);
       log.error(LogCategory.SERVICE, 'Error loading employees', error);
-      
+
       // More user-friendly error handling
       if (Platform.OS === 'web') {
         console.error('🔴 [EMPLOYEE MANAGEMENT] Full error details:', error);
       }
-      
+
       Alert.alert('Error', 'No se pudieron cargar los empleados. Verifica tu conexión.');
-      
+
       // Set empty array so UI doesn't break
       setEmployees([]);
     } finally {
@@ -155,7 +150,7 @@ export default function EmployeeManagementScreen() {
     if (employee.invite_status === 'pending' && employee.invite_token) {
       return {
         inviteToken: employee.invite_token,
-        inviteUrl: `${inviteBaseUrl}?token=${employee.invite_token}`,
+        inviteUrl: `${inviteBaseUrl}?token = ${employee.invite_token} `,
         expiresAt: employee.invite_token_expires_at ?? '',
       };
     }
@@ -165,11 +160,11 @@ export default function EmployeeManagementScreen() {
     setEmployees(prev => prev.map((item) =>
       item.id === employee.id
         ? {
-            ...item,
-            invite_token: refreshed.inviteToken,
-            invite_status: 'pending',
-            invite_token_expires_at: refreshed.expiresAt,
-          }
+          ...item,
+          invite_token: refreshed.inviteToken,
+          invite_status: 'pending',
+          invite_token_expires_at: refreshed.expiresAt,
+        }
         : item
     ));
 
@@ -179,7 +174,7 @@ export default function EmployeeManagementScreen() {
   const handleShareInvite = async (employee: Employee) => {
     try {
       const invite = await ensureInviteDetails(employee);
-      const message = `Hola ${employee.name},\nTe invitamos a unirte al equipo en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}`;
+      const message = `Hola ${employee.name}, \nTe invitamos a unirte al equipo en AgendaVE.\n\nEnlace: ${invite.inviteUrl} \nCódigo: ${invite.inviteToken} `;
       await Share.share({ message });
     } catch (error) {
       console.error('Error sharing invite:', error);
@@ -198,7 +193,7 @@ export default function EmployeeManagementScreen() {
 
       // Update the employee list locally
       setEmployees(prev => prev.filter(e => e.id !== employee.id));
-      
+
       Alert.alert('Éxito', `${employee.name} ha sido eliminado correctamente`);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error deleting employee', error);
@@ -206,184 +201,16 @@ export default function EmployeeManagementScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <TabSafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Cargando empleados...</Text>
-        </View>
-      </TabSafeAreaView>
-    );
-  }
-
   return (
     <TabSafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.title}>Gestión de Empleados</Text>
-            <Text style={styles.subtitle}>
-              Administra tu equipo de trabajo
-            </Text>
-          </View>
-          <Button
-            title="Agregar"
-            onPress={handleAddEmployee}
-            variant="primary"
-            size="small"
-            icon={<IconSymbol name="plus" size={16} color="#ffffff" />}
-          />
-        </View>
-
-        {/* Employee List */}
-        <View style={styles.content}>
-          {employees.length === 0 ? (
-            <Card variant="outlined" style={styles.emptyStateCard}>
-              <IconSymbol name="person.3" size={48} color={Colors.light.textSecondary} />
-              <Text style={styles.emptyStateTitle}>No hay empleados</Text>
-              <Text style={styles.emptyStateText}>
-                Comienza agregando empleados a tu equipo de trabajo
-              </Text>
-              <Button
-                title="Agregar Primer Empleado"
-                onPress={handleAddEmployee}
-                variant="primary"
-                style={styles.emptyStateButton}
-                icon={<IconSymbol name="plus" size={16} color="#ffffff" />}
-              />
-            </Card>
-          ) : (
-            <View style={styles.employeeList}>
-              {employees.map((employee) => (
-                <Card key={employee.id} variant="elevated" style={styles.employeeCard}>
-                  <View style={styles.employeeHeader}>
-                    <View style={styles.employeeInfo}>
-                      <Text style={styles.employeeName}>{employee.name}</Text>
-                      {employee.email && (
-                        <Text style={styles.employeeDetail}>
-                          <IconSymbol name="envelope" size={12} color={Colors.light.textSecondary} />
-                          {' '}{employee.email}
-                        </Text>
-                      )}
-                      {employee.phone && (
-                        <Text style={styles.employeeDetail}>
-                          <IconSymbol name="phone" size={12} color={Colors.light.textSecondary} />
-                          {' '}{employee.phone}
-                        </Text>
-                      )}
-                    </View>
-                    
-                    <View style={styles.employeeBadges}>
-                      {employee.is_owner && (
-                        <View style={styles.ownerBadge}>
-                          <Text style={styles.ownerBadgeText}>Propietario</Text>
-                        </View>
-                      )}
-                      {employee.profile_id ? (
-                        <View style={[styles.statusBadge, styles.connectedBadge]}>
-                          <Text style={[styles.statusBadgeText, styles.connectedText]}>Conectado</Text>
-                        </View>
-                      ) : employee.invite_status === 'pending' ? (
-                        <View style={[styles.statusBadge, styles.pendingBadge]}>
-                          <Text style={[styles.statusBadgeText, styles.pendingText]}>Invitación pendiente</Text>
-                        </View>
-                      ) : null}
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          employee.is_active ? styles.activeBadge : styles.inactiveBadge,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            employee.is_active ? styles.activeText : styles.inactiveText,
-                          ]}
-                        >
-                          {employee.is_active ? 'Activo' : 'Inactivo'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {!employee.profile_id && (
-                    <View style={styles.inviteContainer}>
-                      <View style={styles.inviteInfoRow}>
-                        <IconSymbol name="paperplane" size={16} color={Colors.light.primary} />
-                        <Text style={styles.inviteText}>
-                          {employee.invite_email
-                            ? `Invitación enviada a ${employee.invite_email}`
-                            : 'Invita al empleado para que active su cuenta'}
-                        </Text>
-                      </View>
-                      <View style={styles.inviteButtons}>
-                        <Button
-                          title="Compartir"
-                          onPress={() => handleShareInvite(employee)}
-                          variant="secondary"
-                          size="small"
-                          icon={<IconSymbol name="square.and.arrow.up" size={14} color={Colors.light.primary} />}
-                        />
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Employee Schedule Info */}
-                  <View style={styles.employeeSchedule}>
-                    <View style={styles.scheduleInfo}>
-                      <IconSymbol 
-                        name={employee.custom_schedule_enabled ? "clock.fill" : "building"} 
-                        size={16} 
-                        color={employee.custom_schedule_enabled ? Colors.light.primary : Colors.light.textSecondary} 
-                      />
-                      <Text style={styles.scheduleText}>
-                        {employee.custom_schedule_enabled ? 'Horario personalizado' : 'Horario del negocio'}
-                      </Text>
-                    </View>
-                    <Button
-                      title={employee.custom_schedule_enabled ? "Configurar" : "Personalizar"}
-                      onPress={() => handleManageSchedule(employee)}
-                      variant="outline"
-                      size="small"
-                      icon={<IconSymbol name="calendar" size={14} color={Colors.light.primary} />}
-                    />
-                  </View>
-
-                  {/* Employee Actions */}
-                  <View style={styles.employeeActions}>
-                    <Button
-                      title="Editar"
-                      onPress={() => handleEditEmployee(employee)}
-                      variant="secondary"
-                      size="small"
-                      icon={<IconSymbol name="pencil" size={14} color={Colors.light.primary} />}
-                    />
-                    {!employee.is_owner && (
-                      <Button
-                        title="Eliminar"
-                        onPress={() => handleDeleteEmployee(employee)}
-                        variant="outline"
-                        size="small"
-                        style={styles.deleteButton}
-                        icon={<IconSymbol name="trash" size={14} color={Colors.light.error} />}
-                      />
-                    )}
-                  </View>
-                </Card>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      <View style={styles.loadingContainer}>
+        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+        <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+      </View>
     </TabSafeAreaView>
   );
+
 }
 
 const styles = StyleSheet.create({

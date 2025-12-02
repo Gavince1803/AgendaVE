@@ -6,14 +6,14 @@ import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, router, Href } from 'expo-router';
-import React, { useState } from 'react';
+import { Href, Link, router } from 'expo-router';
+import { useState } from 'react';
 import {
-    Alert,
-    Platform,
-    StyleSheet,
-    View,
-    type TextStyle,
+  Alert,
+  Platform,
+  StyleSheet,
+  View,
+  type TextStyle,
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -36,13 +36,13 @@ export default function LoginScreen() {
       // Mejorar el mensaje de error para casos específicos
       const err = error instanceof Error ? error : new Error('Error al iniciar sesión');
       let errorMessage = err.message || 'Error al iniciar sesión';
-      
+
       if (err.message?.includes('Invalid login credentials')) {
         errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.\n\nSi acabas de registrarte, asegúrate de confirmar tu email haciendo clic en el enlace que te enviamos.';
       } else if (err.message?.includes('Email not confirmed')) {
         errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación.';
       }
-      
+
       Alert.alert('Error al iniciar sesión', errorMessage);
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollableInputView 
+      <ScrollableInputView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
       >
@@ -76,7 +76,7 @@ export default function LoginScreen() {
             <ThemedText style={styles.formTitle}>
               Iniciar Sesión
             </ThemedText>
-            
+
             <SimpleInput
               label="Email"
               value={email}

@@ -46,7 +46,7 @@ export default function ExploreScreen() {
     sortBy: 'distance',
   });
   const log = useLogger();
-  
+
   // Colores fijos para modo claro
   const backgroundColor = Colors.light.background;
   const surfaceColor = Colors.light.surface;
@@ -100,21 +100,21 @@ export default function ExploreScreen() {
           const providerName = (provider.name || '').toLowerCase();
           const category = (provider.category || '').toLowerCase();
           const address = (provider.address || '').toLowerCase();
-          
+
           // Búsqueda directa
-          if (businessName.includes(query) || providerName.includes(query) || 
-              category.includes(query) || address.includes(query)) {
+          if (businessName.includes(query) || providerName.includes(query) ||
+            category.includes(query) || address.includes(query)) {
             return true;
           }
-          
+
           // Búsqueda por palabras clave de categorías
           const selectedCat = categories.find(cat => cat.id === selectedCategory);
           if (selectedCat && selectedCat.keywords) {
-            return selectedCat.keywords.some(keyword => 
+            return selectedCat.keywords.some(keyword =>
               businessName.includes(keyword) || category.includes(keyword)
             );
           }
-          
+
           return false;
         });
       }
@@ -177,10 +177,10 @@ export default function ExploreScreen() {
     });
 
     setFilteredProviders(filtered);
-    log.info(LogCategory.DATA, 'Filters applied', { 
+    log.info(LogCategory.DATA, 'Filters applied', {
       originalCount: providers.length,
       filteredCount: filtered.length,
-      filters 
+      filters
     });
   };
 
@@ -208,7 +208,7 @@ export default function ExploreScreen() {
   const loadFavoriteStatuses = async () => {
     try {
       if (filteredProviders.length === 0) return;
-      
+
       const providerIds = filteredProviders.map(p => p.id);
       const statuses = await BookingService.getFavoriteStatuses(providerIds);
       setFavoriteStatuses(statuses);
@@ -220,23 +220,23 @@ export default function ExploreScreen() {
   const handleToggleFavorite = async (provider: Provider) => {
     try {
       const isFavorite = favoriteStatuses[provider.id] || false;
-      
+
       if (isFavorite) {
         await BookingService.removeFromFavorites(provider.id);
-        log.userAction('Remove from favorites', { 
-          providerId: provider.id, 
+        log.userAction('Remove from favorites', {
+          providerId: provider.id,
           providerName: provider.business_name,
           screen: 'Explore'
         });
       } else {
         await BookingService.addToFavorites(provider.id);
-        log.userAction('Add to favorites', { 
-          providerId: provider.id, 
+        log.userAction('Add to favorites', {
+          providerId: provider.id,
           providerName: provider.business_name,
           screen: 'Explore'
         });
       }
-      
+
       // Update local state
       setFavoriteStatuses(prev => ({
         ...prev,
@@ -344,17 +344,14 @@ export default function ExploreScreen() {
         style={styles.providerCardContent}
       >
         <View style={styles.providerHeader}>
-          <View style={[styles.providerImage, { backgroundColor: surfaceColor }] }>
-            {provider.logo_url ? (
-              <Image
-                source={{ uri: provider.logo_url! }}
-                style={{ width: '100%', height: '100%', borderRadius: 12 }}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
-            ) : (
-              <IconSymbol name="building.2" size={32} color={primaryColor} />
-            )}
+          <View style={[styles.providerImage, { backgroundColor: surfaceColor }]}>
+            <Image
+              source={{ uri: provider.logo_url || `https://picsum.photos/seed/${provider.id}/200` }}
+              style={{ width: '100%', height: '100%', borderRadius: 12 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
           </View>
           <View style={styles.providerMainInfo}>
             <ThemedText style={styles.providerName} numberOfLines={1}>
@@ -365,7 +362,7 @@ export default function ExploreScreen() {
             </ThemedText>
             <View style={styles.providerStatus}>
               <View style={[
-                styles.statusIndicator, 
+                styles.statusIndicator,
                 { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
               ]} />
               <ThemedText style={styles.statusText}>
@@ -411,7 +408,7 @@ export default function ExploreScreen() {
           )}
         </View>
       </TouchableOpacity>
-      
+
       <View style={styles.providerActions}>
         <Button
           title="Ver Detalles"
@@ -436,7 +433,7 @@ export default function ExploreScreen() {
         <ThemedText type="title" style={[styles.title, { color: primaryColor }]}>
           Explorar Servicios
         </ThemedText>
-        
+
         <Input
           placeholder="Buscar servicios, proveedores..."
           value={searchQuery}
@@ -446,7 +443,7 @@ export default function ExploreScreen() {
       </ThemedView>
 
       {/* Contenido scrolleable */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -465,13 +462,13 @@ export default function ExploreScreen() {
         )}
 
         {/* Categorías */}
-        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing.xs }]}> 
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor, marginBottom: DesignTokens.spacing.xl }] } >
+        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing.xs }]}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor, marginBottom: DesignTokens.spacing.xl }]} >
             Categorías
           </ThemedText>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
             style={styles.categoriesScroll}
             contentContainerStyle={styles.categoriesContent}
           >
@@ -480,7 +477,7 @@ export default function ExploreScreen() {
                 key={category.id}
                 style={[
                   styles.categoryChip,
-                  { 
+                  {
                     backgroundColor: selectedCategory === category.id ? primaryColor : surfaceColor,
                     borderColor: selectedCategory === category.id ? primaryColor : borderColor,
                     borderWidth: 1,
@@ -522,7 +519,7 @@ export default function ExploreScreen() {
               onPress={handleShowFilters}
             />
           </View>
-          
+
           <ScreenLoading
             loading={loading}
             skeleton={<ProviderListSkeleton />}
@@ -535,9 +532,9 @@ export default function ExploreScreen() {
               <EmptyState
                 title="No hay proveedores"
                 message={
-                  providers.length > 0 
-                    ? 'No se encontraron proveedores con estos filtros. Intenta ajustar tus criterios de búsqueda.' 
-                    : searchQuery.trim() 
+                  providers.length > 0
+                    ? 'No se encontraron proveedores con estos filtros. Intenta ajustar tus criterios de búsqueda.'
+                    : searchQuery.trim()
                       ? `No se encontraron proveedores para "${searchQuery}". Intenta con otro término.`
                       : 'No hay proveedores disponibles en esta categoría por el momento.'
                 }

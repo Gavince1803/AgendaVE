@@ -3,17 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ldgxxrgdcerftlmeyrmi.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkZ3h4cmdkY2VyZnRsbWV5cm1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNzYxNzAsImV4cCI6MjA3Mjk1MjE3MH0.gSzE3LCbrHzpG3mcJPWaENy0zJdRa9PtOGL8ZQVJHhA';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
-  console.warn('⚠️  Using fallback Supabase credentials. For production, set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file');
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Supabase credentials missing! Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file.');
+} else {
+  console.log('✅ Supabase configuration found');
 }
-
-console.log('🔴 [SUPABASE] Configuración de Supabase:');
-console.log('🔴 [SUPABASE] URL:', supabaseUrl);
-console.log('🔴 [SUPABASE] Key (primeros 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
-console.log('🔴 [SUPABASE] Usando credenciales de fallback:', !process.env.EXPO_PUBLIC_SUPABASE_URL);
 
 // Configurar storage según la plataforma
 const getStorage = () => {
@@ -49,7 +46,22 @@ console.log('🔴 [SUPABASE] Creando cliente de Supabase...');
 console.log('🔴 [SUPABASE] supabaseUrl disponible:', !!supabaseUrl);
 console.log('🔴 [SUPABASE] supabaseAnonKey disponible:', !!supabaseAnonKey);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Use a placeholder URL if missing to prevent crash, but auth will fail
+const fallbackUrl = 'https://placeholder.supabase.co';
+const fallbackKey = 'placeholder';
+
+const isValidUrl = (urlString: string) => {
+  try {
+    return Boolean(new URL(urlString));
+  } catch (e) {
+    return false;
+  }
+};
+
+const urlToUse = isValidUrl(supabaseUrl || '') ? supabaseUrl : fallbackUrl;
+const keyToUse = supabaseAnonKey || fallbackKey;
+
+export const supabase = createClient(urlToUse!, keyToUse, {
   auth: {
     storage: getStorage(),
     autoRefreshToken: true,

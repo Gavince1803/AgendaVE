@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { Appointment } from '@/lib/booking-service';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -48,7 +48,7 @@ export function CalendarView({
   // Get appointments grouped by date
   const appointmentsByDate = useMemo(() => {
     const map = new Map<string, Appointment[]>();
-    
+
     appointments.forEach(apt => {
       const dateKey = apt.appointment_date; // Format: YYYY-MM-DD
       if (!map.has(dateKey)) {
@@ -56,7 +56,7 @@ export function CalendarView({
       }
       map.get(dateKey)!.push(apt);
     });
-    
+
     return map;
   }, [appointments]);
 
@@ -64,22 +64,22 @@ export function CalendarView({
   const monthDays = useMemo((): DayCell[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    
+
     // First day of the month
     const firstDay = new Date(year, month, 1);
     const firstDayOfWeek = firstDay.getDay();
-    
+
     // Last day of the month
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    
+
     // Previous month's trailing days
     const prevMonthLastDay = new Date(year, month, 0).getDate();
-    
+
     const days: DayCell[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Add previous month's days
     for (let i = firstDayOfWeek - 1; i >= 0; i--) {
       const date = new Date(year, month - 1, prevMonthLastDay - i);
@@ -92,15 +92,15 @@ export function CalendarView({
         appointments: appointmentsByDate.get(dateKey) || [],
       });
     }
-    
+
     // Add current month's days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dateKey = formatDateKey(date);
       const isToday = date.getTime() === today.getTime();
-      const isSelected = selectedDate ? 
+      const isSelected = selectedDate ?
         date.getTime() === new Date(selectedDate).setHours(0, 0, 0, 0) : false;
-      
+
       days.push({
         date,
         isCurrentMonth: true,
@@ -109,7 +109,7 @@ export function CalendarView({
         appointments: appointmentsByDate.get(dateKey) || [],
       });
     }
-    
+
     // Add next month's days to fill the grid
     const remainingDays = 42 - days.length; // 6 rows * 7 days
     for (let day = 1; day <= remainingDays; day++) {
@@ -123,7 +123,7 @@ export function CalendarView({
         appointments: appointmentsByDate.get(dateKey) || [],
       });
     }
-    
+
     return days;
   }, [currentDate, appointmentsByDate, selectedDate]);
 
@@ -133,15 +133,15 @@ export function CalendarView({
     const days: DayCell[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       const dateKey = formatDateKey(date);
       const isToday = date.getTime() === today.getTime();
-      const isSelected = selectedDate ? 
+      const isSelected = selectedDate ?
         date.getTime() === new Date(selectedDate).setHours(0, 0, 0, 0) : false;
-      
+
       days.push({
         date,
         isCurrentMonth: true,
@@ -150,7 +150,7 @@ export function CalendarView({
         appointments: appointmentsByDate.get(dateKey) || [],
       });
     }
-    
+
     return days;
   }, [currentDate, appointmentsByDate, selectedDate]);
 
@@ -187,7 +187,7 @@ export function CalendarView({
   const renderDayCell = (dayCell: DayCell) => {
     const hasAppointments = dayCell.appointments.length > 0;
     const appointmentCount = dayCell.appointments.length;
-    
+
     return (
       <TouchableOpacity
         key={dayCell.date.toISOString()}
@@ -209,7 +209,7 @@ export function CalendarView({
         >
           {dayCell.date.getDate()}
         </ThemedText>
-        
+
         {hasAppointments && (
           <View style={styles.appointmentIndicator}>
             <View style={[
@@ -240,7 +240,7 @@ export function CalendarView({
           </View>
         ))}
       </View>
-      
+
       {/* Calendar grid */}
       <View style={styles.calendarGrid}>
         {monthDays.map((dayCell) => renderDayCell(dayCell))}
@@ -283,12 +283,12 @@ export function CalendarView({
           </TouchableOpacity>
         ))}
       </View>
-      
+
       {/* Appointments list for selected day */}
       <ScrollView style={styles.weekAppointmentsList} showsVerticalScrollIndicator={false}>
         {weekDays.map((dayCell) => {
           if (dayCell.appointments.length === 0) return null;
-          
+
           return (
             <View key={dayCell.date.toISOString()} style={styles.dayAppointmentsSection}>
               <ThemedText style={styles.dayAppointmentsTitle}>
@@ -331,7 +331,7 @@ export function CalendarView({
             </View>
           );
         })}
-        
+
         {weekDays.every(d => d.appointments.length === 0) && (
           <View style={styles.emptyState}>
             <IconSymbol name="calendar" size={48} color={Colors.light.textSecondary} />
@@ -350,7 +350,7 @@ export function CalendarView({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <ThemedText style={styles.headerTitle}>
-            {mode === 'month' 
+            {mode === 'month'
               ? `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`
               : getWeekRange(currentDate)
             }
@@ -359,31 +359,31 @@ export function CalendarView({
             <ThemedText style={styles.todayButtonText}>Hoy</ThemedText>
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.headerRight}>
           <View style={styles.viewModeToggle}>
             <TouchableOpacity
               style={[styles.viewModeButton, mode === 'month' && styles.viewModeButtonActive]}
               onPress={() => setMode('month')}
             >
-              <IconSymbol 
-                name="calendar" 
-                size={18} 
-                color={mode === 'month' ? Colors.light.primary : Colors.light.textSecondary} 
+              <IconSymbol
+                name="calendar"
+                size={18}
+                color={mode === 'month' ? Colors.light.primary : Colors.light.textSecondary}
               />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.viewModeButton, mode === 'week' && styles.viewModeButtonActive]}
               onPress={() => setMode('week')}
             >
-              <IconSymbol 
-                name="list.bullet" 
-                size={18} 
-                color={mode === 'week' ? Colors.light.primary : Colors.light.textSecondary} 
+              <IconSymbol
+                name="list.bullet"
+                size={18}
+                color={mode === 'week' ? Colors.light.primary : Colors.light.textSecondary}
               />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.navigationButtons}>
             <TouchableOpacity style={styles.navButton} onPress={handlePrevious}>
               <IconSymbol name="chevron.left" size={20} color={Colors.light.text} />
@@ -394,9 +394,68 @@ export function CalendarView({
           </View>
         </View>
       </View>
-      
+
       {/* Calendar content */}
-      {mode === 'month' ? renderMonthView() : renderWeekView()}
+      {mode === 'month' ? (
+        <>
+          {renderMonthView()}
+          <View style={styles.monthAppointmentsContainer}>
+            <ThemedText style={styles.sectionTitle}>
+              {selectedDate ? formatDateLabel(selectedDate) : 'Selecciona una fecha'}
+            </ThemedText>
+            {(() => {
+              const targetDate = selectedDate || new Date();
+              const dateKey = formatDateKey(targetDate);
+              const dayAppointments = appointmentsByDate.get(dateKey) || [];
+
+              if (dayAppointments.length === 0) {
+                return (
+                  <View style={styles.emptyStateCompact}>
+                    <ThemedText style={styles.emptyStateTextCompact}>
+                      No hay citas para este día
+                    </ThemedText>
+                  </View>
+                );
+              }
+
+              return dayAppointments.map((appointment) => (
+                <Card
+                  key={appointment.id}
+                  variant="elevated"
+                  style={styles.appointmentCard}
+                  onPress={() => onAppointmentPress?.(appointment)}
+                >
+                  <View style={styles.appointmentCardContent}>
+                    <View style={styles.appointmentTime}>
+                      <IconSymbol name="clock" size={16} color={Colors.light.primary} />
+                      <ThemedText style={styles.appointmentTimeText}>
+                        {appointment.appointment_time}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.appointmentService} numberOfLines={1}>
+                      {appointment.services?.name || 'Servicio'}
+                    </ThemedText>
+                    <ThemedText style={styles.appointmentClient} numberOfLines={1}>
+                      {appointment.profiles?.display_name || 'Cliente'}
+                    </ThemedText>
+                    <View style={[
+                      styles.appointmentStatus,
+                      { backgroundColor: getStatusColor(appointment.status) + '20' }
+                    ]}>
+                      <ThemedText style={[
+                        styles.appointmentStatusText,
+                        { color: getStatusColor(appointment.status) }
+                      ]}>
+                        {getStatusLabel(appointment.status)}
+                      </ThemedText>
+                    </View>
+                  </View>
+                </Card>
+              ));
+            })()}
+          </View>
+        </>
+      ) : renderWeekView()}
     </View>
   );
 }
@@ -414,18 +473,18 @@ function formatDateLabel(date: Date): string {
   today.setHours(0, 0, 0, 0);
   const compareDate = new Date(date);
   compareDate.setHours(0, 0, 0, 0);
-  
+
   if (compareDate.getTime() === today.getTime()) {
     return 'Hoy';
   }
-  
+
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   if (compareDate.getTime() === tomorrow.getTime()) {
     return 'Mañana';
   }
-  
+
   return date.toLocaleDateString('es-VE', {
     weekday: 'long',
     day: 'numeric',
@@ -444,10 +503,10 @@ function getWeekRange(date: Date): string {
   const start = getStartOfWeek(date);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  
+
   const startMonth = MONTHS[start.getMonth()];
   const endMonth = MONTHS[end.getMonth()];
-  
+
   if (start.getMonth() === end.getMonth()) {
     return `${start.getDate()} - ${end.getDate()} ${startMonth}`;
   } else {
@@ -547,10 +606,11 @@ const styles = StyleSheet.create({
     borderRadius: DesignTokens.radius.md,
     backgroundColor: Colors.light.surfaceVariant,
   },
-  
+
   // Month view styles
   monthGrid: {
-    padding: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
   },
   dayHeaderRow: {
     flexDirection: 'row',
@@ -626,7 +686,7 @@ const styles = StyleSheet.create({
   appointmentCountSelected: {
     color: Colors.light.textOnPrimary,
   },
-  
+
   // Week view styles
   weekContainer: {
     flex: 1,
@@ -741,5 +801,29 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.textSecondary,
     marginTop: DesignTokens.spacing.md,
+  },
+  monthAppointmentsContainer: {
+    padding: DesignTokens.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    marginTop: DesignTokens.spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.md,
+    textTransform: 'capitalize',
+  },
+  emptyStateCompact: {
+    padding: DesignTokens.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+  },
+  emptyStateTextCompact: {
+    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.sm,
   },
 });

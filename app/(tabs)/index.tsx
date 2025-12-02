@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService, Provider, ProviderDashboardMetrics } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router, Href } from 'expo-router';
 import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
+import { Image as ExpoImage } from 'expo-image';
 import React from 'react';
 import {
   Alert,
@@ -37,7 +39,7 @@ const formatPercentage = (value?: number) =>
 
 export default function HomeScreen() {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -93,14 +95,14 @@ function ClientHomeScreen() {
     try {
       setLoading(true);
       log.info(LogCategory.DATABASE, 'Loading featured providers', { screen: 'ClientHome' });
-      
+
       const providers = await BookingService.getAllProviders();
       // Tomar los primeros 3 proveedores como destacados
       setFeaturedProviders(providers.slice(0, 3));
-      
-      log.info(LogCategory.DATABASE, 'Featured providers loaded', { 
+
+      log.info(LogCategory.DATABASE, 'Featured providers loaded', {
         count: providers.slice(0, 3).length,
-        screen: 'ClientHome' 
+        screen: 'ClientHome'
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading featured providers', error);
@@ -137,7 +139,7 @@ function ClientHomeScreen() {
 
   return (
     <TabSafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -152,206 +154,226 @@ function ClientHomeScreen() {
       >
         {/* Header con saludo personalizado */}
         <View style={styles.header}>
-        <View style={styles.welcomeSection}>
-          <ThemedText type="title" style={styles.welcomeText}>
-            ¡Hola! 👋
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Encuentra y reserva los mejores servicios en Venezuela
-          </ThemedText>
-        </View>
-        
-        {/* Botón de búsqueda rápida */}
-        <Button
-          title="Buscar servicios"
-          variant="outline"
-          size="medium"
-          icon={<IconSymbol name="magnifyingglass" size={18} color={Colors.light.primary} />}
-          onPress={() => {
-            log.userAction('Navigate to explore', { screen: 'ClientHome' });
-            log.navigation('ClientHome', 'Explore');
-            router.push('/(tabs)/explore');
-          }}
-          style={styles.searchButton}
-        />
-      </View>
+          <Card variant="glass" style={styles.welcomeCard} padding="medium">
+            <View style={styles.welcomeSection}>
+              <ThemedText type="title" style={styles.welcomeText}>
+                ¡Hola! 👋
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>
+                Encuentra y reserva los mejores servicios en Venezuela
+              </ThemedText>
+            </View>
+          </Card>
 
-      {/* Categorías populares */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Categorías Populares
-          </ThemedText>
+          {/* Botón de búsqueda rápida */}
           <Button
-            title="Ver todas"
-            variant="ghost"
-            size="small"
+            title="Buscar servicios"
+            variant="outline"
+            size="medium"
+            icon={<IconSymbol name="magnifyingglass" size={18} color={Colors.light.primary} />}
             onPress={() => {
               log.userAction('Navigate to explore', { screen: 'ClientHome' });
               log.navigation('ClientHome', 'Explore');
               router.push('/(tabs)/explore');
             }}
+            style={styles.searchButton}
           />
         </View>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesScrollContent}
-        >
-          {categories.map((category, index) => (
-            <Card
-              key={index}
-              variant="elevated"
-              style={styles.categoryCard}
+
+        {/* Categorías populares */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Categorías Populares
+            </ThemedText>
+            <Button
+              title="Ver todas"
+              variant="ghost"
+              size="small"
               onPress={() => {
-                log.userAction('Select category', { category: category.name, screen: 'ClientHome' });
+                log.userAction('Navigate to explore', { screen: 'ClientHome' });
                 log.navigation('ClientHome', 'Explore');
                 router.push('/(tabs)/explore');
               }}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
-                <IconSymbol name={category.icon as any} size={20} color="white" />
-              </View>
-              <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
-            </Card>
-          ))}
-        </ScrollView>
-      </View>
+            />
+          </View>
 
-      {/* Proveedores destacados */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Proveedores Destacados
-          </ThemedText>
-          <Button
-            title="Ver todos"
-            variant="ghost"
-            size="small"
-            onPress={() => {
-              log.userAction('Navigate to explore', { screen: 'ClientHome' });
-              log.navigation('ClientHome', 'Explore');
-              router.push('/(tabs)/explore');
-            }}
-          />
-        </View>
-        
-        <View style={styles.providersList}>
-          {featuredProviders.length > 0 ? (
-            featuredProviders.map((provider) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesScrollContent}
+          >
+            {categories.map((category, index) => (
               <Card
-                key={provider.id}
+                key={index}
                 variant="elevated"
-                style={styles.providerCard}
+                style={styles.categoryCard}
                 onPress={() => {
-                  log.userAction('Select provider', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
-                  log.navigation('ClientHome', 'ProviderDetail');
-                  router.push({
-                    pathname: '/(booking)/provider-detail',
-                    params: { providerId: provider.id }
-                  });
+                  log.userAction('Select category', { category: category.name, screen: 'ClientHome' });
+                  log.navigation('ClientHome', 'Explore');
+                  router.push('/(tabs)/explore');
                 }}
               >
-                <View style={styles.providerHeader}>
-                  <View style={styles.providerImage}>
-                    <IconSymbol name="building.2" size={24} color={Colors.light.primary} />
-                  </View>
-                  <View style={styles.providerInfo}>
-                    <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
-                    <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
-                    <View style={styles.providerStatus}>
-                      <View style={[
-                        styles.statusIndicator, 
-                        { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
-                      ]} />
-                      <ThemedText style={styles.statusText}>
-                        {provider.is_active ? 'Abierto' : 'Cerrado'}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.providerRating}>
-                    <View style={styles.ratingContainer}>
-                      <IconSymbol name="star.fill" size={14} color={Colors.light.secondary} />
-                      <ThemedText style={styles.ratingText}>{provider.rating.toFixed(1)}</ThemedText>
-                    </View>
-                  </View>
+                <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
+                  <IconSymbol name={category.icon as any} size={20} color="white" />
                 </View>
-                
-                <View style={styles.providerFooter}>
-                  <View style={styles.providerDetails}>
-                    <ThemedText style={styles.distance} numberOfLines={1}>{provider.address || 'Ubicación no disponible'}</ThemedText>
-                    <ThemedText style={styles.price}>Desde $25</ThemedText>
-                  </View>
-                  <View style={styles.reserveButtonContainer}>
-                    <Button
-                      title="Reservar"
-                      size="small"
-                      onPress={() => {
-                        log.userAction('Start booking flow', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
-                        log.navigation('ClientHome', 'ProviderDetail');
-                        router.push({
-                          pathname: '/(booking)/provider-detail',
-                          params: { providerId: provider.id }
-                        });
-                      }}
-                      style={styles.reserveButton}
-                    />
-                  </View>
-                </View>
+                <ThemedText style={styles.categoryName}>{category.name}</ThemedText>
               </Card>
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <ThemedText style={styles.emptyText}>
-                No hay proveedores disponibles
-              </ThemedText>
-            </View>
-          )}
+            ))}
+          </ScrollView>
         </View>
-      </View>
 
-      {/* Acciones rápidas */}
-      <View style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Acciones Rápidas
-        </ThemedText>
-        
-        <View style={styles.quickActionsGrid}>
-          <Card
-            variant="elevated"
-            style={styles.quickActionCard}
-            onPress={() => {
-              log.userAction('Navigate to bookings', { screen: 'ClientHome' });
-              log.navigation('ClientHome', 'Bookings');
-              router.push('/(tabs)/bookings');
-            }}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.primary + '20' }]}>
-              <IconSymbol name="calendar" size={24} color={Colors.light.primary} />
-            </View>
-            <ThemedText style={styles.quickActionTitle}>Mis Citas</ThemedText>
-            <ThemedText style={styles.quickActionSubtitle}>Gestiona tus reservas</ThemedText>
-          </Card>
-          
-          <Card
-            variant="elevated"
-            style={styles.quickActionCard}
-            onPress={() => {
-              log.userAction('Navigate to favorites', { screen: 'ClientHome' });
-              router.push('/(tabs)/favorites');
-            }}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.accent + '20' }]}>
-              <IconSymbol name="heart" size={24} color={Colors.light.accent} />
-            </View>
-            <ThemedText style={styles.quickActionTitle}>Favoritos</ThemedText>
-            <ThemedText style={styles.quickActionSubtitle}>Servicios guardados</ThemedText>
-          </Card>
+        {/* Proveedores destacados */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Proveedores Destacados
+            </ThemedText>
+            <Button
+              title="Ver todos"
+              variant="ghost"
+              size="small"
+              onPress={() => {
+                log.userAction('Navigate to explore', { screen: 'ClientHome' });
+                log.navigation('ClientHome', 'Explore');
+                router.push('/(tabs)/explore');
+              }}
+            />
+          </View>
+
+          <View style={styles.providersList}>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                {[1, 2, 3].map((i) => (
+                  <View key={i} style={{ marginBottom: 16, width: 280, marginRight: 16 }}>
+                    <Skeleton height={180} borderRadius={16} />
+                    <View style={{ marginTop: 12 }}>
+                      <Skeleton width="60%" height={20} />
+                      <Skeleton width="40%" height={16} style={{ marginTop: 8 }} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : featuredProviders.length > 0 ? (
+              featuredProviders.map((provider) => (
+                <Card
+                  key={provider.id}
+                  variant="elevated"
+                  style={styles.providerCard}
+                  onPress={() => {
+                    log.userAction('Select provider', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
+                    log.navigation('ClientHome', 'ProviderDetail');
+                    router.push({
+                      pathname: '/(booking)/provider-detail',
+                      params: { providerId: provider.id }
+                    });
+                  }}
+                >
+                  <View style={styles.providerHeader}>
+                    <View style={styles.providerImageContainer}>
+                      <ExpoImage
+                        source={`https://picsum.photos/seed/${provider.id}/400/300`}
+                        style={styles.providerImage}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                      <View style={styles.providerOverlay} />
+                    </View>
+                    <View style={styles.providerInfo}>
+                      <View style={styles.providerNameRow}>
+                        <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
+                        <View style={styles.ratingContainer}>
+                          <IconSymbol name="star.fill" size={14} color={Colors.light.secondary} />
+                          <ThemedText style={styles.ratingText}>{provider.rating.toFixed(1)}</ThemedText>
+                        </View>
+                      </View>
+                      <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
+                      <View style={styles.providerStatus}>
+                        <View style={[
+                          styles.statusIndicator,
+                          { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
+                        ]} />
+                        <ThemedText style={styles.statusText}>
+                          {provider.is_active ? 'Abierto' : 'Cerrado'}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.providerFooter}>
+                    <View style={styles.providerDetails}>
+                      <ThemedText style={styles.distance} numberOfLines={1}>{provider.address || 'Ubicación no disponible'}</ThemedText>
+                      <ThemedText style={styles.price}>Desde $25</ThemedText>
+                    </View>
+                    <View style={styles.reserveButtonContainer}>
+                      <Button
+                        title="Reservar"
+                        size="small"
+                        onPress={() => {
+                          log.userAction('Start booking flow', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
+                          log.navigation('ClientHome', 'ProviderDetail');
+                          router.push({
+                            pathname: '/(booking)/provider-detail',
+                            params: { providerId: provider.id }
+                          });
+                        }}
+                        style={styles.reserveButton}
+                      />
+                    </View>
+                  </View>
+                </Card>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <ThemedText style={styles.emptyText}>
+                  No hay proveedores disponibles
+                </ThemedText>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-      </ScrollView>
-    </TabSafeAreaView>
+
+        {/* Acciones rápidas */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Acciones Rápidas
+          </ThemedText>
+
+          <View style={styles.quickActionsGrid}>
+            <Card
+              variant="elevated"
+              style={styles.quickActionCard}
+              onPress={() => {
+                log.userAction('Navigate to bookings', { screen: 'ClientHome' });
+                log.navigation('ClientHome', 'Bookings');
+                router.push('/(tabs)/bookings');
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.primary + '20' }]}>
+                <IconSymbol name="calendar" size={24} color={Colors.light.primary} />
+              </View>
+              <ThemedText style={styles.quickActionTitle}>Mis Citas</ThemedText>
+              <ThemedText style={styles.quickActionSubtitle}>Gestiona tus reservas</ThemedText>
+            </Card>
+
+            <Card
+              variant="elevated"
+              style={styles.quickActionCard}
+              onPress={() => {
+                log.userAction('Navigate to favorites', { screen: 'ClientHome' });
+                router.push('/(tabs)/favorites');
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.accent + '20' }]}>
+                <IconSymbol name="heart" size={24} color={Colors.light.accent} />
+              </View>
+              <ThemedText style={styles.quickActionTitle}>Favoritos</ThemedText>
+              <ThemedText style={styles.quickActionSubtitle}>Servicios guardados</ThemedText>
+            </Card>
+          </View>
+        </View>
+      </ScrollView >
+    </TabSafeAreaView >
   );
 }
 
@@ -379,7 +401,7 @@ function ProviderHomeScreen() {
       setAppointments(appointmentsData);
       setMetrics(metricsData);
 
-      log.info(LogCategory.DATABASE, 'Provider dashboard data loaded', { 
+      log.info(LogCategory.DATABASE, 'Provider dashboard data loaded', {
         count: appointmentsData.length,
         screen: 'ProviderHome',
         metrics: metricsData,
@@ -456,7 +478,7 @@ function ProviderHomeScreen() {
 
   return (
     <TabSafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -471,124 +493,124 @@ function ProviderHomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-        <View style={styles.welcomeSection}>
-          <ThemedText type="title" style={styles.welcomeText}>
-            Dashboard 📊
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Gestiona tu negocio y citas
-          </ThemedText>
-        </View>
-        
-        {/* Botón de Mi Negocio */}
-        <Button
-          title="Mi Negocio"
-          variant="outline"
-          size="medium"
-          icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
-          onPress={() => {
-            log.userAction('Navigate to my business', { screen: 'ProviderHome' });
-            router.push('/(provider)/my-business');
-          }}
-          style={styles.searchButton}
-        />
-      </View>
+          <View style={styles.welcomeSection}>
+            <ThemedText type="title" style={styles.welcomeText}>
+              Dashboard 📊
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Gestiona tu negocio y citas
+            </ThemedText>
+          </View>
 
-      {/* Indicadores clave */}
-      <View style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Indicadores Clave
-        </ThemedText>
-        
-        <View style={styles.performanceGrid}>
-          {performanceCards.map((card, index) => (
-            <Card key={index} variant="elevated" style={styles.performanceCard}>
-              <View style={styles.performanceHeader}>
-                <View style={[styles.statIcon, { backgroundColor: card.color }]}>
-                  <IconSymbol name={card.icon as any} size={20} color="white" />
-                </View>
-                <ThemedText style={styles.performanceLabel}>{card.label}</ThemedText>
-              </View>
-              <ThemedText style={styles.performanceValue}>{card.value}</ThemedText>
-              {card.helper ? (
-                <ThemedText style={styles.performanceHelper}>{card.helper}</ThemedText>
-              ) : null}
-            </Card>
-          ))}
-        </View>
-      </View>
-
-      {/* Estado operativo */}
-      <View style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Estado Operativo
-        </ThemedText>
-        
-        <View style={styles.statsGrid}>
-          {operationalStats.map((stat, index) => (
-            <Card
-              key={index}
-              variant="elevated"
-              style={styles.statCard}
-            >
-              <View style={[styles.statIcon, { backgroundColor: stat.color }]}>
-                <IconSymbol name={stat.icon as any} size={20} color="white" />
-              </View>
-              <ThemedText style={styles.statNumber}>{stat.number}</ThemedText>
-              <ThemedText style={styles.statLabel}>{stat.label}</ThemedText>
-            </Card>
-          ))}
-        </View>
-      </View>
-
-      {/* Acciones rápidas */}
-      <View style={styles.section}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>
-          Acciones Rápidas
-        </ThemedText>
-        
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickActionsScrollContent}
-        >
+          {/* Botón de Mi Negocio */}
           <Button
-            title="Mis Servicios"
+            title="Mi Negocio"
             variant="outline"
             size="medium"
-            icon={<IconSymbol name="wrench.and.screwdriver" size={18} color={Colors.light.primary} />}
+            icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
             onPress={() => {
-              log.userAction('Navigate to services', { screen: 'ProviderHome' });
-              log.navigation('ProviderHome', 'Services');
+              log.userAction('Navigate to my business', { screen: 'ProviderHome' });
               router.push('/(provider)/my-business');
             }}
-            style={styles.quickActionButton}
+            style={styles.searchButton}
           />
-          <Button
-            title="Horarios"
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="clock" size={18} color={Colors.light.primary} />}
-            onPress={() => {
-              log.userAction('Navigate to schedule', { screen: 'ProviderHome' });
-              log.navigation('ProviderHome', 'Calendar');
-              router.push('/(provider)/availability');
-            }}
-            style={styles.quickActionButton}
-          />
-          <Button
-            title="Ajustes"
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="slider.horizontal.3" size={18} color={Colors.light.primary} />}
-            onPress={() => {
-              log.userAction('Navigate to provider settings', { screen: 'ProviderHome' });
-              router.push('/(provider)/settings' as Href);
-            }}
-            style={styles.quickActionButton}
-          />
-        </ScrollView>
-      </View>
+        </View>
+
+        {/* Indicadores clave */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Indicadores Clave
+          </ThemedText>
+
+          <View style={styles.performanceGrid}>
+            {performanceCards.map((card, index) => (
+              <Card key={index} variant="elevated" style={styles.performanceCard}>
+                <View style={styles.performanceHeader}>
+                  <View style={[styles.statIcon, { backgroundColor: card.color }]}>
+                    <IconSymbol name={card.icon as any} size={20} color="white" />
+                  </View>
+                  <ThemedText style={styles.performanceLabel}>{card.label}</ThemedText>
+                </View>
+                <ThemedText style={styles.performanceValue}>{card.value}</ThemedText>
+                {card.helper ? (
+                  <ThemedText style={styles.performanceHelper}>{card.helper}</ThemedText>
+                ) : null}
+              </Card>
+            ))}
+          </View>
+        </View>
+
+        {/* Estado operativo */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Estado Operativo
+          </ThemedText>
+
+          <View style={styles.statsGrid}>
+            {operationalStats.map((stat, index) => (
+              <Card
+                key={index}
+                variant="elevated"
+                style={styles.statCard}
+              >
+                <View style={[styles.statIcon, { backgroundColor: stat.color }]}>
+                  <IconSymbol name={stat.icon as any} size={20} color="white" />
+                </View>
+                <ThemedText style={styles.statNumber}>{stat.number}</ThemedText>
+                <ThemedText style={styles.statLabel}>{stat.label}</ThemedText>
+              </Card>
+            ))}
+          </View>
+        </View>
+
+        {/* Acciones rápidas */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Acciones Rápidas
+          </ThemedText>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickActionsScrollContent}
+          >
+            <Button
+              title="Mis Servicios"
+              variant="outline"
+              size="medium"
+              icon={<IconSymbol name="wrench.and.screwdriver" size={18} color={Colors.light.primary} />}
+              onPress={() => {
+                log.userAction('Navigate to services', { screen: 'ProviderHome' });
+                log.navigation('ProviderHome', 'Services');
+                router.push('/(provider)/my-business');
+              }}
+              style={styles.quickActionButton}
+            />
+            <Button
+              title="Horarios"
+              variant="outline"
+              size="medium"
+              icon={<IconSymbol name="clock" size={18} color={Colors.light.primary} />}
+              onPress={() => {
+                log.userAction('Navigate to schedule', { screen: 'ProviderHome' });
+                log.navigation('ProviderHome', 'Calendar');
+                router.push('/(provider)/availability');
+              }}
+              style={styles.quickActionButton}
+            />
+            <Button
+              title="Ajustes"
+              variant="outline"
+              size="medium"
+              icon={<IconSymbol name="slider.horizontal.3" size={18} color={Colors.light.primary} />}
+              onPress={() => {
+                log.userAction('Navigate to provider settings', { screen: 'ProviderHome' });
+                router.push('/(provider)/settings' as Href);
+              }}
+              style={styles.quickActionButton}
+            />
+          </ScrollView>
+        </View>
       </ScrollView>
     </TabSafeAreaView>
   );
@@ -661,8 +683,8 @@ function EmployeeHomeScreen() {
         newStatus === 'confirmed'
           ? 'La cita fue confirmada.'
           : newStatus === 'cancelled'
-          ? 'La cita fue cancelada.'
-          : 'La cita fue marcada como completada.'
+            ? 'La cita fue cancelada.'
+            : 'La cita fue marcada como completada.'
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error updating appointment status', error);
@@ -871,7 +893,7 @@ const styles = StyleSheet.create({
     marginBottom: DesignTokens.spacing.md,
 
   },
-  
+
   // Categorías
   categoriesScrollContent: {
     paddingHorizontal: DesignTokens.spacing.xl,
@@ -901,37 +923,32 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     lineHeight: 14,
   },
-  
+
   // Proveedores
   providersList: {
     gap: DesignTokens.spacing.lg,
   },
   providerCard: {
+<<<<<<< HEAD
     marginBottom: DesignTokens.spacing.lg,
+=======
+    width: '100%',
+    marginBottom: DesignTokens.spacing.md,
+    padding: 0,
+>>>>>>> 44ddfa5 (feat: Global UI/UX upgrades, layout fixes, and skeleton loaders)
   },
-  providerHeader: {
+  providerNameRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: DesignTokens.spacing.lg,
-  },
-  providerImage: {
-    width: 56,
-    height: 56,
-    borderRadius: DesignTokens.radius.lg,
-    backgroundColor: Colors.light.surfaceVariant,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: DesignTokens.spacing.md,
-    ...DesignTokens.elevation.sm,
-  },
-  providerInfo: {
-    flex: 1,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerName: {
+    flex: 1,
     fontSize: DesignTokens.typography.fontSizes.base,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.xs,
+    marginRight: DesignTokens.spacing.sm,
     letterSpacing: -0.1,
   },
   providerCategory: {
@@ -954,9 +971,7 @@ const styles = StyleSheet.create({
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.text,
   },
-  providerRating: {
-    alignItems: 'flex-end',
-  },
+
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -968,11 +983,17 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginLeft: DesignTokens.spacing.xs,
   },
+  providerInfo: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingTop: DesignTokens.spacing.md,
+  },
   providerFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: DesignTokens.spacing.sm,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingBottom: DesignTokens.spacing.lg,
   },
   providerDetails: {
     flex: 1,
@@ -996,7 +1017,7 @@ const styles = StyleSheet.create({
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.success,
   },
-  
+
   // Acciones rápidas
   quickActionsGrid: {
     flexDirection: 'row',
@@ -1029,7 +1050,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 14,
   },
-  
+
   // Estadísticas del proveedor
   statsGrid: {
     flexDirection: 'row',
@@ -1195,5 +1216,24 @@ const styles = StyleSheet.create({
   },
   employeeActionButton: {
     flex: 1,
+  },
+  welcomeCard: {
+    marginBottom: DesignTokens.spacing.md,
+  },
+  providerImageContainer: {
+    height: 150,
+    width: '100%',
+    position: 'relative',
+  },
+  providerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  providerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  providerHeader: {
+    // Removed flexDirection row since image is top
   },
 });

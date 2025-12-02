@@ -3,21 +3,21 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { FavoritesSkeleton } from '@/components/ui/LoadingStates';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
-import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { FavoritesSkeleton } from '@/components/ui/LoadingStates';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function FavoritesScreen() {
@@ -34,13 +34,13 @@ export default function FavoritesScreen() {
     try {
       setLoading(true);
       log.info(LogCategory.DATA, 'Loading favorite providers', { screen: 'Favorites' });
-      
+
       const favorites = await BookingService.getFavoriteProviders();
       setFavoriteProviders(favorites);
-      
-      log.info(LogCategory.DATA, 'Favorite providers loaded', { 
+
+      log.info(LogCategory.DATA, 'Favorite providers loaded', {
         count: favorites.length,
-        screen: 'Favorites' 
+        screen: 'Favorites'
       });
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error loading favorite providers', error);
@@ -58,21 +58,21 @@ export default function FavoritesScreen() {
 
   const handleRemoveFromFavorites = async (provider: Provider) => {
     try {
-      log.userAction('Remove from favorites', { 
+      log.userAction('Remove from favorites', {
         providerId: provider.id,
         providerName: provider.business_name,
-        screen: 'Favorites' 
+        screen: 'Favorites'
       });
 
       const removeProvider = async () => {
         try {
           await BookingService.removeFromFavorites(provider.id);
-          
+
           // Update local state
-          setFavoriteProviders(prevFavorites => 
+          setFavoriteProviders(prevFavorites =>
             prevFavorites.filter(fav => fav.id !== provider.id)
           );
-          
+
           Alert.alert('Removido de Favoritos', `${provider.business_name} ha sido removido de tus favoritos`);
         } catch (error) {
           console.error('🔴 [FAVORITES] Error removing provider from favorites:', error);
@@ -105,10 +105,10 @@ export default function FavoritesScreen() {
 
   const handleBookProvider = (provider: Provider) => {
     try {
-      log.userAction('Book favorite provider', { 
+      log.userAction('Book favorite provider', {
         providerId: provider.id,
         providerName: provider.business_name,
-        screen: 'Favorites' 
+        screen: 'Favorites'
       });
 
       router.push({
@@ -128,14 +128,20 @@ export default function FavoritesScreen() {
       >
         <View style={styles.providerHeader}>
           <View style={styles.providerImage}>
-            <IconSymbol name="building.2" size={24} color={Colors.light.primary} />
+            <Image
+              source={{ uri: provider.logo_url || `https://picsum.photos/seed/${provider.id}/200` }}
+              style={{ width: '100%', height: '100%', borderRadius: 12 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
           </View>
           <View style={styles.providerInfo}>
             <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
             <ThemedText style={styles.providerCategory}>{provider.category}</ThemedText>
             <View style={styles.providerStatus}>
               <View style={[
-                styles.statusIndicator, 
+                styles.statusIndicator,
                 { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
               ]} />
               <ThemedText style={styles.statusText}>
@@ -192,7 +198,7 @@ export default function FavoritesScreen() {
       </ThemedView>
 
       {/* Favorites List */}
-      <ScrollView 
+      <ScrollView
         style={styles.favoritesSection}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
