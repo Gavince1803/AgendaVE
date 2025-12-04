@@ -6,13 +6,14 @@ import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, router } from 'expo-router';
-import React, { useState } from 'react';
+import { Href, Link, router } from 'expo-router';
+import { useState } from 'react';
 import {
-    Alert,
-    Platform,
-    StyleSheet,
-    View
+  Alert,
+  Platform,
+  StyleSheet,
+  View,
+  type TextStyle,
 } from 'react-native';
 
 export default function LoginScreen() {
@@ -31,16 +32,17 @@ export default function LoginScreen() {
     try {
       await signIn(email, password);
       router.replace('/(tabs)');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Mejorar el mensaje de error para casos específicos
-      let errorMessage = error.message || 'Error al iniciar sesión';
-      
-      if (error.message?.includes('Invalid login credentials')) {
+      const err = error instanceof Error ? error : new Error('Error al iniciar sesión');
+      let errorMessage = err.message || 'Error al iniciar sesión';
+
+      if (err.message?.includes('Invalid login credentials')) {
         errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.\n\nSi acabas de registrarte, asegúrate de confirmar tu email haciendo clic en el enlace que te enviamos.';
-      } else if (error.message?.includes('Email not confirmed')) {
+      } else if (err.message?.includes('Email not confirmed')) {
         errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación.';
       }
-      
+
       Alert.alert('Error al iniciar sesión', errorMessage);
     } finally {
       setLoading(false);
@@ -49,7 +51,7 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollableInputView 
+      <ScrollableInputView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
       >
@@ -74,7 +76,7 @@ export default function LoginScreen() {
             <ThemedText style={styles.formTitle}>
               Iniciar Sesión
             </ThemedText>
-            
+
             <SimpleInput
               label="Email"
               value={email}
@@ -143,6 +145,17 @@ export default function LoginScreen() {
                 />
               </Link>
             </View>
+
+            <View style={styles.inviteSection}>
+              <ThemedText style={styles.inviteText}>¿Te invitaron como empleado?</ThemedText>
+              <Link href={'/accept-invite' as Href} asChild>
+                <Button
+                  title="Ingresar código"
+                  variant="ghost"
+                  size="small"
+                />
+              </Link>
+            </View>
           </Card>
         </ThemedView>
       </ScrollableInputView>
@@ -187,13 +200,13 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: DesignTokens.typography.fontSizes['4xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.textOnPrimary,
     letterSpacing: -1,
   },
   title: {
     fontSize: DesignTokens.typography.fontSizes['3xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
     marginBottom: DesignTokens.spacing.sm,
     textAlign: 'center',
@@ -211,7 +224,7 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing['2xl'],
     textAlign: 'center',
@@ -250,7 +263,7 @@ const styles = StyleSheet.create({
     marginHorizontal: DesignTokens.spacing.lg,
     color: Colors.light.textSecondary,
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   footer: {
     flexDirection: 'row',
@@ -281,5 +294,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.primary,
     borderWidth: 2,
   },
+  inviteSection: {
+    marginTop: DesignTokens.spacing.lg,
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+  },
+  inviteText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
 });
-

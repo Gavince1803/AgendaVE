@@ -113,6 +113,7 @@ const wellness = {
     700: '#09855a',
     800: '#0d6a4a',
     900: '#0f573e',
+    950: '#063829',
   },
 };
 
@@ -130,6 +131,7 @@ const semantic = {
     700: '#047857',
     800: '#065f46',
     900: '#064e3b',
+    950: '#022c22',
   },
   warning: {
     50: '#fffbeb',
@@ -142,6 +144,7 @@ const semantic = {
     700: '#b45309',
     800: '#92400e',
     900: '#78350f',
+    950: '#451a03',
   },
   error: {
     50: '#fef2f2',
@@ -154,6 +157,7 @@ const semantic = {
     700: '#b91c1c',
     800: '#991b1b',
     900: '#7f1d1d',
+    950: '#431313',
   },
   info: {
     50: '#f0f8ff',
@@ -166,6 +170,7 @@ const semantic = {
     700: '#005bb5',
     800: '#004a96',
     900: '#003d7a',
+    950: '#001f3a',
   },
 };
 
@@ -177,64 +182,64 @@ export const Colors = {
     primaryLight: primary[400],
     primaryDark: primary[600],
     primaryBg: primary[50],
-    
+
     secondary: secondary[500], // #ff6b35 - Warm inviting coral
     secondaryLight: secondary[400],
     secondaryDark: secondary[600],
     secondaryBg: secondary[50],
-    
+
     accent: accent[500], // #9b5eff - Sophisticated luxury purple
     accentLight: accent[400],
     accentDark: accent[600],
     accentBg: accent[50],
-    
+
     // Modern surface system
-    background: '#ffffff', // Pure white for premium feel
-    surface: gray[50], // #fafbfc - Subtle warm tint
-    surfaceVariant: gray[100], // #f2f4f7 - Modern card backgrounds
-    surfaceContainer: gray[200], // #e5e9ed - Elevated containers
-    
+    background: '#f8f9fc', // Soft neutral backdrop
+    surface: '#ffffff', // Cards pop over tinted canvas
+    surfaceVariant: '#f3f5f9', // Secondary cards / inputs
+    surfaceContainer: '#e7ebf3', // Elevated containers and highlights
+
     // Sophisticated text hierarchy
     text: gray[900], // #111827 - Rich, readable black
     textSecondary: gray[600], // #4b5563 - Perfect secondary contrast
     textTertiary: gray[500], // #6b7280 - Subtle tertiary text
     textOnPrimary: '#ffffff',
     textOnSecondary: gray[900],
-    
+
     // Premium border system
     border: gray[200], // #e5e9ed - Subtle, modern borders
     borderLight: gray[100], // #f2f4f7 - Light dividers
     borderMedium: gray[300], // #d1d8e0 - Medium emphasis
     borderStrong: gray[400], // #9ca3af - Strong definition
-    
+
     // Enhanced semantic colors
     success: semantic.success[500], // #10b981 - Premium success green
     successLight: semantic.success[400],
     successDark: semantic.success[600],
     successBg: semantic.success[50],
-    
+
     warning: semantic.warning[500], // #f59e0b - Clear amber warning
     warningLight: semantic.warning[400],
     warningDark: semantic.warning[600],
     warningBg: semantic.warning[50],
-    
+
     error: semantic.error[500], // #ef4444 - Accessible error red
     errorLight: semantic.error[400],
     errorDark: semantic.error[600],
     errorBg: semantic.error[50],
-    
+
     info: semantic.info[500], // #0c8ce8 - Consistent with primary
     infoLight: semantic.info[400],
     infoDark: semantic.info[600],
     infoBg: semantic.info[50],
-    
+
     // Premium component colors
     tint: primary[500], // #0c8ce8
     icon: gray[500], // #6b7280 - Perfect icon color
     iconSecondary: gray[400], // #9ca3af - Subtle icons
     tabIconDefault: gray[400], // Inactive tabs
     tabIconSelected: primary[500], // Active tab highlight
-    
+
     // Modern shadow system (warmer, softer)
     shadow: 'rgba(17, 24, 39, 0.06)', // Subtle depth
     shadowMedium: 'rgba(17, 24, 39, 0.10)', // Card elevation
@@ -247,64 +252,64 @@ export const Colors = {
     primaryLight: primary[300],
     primaryDark: primary[500],
     primaryBg: primary[950],
-    
+
     secondary: secondary[400],
     secondaryLight: secondary[300],
     secondaryDark: secondary[500],
     secondaryBg: secondary[950],
-    
+
     accent: accent[400],
     accentLight: accent[300],
     accentDark: accent[500],
     accentBg: accent[950],
-    
+
     // Fondo y superficie
     background: gray[950],
     surface: gray[900],
     surfaceVariant: gray[800],
     surfaceContainer: gray[700],
-    
+
     // Texto
     text: gray[50],
     textSecondary: gray[200],
     textTertiary: gray[300],
     textOnPrimary: gray[900],
     textOnSecondary: gray[50],
-    
+
     // Bordes y divisores
     border: gray[700],
     borderLight: gray[800],
     borderMedium: gray[600],
     borderStrong: gray[500],
-    
+
     // Estados semánticos
     success: semantic.success[400],
     successLight: semantic.success[300],
     successDark: semantic.success[500],
     successBg: semantic.success[950],
-    
+
     warning: semantic.warning[400],
     warningLight: semantic.warning[300],
     warningDark: semantic.warning[500],
     warningBg: semantic.warning[950],
-    
+
     error: semantic.error[400],
     errorLight: semantic.error[300],
     errorDark: semantic.error[500],
     errorBg: semantic.error[950],
-    
+
     info: semantic.info[400],
     infoLight: semantic.info[300],
     infoDark: semantic.info[500],
     infoBg: semantic.info[950],
-    
+
     // Componentes específicos
     tint: primary[400],
     icon: gray[400],
     iconSecondary: gray[500],
     tabIconDefault: gray[500],
     tabIconSelected: primary[400],
-    
+
     // Sombras y elevación
     shadow: 'rgba(0, 0, 0, 0.3)',
     shadowMedium: 'rgba(0, 0, 0, 0.4)',
@@ -315,6 +320,13 @@ export const Colors = {
 
 // ===== TOKENS DE DISEÑO =====
 export const DesignTokens = {
+  // Tipografía
+  fontFamily: {
+    regular: 'Outfit_400Regular',
+    medium: 'Outfit_500Medium',
+    semibold: 'Outfit_600SemiBold',
+    bold: 'Outfit_700Bold',
+  },
   // Espaciado (basado en múltiplos de 4px)
   spacing: {
     xs: 4,
@@ -328,7 +340,7 @@ export const DesignTokens = {
     '5xl': 48,
     '6xl': 64,
   },
-  
+
   // Border radius
   radius: {
     none: 0,
@@ -341,7 +353,7 @@ export const DesignTokens = {
     '3xl': 24,
     full: 9999,
   },
-  
+
   // Tipografía Premium
   typography: {
     fontSizes: {
@@ -421,7 +433,7 @@ export const DesignTokens = {
       },
     },
   },
-  
+
   // Elevación y sombras
   elevation: {
     none: {
@@ -455,7 +467,7 @@ export const DesignTokens = {
       elevation: 8,
     },
   },
-  
+
   // Transiciones
   transitions: {
     fast: 150,
@@ -481,33 +493,33 @@ export const ComponentColors = {
     error: semantic.error[500],
     errorPressed: semantic.error[600],
   },
-  
+
   // Premium card system
   card: {
-    background: '#ffffff', // Pure white
+    background: '#ffffff', // Clean neutral card surface
     backgroundDark: gray[900],
-    border: gray[200], // #e5e9ed - Modern subtle borders
+    border: '#e1e6f0',
     borderDark: gray[700],
     shadow: 'rgba(17, 24, 39, 0.06)', // Warm, soft shadows
     shadowDark: 'rgba(0, 0, 0, 0.25)',
   },
-  
+
   // Modern surfaces
   surface: '#ffffff',
-  border: gray[200],
-  
+  border: '#e1e6f0',
+
   // Premium input system
   input: {
     background: '#ffffff',
     backgroundDark: gray[800],
-    border: gray[300], // #d1d8e0 - Visible but not harsh
+    border: '#d7deeb', // Subtle neutral border
     borderDark: gray[600],
     borderFocused: primary[500], // #0c8ce8 - Premium focus state
     borderFocusedDark: primary[400],
     placeholder: gray[400], // #9ca3af - Perfect placeholder contrast
     placeholderDark: gray[500],
   },
-  
+
   // Premium appointment status system
   appointment: {
     pending: secondary[500], // #ff6b35 - Warm coral for pending
@@ -523,7 +535,7 @@ export const ComponentColors = {
     completedBg: accent[50],
     completedBgDark: accent[900],
   },
-  
+
   // Premium badge system
   badge: {
     primary: primary[100], // Light blue backgrounds
@@ -546,32 +558,32 @@ export const Gradients = {
   primary: [primary[500], primary[600]], // #0c8ce8 to #0070d6 - Trust & reliability
   secondary: [secondary[400], secondary[600]], // Warm coral gradient
   accent: [accent[400], accent[600]], // Sophisticated purple gradient
-  
+
   // Premium wellness & beauty combinations
   oceanSage: [primary[400], wellness.sage[500]], // Blue to sage - calming trust
   coralGold: [secondary[400], wellness.rosegold[500]], // Coral to rose gold - beauty & warmth
   luxuryPurple: [accent[400], accent[600]], // Purple gradient - luxury & sophistication
   emeraldBreeze: [wellness.emerald[400], primary[400]], // Emerald to blue - growth & trust
-  
+
   // Modern semantic gradients
   success: [wellness.emerald[400], wellness.emerald[600]], // Premium emerald success
   warning: [semantic.warning[400], semantic.warning[600]],
   error: [semantic.error[400], semantic.error[600]],
   info: [primary[400], primary[600]], // Consistent with brand
-  
+
   // Sophisticated background gradients
   lightBlue: [primary[50], primary[100]], // #f0f8ff to #e0f0fe
   lightCoral: [secondary[50], secondary[100]], // Warm coral tints
   lightPurple: [accent[50], accent[100]], // Luxury purple tints
   lightSage: [wellness.sage[50], wellness.sage[100]], // Natural sage tints
   lightEmerald: [wellness.emerald[50], wellness.emerald[100]], // Premium emerald tints
-  
+
   // Premium appointment status gradients
   pending: [secondary[50], secondary[100]], // Warm coral pending
   confirmed: [wellness.emerald[50], wellness.emerald[100]], // Premium emerald confirmed
   cancelled: [semantic.error[50], semantic.error[100]], // Clear error gradient
   completed: [accent[50], accent[100]], // Sophisticated purple completed
-  
+
   // Hero section gradients (for premium landing areas)
   heroBlue: [primary[500], primary[700]], // Strong brand presence
   heroWarmth: [secondary[400], wellness.rosegold[500]], // Inviting warmth

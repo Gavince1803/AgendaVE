@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    ViewStyle,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScrollableInputViewProps {
   children: React.ReactNode;
@@ -18,14 +19,20 @@ export function ScrollableInputView({
   children,
   style,
   contentContainerStyle,
-  keyboardVerticalOffset = Platform.OS === 'ios' ? 0 : 20,
+  keyboardVerticalOffset,
   showsVerticalScrollIndicator = false,
 }: ScrollableInputViewProps) {
+  const insets = useSafeAreaInsets();
+
+  const defaultOffset = Platform.OS === 'ios' ? insets.top || 16 : 0;
+  const behavior = Platform.OS === 'ios' ? 'padding' : undefined;
+
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={[{ flex: 1 }, style]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={keyboardVerticalOffset}
+      behavior={behavior}
+      enabled={Platform.OS === 'ios'}
+      keyboardVerticalOffset={keyboardVerticalOffset ?? defaultOffset}
     >
       <ScrollView 
         contentContainerStyle={contentContainerStyle}

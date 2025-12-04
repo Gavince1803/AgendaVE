@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/Colors';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     StyleSheet,
     Text,
@@ -183,6 +183,10 @@ export function Calendar({
       {/* Leyenda */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
+          <View style={[styles.legendColor, styles.legendToday]} />
+          <Text style={styles.legendText}>Hoy</Text>
+        </View>
+        <View style={styles.legendItem}>
           <View style={[styles.legendColor, styles.legendAvailable]} />
           <Text style={styles.legendText}>Disponible</Text>
         </View>
@@ -249,29 +253,34 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     width: '14.28%',
-    aspectRatio: 1,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    marginVertical: 2,
   },
   dayButtonInactive: {
     opacity: 0.3,
   },
   dayButtonToday: {
     backgroundColor: Colors.light.primary + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonSelected: {
     backgroundColor: Colors.light.primary,
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonAvailable: {
     backgroundColor: Colors.light.success + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonBooked: {
     backgroundColor: Colors.light.error + '20',
-    borderRadius: 8,
+    borderRadius: 6,
+    margin: 2,
   },
   dayButtonPast: {
     opacity: 0.5,
@@ -338,6 +347,9 @@ const styles = StyleSheet.create({
   },
   legendSelected: {
     backgroundColor: Colors.light.primary,
+  },
+  legendToday: {
+    backgroundColor: Colors.light.primary + '60',
   },
   legendText: {
     fontSize: 12,

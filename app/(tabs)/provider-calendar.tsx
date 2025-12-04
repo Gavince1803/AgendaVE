@@ -1,31 +1,29 @@
-import { Button } from '@/components/ui/Button';
-import { Calendar } from '@/components/ui/Calendar';
-import { Card } from '@/components/ui/Card';
+import { ThemedText } from '@/components/ThemedText';
+import { CalendarView } from '@/components/ui/CalendarView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookingService } from '@/lib/booking-service';
-import { supabase } from '@/lib/supabase';
+import { Appointment, BookingService } from '@/lib/booking-service';
+import { LogCategory, useLogger } from '@/lib/logger';
+import { OfflineStorage } from '@/lib/offline-storage';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 export default function ProviderCalendarScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const log = useLogger(user?.id);
 
   useEffect(() => {
     if (user?.id) {
@@ -35,47 +33,36 @@ export default function ProviderCalendarScreen() {
 
   const loadData = async () => {
     setLoading(true);
+    log.info(LogCategory.DATABASE, 'Loading provider calendar data', { screen: 'ProviderCalendar' });
+    
     try {
-      // Obtener el proveedor actual primero
-      const provider = await BookingService.getProviderById(user!.id);
-      if (!provider) {
-        console.warn('No provider found for user:', user!.id);
-        setAppointments([]);
-        return;
+      // Try to load from cache first if offline
+      const cachedAppointments = await OfflineStorage.getCachedAppointments();
+      
+      if (cachedAppointments.length > 0) {
+        setAppointments(cachedAppointments);
+        log.info(LogCategory.DATABASE, 'Loaded appointments from cache', { count: cachedAppointments.length });
       }
-      
-      // Cargar citas del proveedor usando el provider_id
-      const { data: providerAppointments } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services(*),
-          profiles!appointments_client_id_fkey(id, display_name, phone)
-        `)
-        .eq('provider_id', provider.id)
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true });
-      
-      setAppointments(providerAppointments || []);
 
-      // Procesar fechas disponibles y ocupadas
-      const dates = new Set<string>();
-      const booked = new Set<string>();
+      // Try to fetch from server
+      const providerAppointments = await BookingService.getProviderAppointments();
+      setAppointments(providerAppointments);
       
-      providerAppointments.forEach(appointment => {
-        const date = appointment.appointment_date;
-        dates.add(date);
-        
-        if (appointment.status === 'confirmed' || appointment.status === 'pending') {
-          booked.add(date);
-        }
-      });
-
-      setAvailableDates(Array.from(dates));
-      setBookedDates(Array.from(booked));
+      // Cache for offline use
+      await OfflineStorage.cacheAppointments(providerAppointments);
+      
+      log.info(LogCategory.DATABASE, 'Provider calendar data loaded', { count: providerAppointments.length });
     } catch (error) {
-      console.error('Error loading calendar data:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos del calendario');
+      log.error(LogCategory.SERVICE, 'Error loading calendar data', error);
+      
+      // If we have cached data, use it
+      const cachedAppointments = await OfflineStorage.getCachedAppointments();
+      if (cachedAppointments.length > 0) {
+        setAppointments(cachedAppointments);
+        log.info(LogCategory.DATABASE, 'Using cached appointments (offline mode)', { count: cachedAppointments.length });
+      } else {
+        Alert.alert('Error', 'No se pudieron cargar los datos del calendario');
+      }
     } finally {
       setLoading(false);
     }
@@ -88,77 +75,15 @@ export default function ProviderCalendarScreen() {
     });
   }, [user?.id]);
 
-  const handleDateSelect = (date: string) => {
+  const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
+    log.userAction('Select calendar date', { date: date.toISOString(), screen: 'ProviderCalendar' });
   };
 
-  const getAppointmentsForDate = (date: string) => {
-    return appointments.filter(apt => apt.appointment_date === date);
+  const handleAppointmentPress = (appointment: Appointment) => {
+    log.userAction('View appointment details', { appointmentId: appointment.id, screen: 'ProviderCalendar' });
+    // Could navigate to appointment details screen
   };
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const minute = parseInt(minutes);
-    
-    if (hour === 0) return `12:${minutes} AM`;
-    if (hour < 12) return `${hour}:${minutes} AM`;
-    if (hour === 12) return `12:${minutes} PM`;
-    return `${hour - 12}:${minutes} PM`;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return Colors.light.success;
-      case 'pending':
-        return Colors.light.warning;
-      case 'cancelled':
-        return Colors.light.error;
-      case 'done':
-        return Colors.light.textSecondary;
-      default:
-        return Colors.light.textSecondary;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'Confirmada';
-      case 'pending':
-        return 'Pendiente';
-      case 'cancelled':
-        return 'Cancelada';
-      case 'done':
-        return 'Completada';
-      default:
-        return status;
-    }
-  };
-
-  const handleAppointmentAction = async (appointmentId: number, action: string) => {
-    try {
-      switch (action) {
-        case 'confirm':
-          await BookingService.confirmAppointment(appointmentId);
-          break;
-        case 'cancel':
-          await BookingService.cancelAppointment(appointmentId);
-          break;
-        case 'complete':
-          await BookingService.completeAppointment(appointmentId);
-          break;
-      }
-      await loadData(); // Recargar datos
-      Alert.alert('Éxito', `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} correctamente`);
-    } catch (error) {
-      console.error('Error updating appointment:', error);
-      Alert.alert('Error', 'No se pudo actualizar la cita');
-    }
-  };
-
-  const selectedDateAppointments = selectedDate ? getAppointmentsForDate(selectedDate) : [];
 
   return (
     <TabSafeAreaView style={styles.container}>
@@ -173,136 +98,25 @@ export default function ProviderCalendarScreen() {
       <View style={styles.header}>
         <IconSymbol name="calendar" size={32} color={Colors.light.primary} />
         <View style={styles.headerText}>
-          <Text style={styles.title}>Mi Calendario</Text>
-          <Text style={styles.subtitle}>Gestiona tus citas y disponibilidad</Text>
+          <ThemedText type="title" style={styles.title}>Mi Calendario</ThemedText>
+          <ThemedText style={styles.subtitle}>Vista mensual y semanal de tus citas</ThemedText>
         </View>
       </View>
 
-      {/* Calendario */}
-      <Calendar
-        selectedDate={selectedDate}
-        onDateSelect={handleDateSelect}
-        availableDates={availableDates}
-        bookedDates={bookedDates}
-      />
-
-      {/* Citas del día seleccionado */}
-      {selectedDate && (
-        <View style={styles.appointmentsSection}>
-          <Text style={styles.sectionTitle}>
-            Citas del {new Date(selectedDate).toLocaleDateString('es-ES', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long' 
-            })}
-          </Text>
-          
-          {selectedDateAppointments.length === 0 ? (
-            <Card variant="elevated" padding="medium">
-              <View style={styles.emptyState}>
-                <IconSymbol name="calendar" size={48} color={Colors.light.textTertiary} />
-                <Text style={styles.emptyText}>No hay citas programadas para este día</Text>
-              </View>
-            </Card>
-          ) : (
-            <View style={styles.appointmentsList}>
-              {selectedDateAppointments.map((appointment) => (
-                <Card key={appointment.id} variant="elevated" padding="medium" style={styles.appointmentCard}>
-                  <View style={styles.appointmentHeader}>
-                    <View style={styles.appointmentTime}>
-                      <IconSymbol name="clock" size={16} color={Colors.light.primary} />
-                      <Text style={styles.timeText}>{formatTime(appointment.appointment_time)}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(appointment.status) }]}>
-                        {getStatusText(appointment.status)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.appointmentDetails}>
-                    <Text style={styles.clientName}>
-                      {appointment.profiles?.full_name || 'Cliente'}
-                    </Text>
-                    <Text style={styles.serviceName}>
-                      {appointment.services?.name || 'Servicio'}
-                    </Text>
-                    <Text style={styles.serviceDuration}>
-                      Duración: {appointment.services?.duration || 30} min
-                    </Text>
-                    <Text style={styles.servicePrice}>
-                      Precio: ${appointment.service?.price_amount || 0}
-                    </Text>
-                  </View>
-
-                  {appointment.notes && (
-                    <View style={styles.notesContainer}>
-                      <Text style={styles.notesLabel}>Notas:</Text>
-                      <Text style={styles.notesText}>{appointment.notes}</Text>
-                    </View>
-                  )}
-
-                  {/* Acciones según el estado */}
-                  <View style={styles.appointmentActions}>
-                    {appointment.status === 'pending' && (
-                      <>
-                        <Button
-                          title="Confirmar"
-                          onPress={() => handleAppointmentAction(appointment.id, 'confirm')}
-                          variant="success"
-                          size="small"
-                          style={styles.actionButton}
-                        />
-                        <Button
-                          title="Cancelar"
-                          onPress={() => handleAppointmentAction(appointment.id, 'cancel')}
-                          variant="destructive"
-                          size="small"
-                          style={styles.actionButton}
-                        />
-                      </>
-                    )}
-                    {appointment.status === 'confirmed' && (
-                      <Button
-                        title="Completar"
-                        onPress={() => handleAppointmentAction(appointment.id, 'complete')}
-                        variant="primary"
-                        size="small"
-                        style={styles.actionButton}
-                      />
-                    )}
-                  </View>
-                </Card>
-              ))}
-            </View>
-          )}
+      {/* Calendar View Component */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>Cargando calendario...</ThemedText>
         </View>
+      ) : (
+        <CalendarView
+          appointments={appointments}
+          viewMode="month"
+          selectedDate={selectedDate}
+          onDatePress={handleDateSelect}
+          onAppointmentPress={handleAppointmentPress}
+        />
       )}
-
-      {/* Estadísticas rápidas */}
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Estadísticas del Mes</Text>
-        <View style={styles.statsGrid}>
-          <Card variant="elevated" padding="medium" style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {appointments.filter(apt => apt.status === 'confirmed').length}
-            </Text>
-            <Text style={styles.statLabel}>Confirmadas</Text>
-          </Card>
-          <Card variant="elevated" padding="medium" style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {appointments.filter(apt => apt.status === 'pending').length}
-            </Text>
-            <Text style={styles.statLabel}>Pendientes</Text>
-          </Card>
-          <Card variant="elevated" padding="medium" style={styles.statCard}>
-            <Text style={styles.statNumber}>
-              {appointments.filter(apt => apt.status === 'done').length}
-            </Text>
-            <Text style={styles.statLabel}>Completadas</Text>
-          </Card>
-        </View>
-      </View>
       </ScrollView>
     </TabSafeAreaView>
   );
@@ -323,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 20 : 10,
     paddingBottom: 16,
     backgroundColor: Colors.light.background,
   },
@@ -463,5 +277,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.textSecondary,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    padding: DesignTokens.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 400,
+  },
+  loadingText: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.textSecondary,
   },
 });

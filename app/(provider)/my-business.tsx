@@ -6,19 +6,24 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Input } from '@/components/ui/Input';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MyBusinessScreen() {
   const { user } = useAuth();
   const log = useLogger();
+  const insets = useSafeAreaInsets();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
@@ -26,6 +31,9 @@ export default function MyBusinessScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showInactiveServices, setShowInactiveServices] = useState(false);
+  const [revenueThisMonth, setRevenueThisMonth] = useState<{ currency: string; amount: number } | null>(null);
+  const [monthlyAppointments, setMonthlyAppointments] = useState<number>(0);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Estados para edición
   const [editingBusiness, setEditingBusiness] = useState(false);
@@ -36,7 +44,7 @@ export default function MyBusinessScreen() {
     address: '',
     phone: '',
     email: '',
-    website: '',
+
   });
 
   useEffect(() => {
@@ -45,7 +53,7 @@ export default function MyBusinessScreen() {
 
   // Refilter services when toggle changes
   useEffect(() => {
-    const filteredServices = showInactiveServices 
+    const filteredServices = showInactiveServices
       ? allServices // Show all services
       : allServices.filter(s => s.is_active === true); // Show only active
     setServices(filteredServices);
@@ -60,7 +68,7 @@ export default function MyBusinessScreen() {
 
       // Cargar datos del proveedor
       let providerData = await BookingService.getProviderById(user.id);
-      
+
       // Si no existe el proveedor, crear uno básico
       if (!providerData) {
         log.info(LogCategory.SERVICE, 'Provider not found, creating new provider', { userId: user.id });
@@ -76,7 +84,7 @@ export default function MyBusinessScreen() {
           is_active: true,
         });
       }
-      
+
       setProvider(providerData);
       setBusinessData({
         business_name: providerData.business_name || '',
@@ -85,22 +93,22 @@ export default function MyBusinessScreen() {
         address: providerData.address || '',
         phone: providerData.phone || '',
         email: providerData.email || '',
-        website: '',
+
       });
 
       // Cargar TODOS los servicios (activos e inactivos) para gestión
       const allServicesData = await BookingService.getAllProviderServices(providerData.id);
       console.log('🔴 [MY BUSINESS] All services loaded:', allServicesData);
       console.log('🔴 [MY BUSINESS] All services summary:', allServicesData.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
-      
+
       // Store all services
       setAllServices(allServicesData);
-      
+
       // Filter services based on toggle state
-      const filteredServices = showInactiveServices 
+      const filteredServices = showInactiveServices
         ? allServicesData // Show all services
         : allServicesData.filter(s => s.is_active === true); // Show only active
-      
+
       console.log('🔴 [MY BUSINESS] Filtered services:', filteredServices.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
       setServices(filteredServices);
 
@@ -108,11 +116,23 @@ export default function MyBusinessScreen() {
       const availabilityData = await BookingService.getProviderAvailability(providerData.id);
       setAvailability(availabilityData);
 
-      log.info(LogCategory.SERVICE, 'Business data loaded successfully', { 
+      // Cargar métricas del proveedor
+      try {
+        const [revenue, apptCount] = await Promise.all([
+          BookingService.getProviderRevenueThisMonth(user.id),
+          BookingService.getMonthlyAppointmentsCount(user.id)
+        ]);
+        setRevenueThisMonth(revenue);
+        setMonthlyAppointments(apptCount);
+      } catch (metricsError) {
+        console.warn('🔴 [MY BUSINESS] Error loading metrics:', metricsError);
+      }
+
+      log.info(LogCategory.SERVICE, 'Business data loaded successfully', {
         providerId: user.id,
         servicesCount: allServicesData.length,
         activeServicesCount: allServicesData.filter(s => s.is_active === true).length,
-        availabilityCount: availabilityData.length 
+        availabilityCount: availabilityData.length
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading business data', { error: error instanceof Error ? error.message : String(error) });
@@ -127,7 +147,7 @@ export default function MyBusinessScreen() {
     console.log('🔴 [MY BUSINESS] user:', user);
     console.log('🔴 [MY BUSINESS] provider:', provider);
     console.log('🔴 [MY BUSINESS] businessData:', businessData);
-    
+
     if (!user || !provider) {
       console.log('🔴 [MY BUSINESS] Error: user o provider es null');
       return;
@@ -138,14 +158,14 @@ export default function MyBusinessScreen() {
       log.userAction('Save business data', { providerId: user.id, data: businessData });
 
       console.log('🔴 [MY BUSINESS] Guardando datos:', businessData);
-      
+
       // Actualizar el proveedor con los nuevos datos
       const updatedProvider = await BookingService.updateProvider(user.id, businessData);
-      
+
       console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
-      
+
       Alert.alert(
-        '✅ Datos Guardados', 
+        '✅ Datos Guardados',
         'La información de tu negocio se ha actualizado correctamente.',
         [
           {
@@ -160,8 +180,9 @@ export default function MyBusinessScreen() {
       );
     } catch (error) {
       console.error('🔴 [MY BUSINESS] Error guardando:', error);
-      log.error(LogCategory.SERVICE, 'Error saving business data', { error: error instanceof Error ? error.message : String(error) });
-      Alert.alert('Error', `No se pudieron guardar los datos: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error(LogCategory.SERVICE, 'Error saving business data', { error: errorMessage });
+      Alert.alert('Error', `No se pudieron guardar los datos: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -177,7 +198,7 @@ export default function MyBusinessScreen() {
         address: provider.address || '',
         phone: provider.phone || '',
         email: provider.email || '',
-        website: provider.website || '',
+
       });
     }
     setEditingBusiness(false);
@@ -205,7 +226,9 @@ export default function MyBusinessScreen() {
     return (
       <TabSafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ThemedText>Cargando datos del negocio...</ThemedText>
+          <Skeleton width="100%" height={200} borderRadius={16} style={{ marginBottom: 16 }} />
+          <Skeleton width="100%" height={150} borderRadius={16} style={{ marginBottom: 16 }} />
+          <Skeleton width="100%" height={150} borderRadius={16} style={{ marginBottom: 16 }} />
         </View>
       </TabSafeAreaView>
     );
@@ -213,434 +236,553 @@ export default function MyBusinessScreen() {
 
   return (
     <TabSafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>
-            Mi Negocio
-          </ThemedText>
-        </ThemedView>
-
-        {/* Información del Negocio */}
-        <Card variant="elevated" style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Información del Negocio
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+      >
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <ThemedView style={styles.header}>
+            <ThemedText type="title" style={styles.title}>
+              Mi Negocio
             </ThemedText>
-            {!editingBusiness && (
-              <Button
-                title="Editar"
-                size="small"
-                variant="outline"
-                onPress={() => setEditingBusiness(true)}
-              />
-            )}
-          </View>
+          </ThemedView>
 
-          {editingBusiness ? (
-            <View style={styles.editForm}>
-              <Input
-                label="Nombre del Negocio"
-                value={businessData.business_name}
-                onChangeText={(text) => setBusinessData({...businessData, business_name: text})}
-                placeholder="Nombre del Negocio"
-              />
-              <Input
-                label="Categoría"
-                value={businessData.category}
-                onChangeText={(text) => setBusinessData({...businessData, category: text})}
-                placeholder="Categoría del Negocio"
-              />
-              <Input
-                label="Descripción"
-                value={businessData.description}
-                onChangeText={(text) => setBusinessData({...businessData, description: text})}
-                placeholder="Descripción del Negocio"
-                multiline
-                numberOfLines={3}
-              />
-              <Input
-                label="Dirección"
-                value={businessData.address}
-                onChangeText={(text) => setBusinessData({...businessData, address: text})}
-                placeholder="Dirección del Negocio"
-              />
-              <Input
-                label="Teléfono"
-                value={businessData.phone}
-                onChangeText={(text) => setBusinessData({...businessData, phone: text})}
-                placeholder="Teléfono de Contacto"
-                keyboardType="phone-pad"
-              />
-              <Input
-                label="Email"
-                value={businessData.email}
-                onChangeText={(text) => setBusinessData({...businessData, email: text})}
-                placeholder="Email de Contacto"
-                keyboardType="email-address"
-              />
-              <Input
-                label="Sitio Web"
-                value={businessData.website}
-                onChangeText={(text) => setBusinessData({...businessData, website: text})}
-                placeholder="Sitio Web (opcional)"
-                keyboardType="url"
-              />
-              
-              {/* Botones de acción al final del formulario */}
-              <View style={styles.formActions}>
+          {/* Información del Negocio */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Información del Negocio
+              </ThemedText>
+              {!editingBusiness && (
                 <Button
-                  title="Cancelar"
+                  title="Editar"
+                  size="small"
                   variant="outline"
-                  onPress={handleCancelEdit}
-                  style={styles.cancelButton}
+                  onPress={() => setEditingBusiness(true)}
                 />
-                <Button
-                  title={saving ? "Guardando..." : "Guardar Cambios"}
-                  variant="primary"
-                  onPress={() => {
-                    console.log('🔴 [MY BUSINESS] Botón Guardar presionado');
-                    handleSaveBusiness();
+              )}
+            </View>
+
+            {editingBusiness ? (
+              <View style={styles.editForm}>
+                {/* Logo uploader */}
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      setUploadingLogo(true);
+                      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                      if (permission.status !== 'granted') {
+                        Alert.alert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
+                        return;
+                      }
+                      const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        aspect: [1, 1],
+                        quality: 0.8,
+                      });
+                      if (result.canceled || !result.assets?.length) return;
+                      const asset = result.assets[0];
+                      // Subir a Supabase Storage (bucket 'logos')
+                      try {
+                        const fileUri = asset.uri;
+                        const mime = (asset as any).mimeType || 'image/jpeg';
+                        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+                        const filePath = `${user?.id}/${Date.now()}.${ext}`;
+                        const response = await fetch(fileUri);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const { error: uploadError } = await supabase.storage
+                          .from('logos')
+                          .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
+                        if (uploadError) throw uploadError;
+                        // Obtener URL pública
+                        const { data: publicUrl } = await supabase.storage
+                          .from('logos').getPublicUrl(filePath);
+                        // Persistir en provider
+                        await BookingService.updateProvider(user!.id, { logo_url: publicUrl.publicUrl });
+                        setProvider(prev => prev ? { ...prev, logo_url: publicUrl.publicUrl } as any : prev);
+                        Alert.alert('Logo subido', 'Logo actualizado correctamente');
+                      } catch (uploadErr) {
+                        console.error('Error uploading logo:', uploadErr);
+                        Alert.alert('Error', 'No se pudo subir el logo');
+                      }
+                    } finally {
+                      setUploadingLogo(false);
+                    }
                   }}
-                  loading={saving}
-                  disabled={saving}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <IconSymbol name="photo" size={18} color={Colors.light.primary} />
+                    <ThemedText>{uploadingLogo ? 'Subiendo logo...' : 'Subir logo'}</ThemedText>
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Nombre del Negocio</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={businessData.business_name}
+                    onChangeText={(text) => setBusinessData({ ...businessData, business_name: text })}
+                    placeholder="Nombre del Negocio"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Categoría</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={businessData.category}
+                    onChangeText={(text) => setBusinessData({ ...businessData, category: text })}
+                    placeholder="Categoría del Negocio"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Descripción</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={businessData.description}
+                    onChangeText={(text) => setBusinessData({ ...businessData, description: text })}
+                    placeholder="Descripción del Negocio"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="sentences"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    returnKeyType="default"
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Dirección</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={businessData.address}
+                    onChangeText={(text) => setBusinessData({ ...businessData, address: text })}
+                    placeholder="Dirección del Negocio"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    autoCapitalize="sentences"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Teléfono</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={businessData.phone}
+                    onChangeText={(text) => setBusinessData({ ...businessData, phone: text })}
+                    placeholder="Teléfono de Contacto"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="phone-pad"
+                    textContentType="telephoneNumber"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={businessData.email}
+                    onChangeText={(text) => setBusinessData({ ...businessData, email: text })}
+                    placeholder="Email de Contacto"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+
+
+
+                {/* Botones de acción al final del formulario */}
+                <View style={styles.formActions}>
+                  <Button
+                    title="Cancelar"
+                    variant="outline"
+                    onPress={handleCancelEdit}
+                    style={styles.cancelButton}
+                  />
+                  <Button
+                    title={saving ? "Guardando..." : "Guardar Cambios"}
+                    variant="primary"
+                    onPress={() => {
+                      console.log('🔴 [MY BUSINESS] Botón Guardar presionado');
+                      handleSaveBusiness();
+                    }}
+                    loading={saving}
+                    disabled={saving}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.businessInfo}>
+                <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                  <Image
+                    source={{ uri: provider?.logo_url || `https://picsum.photos/seed/${provider?.id}/200` }}
+                    style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.light.surfaceVariant }}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
+                  />
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Nombre:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.business_name || 'No especificado'}</ThemedText>
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Categoría:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.category || 'No especificado'}</ThemedText>
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Descripción:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.bio || 'No especificado'}</ThemedText>
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Dirección:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.address || 'No especificado'}</ThemedText>
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Teléfono:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.phone || 'No especificado'}</ThemedText>
+                </View>
+                <View style={styles.infoRow}>
+                  <ThemedText style={styles.infoLabel}>Email:</ThemedText>
+                  <ThemedText style={styles.infoValue}>{provider?.email || 'No especificado'}</ThemedText>
+                </View>
+
+              </View>
+            )}
+          </Card>
+
+          {/* Servicios */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Mis Servicios ({allServices.filter(s => s.is_active).length} activos / {allServices.length} total)
+              </ThemedText>
+              <View style={styles.serviceHeaderActions}>
+                <TouchableOpacity
+                  onPress={() => setShowInactiveServices(!showInactiveServices)}
+                  style={[styles.toggleButton, showInactiveServices && styles.toggleButtonActive]}
+                >
+                  <ThemedText style={[styles.toggleButtonText, showInactiveServices && styles.toggleButtonTextActive]}>
+                    {showInactiveServices ? 'Ocultar Inactivos' : 'Ver Inactivos'}
+                  </ThemedText>
+                </TouchableOpacity>
+                <Button
+                  title="Agregar"
+                  size="small"
+                  onPress={handleAddService}
+                  leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
                 />
               </View>
             </View>
-          ) : (
-            <View style={styles.businessInfo}>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Nombre:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.business_name || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Categoría:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.category || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Descripción:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.description || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Dirección:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.address || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Teléfono:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.phone || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Email:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.email || 'No especificado'}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Sitio Web:</ThemedText>
-                <ThemedText style={styles.infoValue}>{provider?.website || 'No especificado'}</ThemedText>
-              </View>
-            </View>
-          )}
-        </Card>
 
-        {/* Servicios */}
-        <Card variant="elevated" style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Mis Servicios ({allServices.filter(s => s.is_active).length} activos / {allServices.length} total)
-            </ThemedText>
-            <View style={styles.serviceHeaderActions}>
-              <TouchableOpacity 
-                onPress={() => setShowInactiveServices(!showInactiveServices)}
-                style={[styles.toggleButton, showInactiveServices && styles.toggleButtonActive]}
-              >
-                <ThemedText style={[styles.toggleButtonText, showInactiveServices && styles.toggleButtonTextActive]}>
-                  {showInactiveServices ? 'Ocultar Inactivos' : 'Ver Inactivos'}
-                </ThemedText>
-              </TouchableOpacity>
-              <Button
-                title="Agregar"
-                size="small"
-                onPress={handleAddService}
-                leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
-              />
-            </View>
-          </View>
-
-          {services.length > 0 ? (
-            <View style={styles.servicesList}>
-              {services.map((service) => (
-                <View 
-                  key={service.id} 
-                  style={[
-                    styles.serviceItem,
-                    { opacity: service.is_active ? 1 : 0.6 } // Inactive services appear grayed out
-                  ]}
-                >
-                  <View style={styles.serviceInfo}>
-                    <ThemedText style={[
-                      styles.serviceName,
-                      !service.is_active && { color: Colors.light.textSecondary }
-                    ]}>
-                      {service.name} {!service.is_active && '(Inactivo)'}
-                    </ThemedText>
-                    <ThemedText style={[
-                      styles.servicePrice,
-                      !service.is_active && { color: Colors.light.textSecondary }
-                    ]}>
-                      ${service.price_amount} - {service.duration_minutes} min
-                    </ThemedText>
-                  </View>
-                  <View style={styles.serviceActions}>
-                    <TouchableOpacity 
-                      style={[styles.statusBadge, { backgroundColor: service.is_active ? Colors.light.success : Colors.light.error }]}
-                      onPress={async () => {
-                        const newStatus = !service.is_active;
-                        const action = newStatus ? 'activar' : 'desactivar';
-                        const actionPast = newStatus ? 'activado' : 'desactivado';
-                        
-                        Alert.alert(
-                          `${action.charAt(0).toUpperCase() + action.slice(1)} Servicio`,
-                          `¿Estás seguro de que quieres ${action} el servicio "${service.name}"?`,
-                          [
-                            { text: 'Cancelar', style: 'cancel' },
-                            { 
-                              text: action.charAt(0).toUpperCase() + action.slice(1),
-                              onPress: async () => {
-                                try {
-                                  console.log('🔴 [MY BUSINESS] Toggling service:', {
-                                    serviceId: service.id,
-                                    currentStatus: service.is_active,
-                                    newStatus
-                                  });
-                                  
-                                  await BookingService.updateService(service.id, {
-                                    is_active: newStatus
-                                  });
-                                  
-                                  await loadBusinessData(); // Refresh data
-                                  Alert.alert('Éxito', `Servicio ${actionPast} correctamente`);
-                                } catch (error) {
-                                  console.error('🔴 [MY BUSINESS] Error toggling service:', error);
-                                  Alert.alert('Error', 'No se pudo actualizar el servicio');
-                                }
-                              }
-                            }
-                          ]
-                        );
-                      }}
-                    >
-                      <ThemedText style={styles.statusText}>
-                        {service.is_active ? 'Activo' : 'Inactivo'}
+            {services.length > 0 ? (
+              <View style={styles.servicesList}>
+                {services.map((service) => (
+                  <View
+                    key={service.id}
+                    style={[
+                      styles.serviceItem,
+                      { opacity: service.is_active ? 1 : 0.6 } // Inactive services appear grayed out
+                    ]}
+                  >
+                    <View style={styles.serviceInfo}>
+                      <ThemedText style={[
+                        styles.serviceName,
+                        !service.is_active && { color: Colors.light.textSecondary }
+                      ]}>
+                        {service.name} {!service.is_active && '(Inactivo)'}
                       </ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleEditService(service.id)}
-                      style={styles.iconButton}
-                    >
-                      <IconSymbol name="pencil" size={16} color={Colors.light.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => {
-                        console.log('🔴 [MY BUSINESS] Delete button pressed for service:', {
-                          serviceId: service.id,
-                          serviceName: service.name
-                        });
-                        console.log('🔴 [MY BUSINESS] Current services before delete:', services.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
-                        
-                        const deleteHandler = async () => {
-                          console.log('🔴 [MY BUSINESS] Confirmed deletion for service:', service.id);
-                          try {
-                            console.log('🔴 [MY BUSINESS] Calling deleteService...');
-                            await BookingService.deleteService(service.id);
-                            
-                            console.log('🔴 [MY BUSINESS] Service deleted, refreshing data...');
-                            await loadBusinessData(); // Refresh data
-                            
-                            console.log('🔴 [MY BUSINESS] ✅ Service deactivation completed successfully');
-                            
-                            if (Platform.OS === 'web') {
-                              window.alert('Servicio desactivado correctamente');
-                            } else {
-                              Alert.alert('Éxito', 'Servicio desactivado correctamente');
-                            }
-                          } catch (error) {
-                            console.error('🔴 [MY BUSINESS] ❌ Error deleting service:', error);
-                            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-                            
-                            if (Platform.OS === 'web') {
-                              window.alert(`No se pudo eliminar el servicio:\n${errorMessage}`);
-                            } else {
-                              Alert.alert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
-                            }
-                          }
-                        };
-                        
-                        if (Platform.OS === 'web') {
-                          const confirmed = window.confirm(
-                            `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`
-                          );
-                          
-                          if (confirmed) {
-                            deleteHandler();
-                          } else {
-                            console.log('🔴 [MY BUSINESS] Delete cancelled by user');
-                          }
-                        } else {
+                      <ThemedText style={[
+                        styles.servicePrice,
+                        !service.is_active && { color: Colors.light.textSecondary }
+                      ]}>
+                        ${service.price_amount} - {service.duration_minutes} min
+                      </ThemedText>
+                    </View>
+                    <View style={styles.serviceActions}>
+                      <TouchableOpacity
+                        style={[styles.statusBadge, { backgroundColor: service.is_active ? Colors.light.success : Colors.light.error }]}
+                        onPress={async () => {
+                          const newStatus = !service.is_active;
+                          const action = newStatus ? 'activar' : 'desactivar';
+                          const actionPast = newStatus ? 'activado' : 'desactivado';
+
                           Alert.alert(
-                            'Desactivar Servicio',
-                            `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`,
+                            `${action.charAt(0).toUpperCase() + action.slice(1)} Servicio`,
+                            `¿Estás seguro de que quieres ${action} el servicio "${service.name}"?`,
                             [
-                              { 
-                                text: 'Cancelar', 
-                                style: 'cancel',
-                                onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
-                              },
-                              { 
-                                text: 'Desactivar', 
-                                style: 'destructive',
-                                onPress: deleteHandler
+                              { text: 'Cancelar', style: 'cancel' },
+                              {
+                                text: action.charAt(0).toUpperCase() + action.slice(1),
+                                onPress: async () => {
+                                  try {
+                                    console.log('🔴 [MY BUSINESS] Toggling service:', {
+                                      serviceId: service.id,
+                                      currentStatus: service.is_active,
+                                      newStatus
+                                    });
+
+                                    await BookingService.updateService(service.id, {
+                                      is_active: newStatus
+                                    });
+
+                                    await loadBusinessData(); // Refresh data
+                                    Alert.alert('Éxito', `Servicio ${actionPast} correctamente`);
+                                  } catch (error) {
+                                    console.error('🔴 [MY BUSINESS] Error toggling service:', error);
+                                    Alert.alert('Error', 'No se pudo actualizar el servicio');
+                                  }
+                                }
                               }
                             ]
                           );
-                        }
-                      }}
-                      style={styles.iconButton}
-                    >
-                      <IconSymbol name="trash" size={16} color={Colors.light.error} />
-                    </TouchableOpacity>
+                        }}
+                      >
+                        <ThemedText style={styles.statusText}>
+                          {service.is_active ? 'Activo' : 'Inactivo'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleEditService(service.id)}
+                        style={styles.iconButton}
+                      >
+                        <IconSymbol name="pencil" size={16} color={Colors.light.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          console.log('🔴 [MY BUSINESS] Delete button pressed for service:', {
+                            serviceId: service.id,
+                            serviceName: service.name
+                          });
+                          console.log('🔴 [MY BUSINESS] Current services before delete:', services.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
+
+                          const deleteHandler = async () => {
+                            console.log('🔴 [MY BUSINESS] Confirmed deletion for service:', service.id);
+                            try {
+                              console.log('🔴 [MY BUSINESS] Calling deleteService...');
+                              await BookingService.deleteService(service.id);
+
+                              console.log('🔴 [MY BUSINESS] Service deleted, refreshing data...');
+                              await loadBusinessData(); // Refresh data
+
+                              console.log('🔴 [MY BUSINESS] ✅ Service deactivation completed successfully');
+
+                              if (Platform.OS === 'web') {
+                                window.alert('Servicio desactivado correctamente');
+                              } else {
+                                Alert.alert('Éxito', 'Servicio desactivado correctamente');
+                              }
+                            } catch (error) {
+                              console.error('🔴 [MY BUSINESS] ❌ Error deleting service:', error);
+                              const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
+                              if (Platform.OS === 'web') {
+                                window.alert(`No se pudo eliminar el servicio:\n${errorMessage}`);
+                              } else {
+                                Alert.alert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
+                              }
+                            }
+                          };
+
+                          if (Platform.OS === 'web') {
+                            const confirmed = window.confirm(
+                              `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`
+                            );
+
+                            if (confirmed) {
+                              deleteHandler();
+                            } else {
+                              console.log('🔴 [MY BUSINESS] Delete cancelled by user');
+                            }
+                          } else {
+                            Alert.alert(
+                              'Desactivar Servicio',
+                              `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`,
+                              [
+                                {
+                                  text: 'Cancelar',
+                                  style: 'cancel',
+                                  onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
+                                },
+                                {
+                                  text: 'Desactivar',
+                                  style: 'destructive',
+                                  onPress: deleteHandler
+                                }
+                              ]
+                            );
+                          }
+                        }}
+                        style={styles.iconButton}
+                      >
+                        <IconSymbol name="trash" size={16} color={Colors.light.error} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ))}
-              
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <IconSymbol name="scissors" size={32} color={Colors.light.textSecondary} />
-              <ThemedText style={styles.emptyText}>No tienes servicios registrados</ThemedText>
-              <ThemedText style={styles.emptySubtext}>
-                Agrega tu primer servicio para empezar a recibir reservas
+                ))}
+
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <IconSymbol name="scissors" size={32} color={Colors.light.textSecondary} />
+                <ThemedText style={styles.emptyText}>No tienes servicios registrados</ThemedText>
+                <ThemedText style={styles.emptySubtext}>
+                  Agrega tu primer servicio para empezar a recibir reservas
+                </ThemedText>
+                <Button
+                  title="Agregar Servicio"
+                  size="medium"
+                  onPress={handleAddService}
+                  style={styles.addFirstServiceButton}
+                  leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
+                />
+              </View>
+            )}
+          </Card>
+
+          {/* Empleados */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Empleados
               </ThemedText>
               <Button
-                title="Agregar Servicio"
-                size="medium"
-                onPress={handleAddService}
-                style={styles.addFirstServiceButton}
-                leftIcon={<IconSymbol name="plus.circle" size={16} color={Colors.light.surface} />}
+                title="Gestionar"
+                size="small"
+                onPress={() => {
+                  log.userAction('Navigate to employee management', { providerId: user?.id });
+                  router.push('/(provider)/employee-management');
+                }}
+                leftIcon={<IconSymbol name="person.2" size={16} color={Colors.light.surface} />}
               />
             </View>
-          )}
-        </Card>
 
-        {/* Empleados */}
-        <Card variant="elevated" style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Empleados
-            </ThemedText>
-            <Button
-              title="Gestionar"
-              size="small"
-              onPress={() => {
-                log.userAction('Navigate to employee management', { providerId: user?.id });
-                router.push('/(provider)/employee-management');
-              }}
-              leftIcon={<IconSymbol name="person.2" size={16} color={Colors.light.surface} />}
-            />
-          </View>
-          
-          <ThemedView style={styles.employeeInfo}>
-            <IconSymbol name="person.2" size={24} color={Colors.light.primary} />
-            <View style={styles.employeeText}>
-              <ThemedText style={styles.employeeTitle}>
-                Gestiona tu equipo
-              </ThemedText>
-              <ThemedText style={styles.employeeSubtext}>
-                Agrega empleados y configura sus horarios individuales
-              </ThemedText>
-            </View>
-          </ThemedView>
-        </Card>
-
-        {/* Horarios */}
-        <Card variant="elevated" style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Horarios de Atención
-            </ThemedText>
-            <Button
-              title="Configurar"
-              size="small"
-              onPress={handleManageAvailability}
-              leftIcon={<IconSymbol name="clock" size={16} color={Colors.light.surface} />}
-            />
-          </View>
-
-          {availability.length > 0 ? (
-            <View style={styles.availabilityList}>
-              {availability.map((av) => {
-                const weekdays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                return (
-                  <View key={av.id} style={styles.availabilityItem}>
-                    <View style={styles.dayInfo}>
-                      <ThemedText style={styles.dayName}>
-                        {weekdays[av.weekday]}
-                      </ThemedText>
-                      <ThemedText style={styles.timeRange}>
-                        {av.start_time} - {av.end_time}
-                      </ThemedText>
-                    </View>
-                    <View style={styles.availabilityBadge}>
-                      <ThemedText style={styles.availabilityBadgeText}>Activo</ThemedText>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <ThemedView style={styles.availabilityInfo}>
-              <IconSymbol name="clock" size={24} color={Colors.light.primary} />
-              <View style={styles.availabilityText}>
-                <ThemedText style={styles.availabilityTitle}>
-                  Configura tus horarios
+            <ThemedView style={styles.employeeInfo}>
+              <IconSymbol name="person.2" size={24} color={Colors.light.primary} />
+              <View style={styles.employeeText}>
+                <ThemedText style={styles.employeeTitle}>
+                  Gestiona tu equipo
                 </ThemedText>
-                <ThemedText style={styles.availabilitySubtext}>
-                  Define cuándo estás disponible para recibir citas
+                <ThemedText style={styles.employeeSubtext}>
+                  Agrega empleados y configura sus horarios individuales
                 </ThemedText>
               </View>
             </ThemedView>
-          )}
-        </Card>
+          </Card>
 
-        {/* Estadísticas */}
-        <Card variant="elevated" style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Estadísticas
-          </ThemedText>
-          
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <ThemedText style={styles.statValue}>{provider?.rating?.toFixed(1) || '0.0'}</ThemedText>
-              <ThemedText style={styles.statLabel}>Calificación</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <ThemedText style={styles.statValue}>{provider?.total_reviews || 0}</ThemedText>
-              <ThemedText style={styles.statLabel}>Reseñas</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <ThemedText style={styles.statValue}>{services.length}</ThemedText>
-              <ThemedText style={styles.statLabel}>Servicios</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <ThemedText style={styles.statValue}>
-                {services.filter(s => s.is_active).length}
+          {/* Horarios */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Horarios de Atención
               </ThemedText>
-              <ThemedText style={styles.statLabel}>Activos</ThemedText>
+              <Button
+                title="Configurar"
+                size="small"
+                onPress={handleManageAvailability}
+                leftIcon={<IconSymbol name="clock" size={16} color={Colors.light.surface} />}
+              />
             </View>
-          </View>
-        </Card>
 
-        {/* Espacio adicional */}
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
+            {availability.length > 0 ? (
+              <View style={styles.availabilityList}>
+                {availability.map((av) => {
+                  const weekdays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                  return (
+                    <View key={av.id} style={styles.availabilityItem}>
+                      <View style={styles.dayInfo}>
+                        <ThemedText style={styles.dayName}>
+                          {weekdays[av.weekday]}
+                        </ThemedText>
+                        <ThemedText style={styles.timeRange}>
+                          {av.start_time} - {av.end_time}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.availabilityBadge}>
+                        <ThemedText style={styles.availabilityBadgeText}>Activo</ThemedText>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <ThemedView style={styles.availabilityInfo}>
+                <IconSymbol name="clock" size={24} color={Colors.light.primary} />
+                <View style={styles.availabilityText}>
+                  <ThemedText style={styles.availabilityTitle}>
+                    Configura tus horarios
+                  </ThemedText>
+                  <ThemedText style={styles.availabilitySubtext}>
+                    Define cuándo estás disponible para recibir citas
+                  </ThemedText>
+                </View>
+              </ThemedView>
+            )}
+          </Card>
+
+          {/* Estadísticas */}
+          <Card variant="elevated" style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Estadísticas
+            </ThemedText>
+
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>{provider?.rating?.toFixed(1) || '0.0'}</ThemedText>
+                <ThemedText style={styles.statLabel}>Calificación</ThemedText>
+              </View>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>{provider?.total_reviews || 0}</ThemedText>
+                <ThemedText style={styles.statLabel}>Reseñas</ThemedText>
+              </View>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>{services.length}</ThemedText>
+                <ThemedText style={styles.statLabel}>Servicios</ThemedText>
+              </View>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>
+                  {services.filter(s => s.is_active).length}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>Activos</ThemedText>
+              </View>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>
+                  {revenueThisMonth ? `${revenueThisMonth.currency} ${revenueThisMonth.amount.toFixed(2)}` : '—'}
+                </ThemedText>
+                <ThemedText style={styles.statLabel}>Ingresos (mes)</ThemedText>
+              </View>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statValue}>{monthlyAppointments}</ThemedText>
+                <ThemedText style={styles.statLabel}>Citas este mes</ThemedText>
+              </View>
+            </View>
+          </Card>
+
+          {/* Espacio adicional */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </TabSafeAreaView>
   );
 }
@@ -653,6 +795,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['5xl'],
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -661,10 +806,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
+    paddingTop: DesignTokens.spacing.sm,    // pequeño espacio superior
+    paddingBottom: DesignTokens.spacing.lg, // espacio inferior cómodo
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
   },
+
   title: {
     textAlign: 'center',
   },
@@ -683,6 +830,28 @@ const styles = StyleSheet.create({
   },
   editForm: {
     gap: DesignTokens.spacing.lg,
+  },
+  fieldGroup: {
+    marginBottom: DesignTokens.spacing.lg,
+  },
+  fieldLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: DesignTokens.radius.lg,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.text,
+    backgroundColor: Colors.light.surface,
+  },
+  textArea: {
+    minHeight: 112,
   },
   businessInfo: {
     gap: DesignTokens.spacing.md,

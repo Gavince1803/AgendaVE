@@ -1,127 +1,179 @@
 // 📱 Pantalla de Detalles del Proveedor
 // Muestra información completa del proveedor, servicios, horarios y permite hacer reservas
 
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet
+  Alert,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/IconSymbol';
+import { MediaGallerySkeleton, ProviderProfileSkeleton } from '@/components/ui/LoadingStates';
+import { MotionFadeIn } from '@/components/ui/MotionFadeIn';
+import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { Availability, BookingService, Provider, Review, Service } from '@/lib/booking-service';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Availability,
+  BookingService,
+  Provider,
+  ProviderHighlight,
+  ProviderLoyaltySummary,
+  ProviderMedia,
+  ProviderTeamMember,
+  Review,
+  Service
+} from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { Image } from 'expo-image';
 
 export default function ProviderDetailScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  const { user } = useAuth();
+  const isClient = user?.profile?.role === 'client';
   const [provider, setProvider] = useState<Provider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [media, setMedia] = useState<ProviderMedia[]>([]);
+  const [teamMembers, setTeamMembers] = useState<ProviderTeamMember[]>([]);
+  const [highlights, setHighlights] = useState<ProviderHighlight[]>([]);
+  const [loyaltySummary, setLoyaltySummary] = useState<ProviderLoyaltySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const log = useLogger();
+  const logRef = useRef(log);
 
   useEffect(() => {
-    if (providerId) {
-      loadProviderData();
+    logRef.current = log;
+  }, [log]);
+
+  const loadFavoriteStatus = useCallback(async () => {
+    if (!providerId) return;
+
+    try {
+      const favoriteStatus = await BookingService.isProviderFavorite(providerId);
+      setIsFavorite(favoriteStatus);
+    } catch (error) {
+      logRef.current.error(LogCategory.SERVICE, 'Error loading favorite status', error);
     }
   }, [providerId]);
 
-  // Refresh data when screen gains focus (e.g., returning from rating screen)
-  useFocusEffect(
-    useCallback(() => {
-      if (providerId) {
-        log.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
-        loadProviderData();
-      }
-    }, [providerId])
-  );
-
-
-  const loadProviderData = async () => {
+  const loadProviderData = useCallback(async () => {
     if (!providerId) return;
-    
+
     try {
       setLoading(true);
-      log.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
+      logRef.current.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
 
       // Cargar datos en paralelo
-      const [providerData, servicesData, availabilityData, reviewsData] = await Promise.all([
+      const loyaltyPromise = isClient
+        ? BookingService.getProviderLoyaltySummary(providerId)
+        : Promise.resolve(null);
+
+      const [
+        providerData,
+        servicesData,
+        availabilityData,
+        reviewsData,
+        mediaData,
+        teamData,
+        highlightsData,
+        loyaltyData
+      ] = await Promise.all([
         BookingService.getProviderDetails(providerId),
         BookingService.getProviderServices(providerId),
         BookingService.getProviderAvailability(providerId),
-        BookingService.getProviderReviews(providerId)
+        BookingService.getProviderReviews(providerId),
+        BookingService.getProviderMedia(providerId),
+        BookingService.getProviderTeam(providerId),
+        BookingService.getProviderHighlights(providerId),
+        loyaltyPromise
       ]);
 
       setProvider(providerData);
       setServices(servicesData);
       setAvailability(availabilityData);
       setReviews(reviewsData);
-      
+      setMedia(mediaData);
+      setTeamMembers(teamData);
+      setHighlights(highlightsData);
+      setLoyaltySummary(loyaltyData);
+
       // Load favorite status
       await loadFavoriteStatus();
 
-      log.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
+      logRef.current.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
         provider: providerData?.business_name,
         servicesCount: servicesData.length,
         availabilityCount: availabilityData.length,
         reviewsCount: reviewsData.length,
+        mediaCount: mediaData.length,
+        teamCount: teamData.length,
+        highlightsCount: highlightsData.length,
         providerRating: providerData?.rating,
         totalReviews: providerData?.total_reviews
       });
     } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading provider data', error);
+      logRef.current.error(LogCategory.SERVICE, 'Error loading provider data', error);
       Alert.alert('Error', 'No se pudo cargar la información del proveedor');
     } finally {
       setLoading(false);
     }
-  };
+  }, [providerId, isClient, loadFavoriteStatus]);
 
-  const loadFavoriteStatus = async () => {
-    if (!providerId) return;
-    
-    try {
-      const favoriteStatus = await BookingService.isProviderFavorite(providerId);
-      setIsFavorite(favoriteStatus);
-    } catch (error) {
-      log.error(LogCategory.SERVICE, 'Error loading favorite status', error);
-    }
-  };
+  useEffect(() => {
+    loadProviderData();
+  }, [loadProviderData]);
+
+  // Refresh data when screen gains focus (e.g., returning from rating screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (!providerId) {
+        return;
+      }
+
+      logRef.current.info(LogCategory.DATABASE, 'Screen focused - refreshing provider data', { providerId });
+      loadProviderData();
+    }, [providerId, loadProviderData])
+  );
 
   const handleToggleFavorite = async () => {
     if (!providerId || !provider) return;
-    
+
     try {
       setFavoriteLoading(true);
-      
+
       if (isFavorite) {
         await BookingService.removeFromFavorites(providerId);
-        log.userAction('Remove from favorites', { 
+        log.userAction('Remove from favorites', {
           providerId,
           providerName: provider.business_name,
           screen: 'ProviderDetail'
         });
       } else {
         await BookingService.addToFavorites(providerId);
-        log.userAction('Add to favorites', { 
+        log.userAction('Add to favorites', {
           providerId,
           providerName: provider.business_name,
           screen: 'ProviderDetail'
         });
       }
-      
+
       setIsFavorite(!isFavorite);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error toggling favorite', error);
@@ -137,17 +189,21 @@ export default function ProviderDetailScreen() {
   };
 
   const handleBookService = (service: Service) => {
-    log.userAction('Select service for booking', { 
-      serviceId: service.id, 
+    log.userAction('Select service for booking', {
+      serviceId: service.id,
       serviceName: service.name,
-      providerId: providerId 
+      providerId: providerId
     });
-    
+
     router.push({
       pathname: '/(booking)/service-selection',
       params: {
         providerId: providerId!,
-        providerName: provider?.business_name || 'Proveedor'
+        providerName: provider?.business_name || 'Proveedor',
+        preselectedServiceId: service.id.toString(),
+        preselectedServiceName: service.name,
+        preselectedServicePrice: service.price_amount.toString(),
+        preselectedServiceDuration: service.duration_minutes.toString()
       }
     });
   };
@@ -165,10 +221,69 @@ export default function ProviderDetailScreen() {
 
   const formatAvailability = (availability: Availability[]) => {
     const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    return availability.map(a => {
-      const dayName = days[a.weekday];
-      return `${dayName}: ${a.start_time} - ${a.end_time}`;
-    }).join('\n');
+    return availability
+      .slice()
+      .sort((a, b) => a.weekday - b.weekday)
+      .map(slot => ({
+        id: slot.id,
+        day: days[slot.weekday],
+        range: `${slot.start_time.slice(0, 5)} - ${slot.end_time.slice(0, 5)}`,
+      }));
+  };
+
+  const handleCallProvider = () => {
+    if (!provider?.phone) return;
+    Linking.openURL(`tel:${provider.phone}`);
+  };
+
+  const handleOpenMaps = () => {
+    if (!provider?.address) return;
+    const encoded = encodeURIComponent(provider.address);
+    const url = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    Linking.openURL(url);
+  };
+
+  const handleShareProvider = async () => {
+    if (!provider) return;
+    try {
+      await Share.share({
+        message: `Descubre ${provider.business_name} en AgendaVE. Reserva tu cita en ${provider.address || 'su local'}.`,
+      });
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error sharing provider', error);
+    }
+  };
+
+  const quickActions = [
+    {
+      id: 'call',
+      label: 'Llamar',
+      icon: 'phone' as IconSymbolName,
+      onPress: handleCallProvider,
+      disabled: !provider?.phone,
+    },
+    {
+      id: 'directions',
+      label: 'Cómo llegar',
+      icon: 'location',
+      onPress: handleOpenMaps,
+      disabled: !provider?.address,
+    },
+    {
+      id: 'share',
+      label: 'Compartir',
+      icon: 'share',
+      onPress: handleShareProvider,
+      disabled: false,
+    },
+  ];
+
+  const handleHighlightPress = (highlight: ProviderHighlight) => {
+    if (!highlight.description) {
+      return;
+    }
+
+    Alert.alert(highlight.title, highlight.description);
   };
 
   const renderStars = (rating: number) => {
@@ -200,17 +315,17 @@ export default function ProviderDetailScreen() {
 
   if (loading) {
     return (
-      <TabSafeAreaView style={styles.container}>
-        <ThemedView style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Cargando información...</ThemedText>
-        </ThemedView>
-      </TabSafeAreaView>
+      <BookingSafeAreaView style={styles.container}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ProviderProfileSkeleton />
+        </ScrollView>
+      </BookingSafeAreaView>
     );
   }
 
   if (!provider) {
     return (
-      <TabSafeAreaView style={styles.container}>
+      <BookingSafeAreaView style={styles.container}>
         <ThemedView style={styles.errorContainer}>
           <ThemedText style={styles.errorText}>Proveedor no encontrado</ThemedText>
           <Button
@@ -219,12 +334,14 @@ export default function ProviderDetailScreen() {
             style={styles.backButton}
           />
         </ThemedView>
-      </TabSafeAreaView>
+      </BookingSafeAreaView>
     );
   }
 
+  const availabilitySlots = formatAvailability(availability);
+
   return (
-    <TabSafeAreaView style={styles.container}>
+    <BookingSafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -232,15 +349,28 @@ export default function ProviderDetailScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
+        {provider.hero_image_url && (
+          <MotionFadeIn delay={40}>
+            <Image
+              source={{ uri: provider.hero_image_url }}
+              style={styles.heroImage}
+              contentFit="cover"
+            />
+          </MotionFadeIn>
+        )}
+
         {/* Header del Proveedor */}
         <Card variant="elevated" style={styles.headerCard}>
-          <ThemedView style={styles.headerContent}>
-            <ThemedView style={styles.providerMainSection}>
-              <ThemedView style={styles.providerInfo}>
+          <View style={styles.headerContent}>
+            <View style={styles.providerMainSection}>
+              <View style={styles.providerInfo}>
                 <ThemedText style={styles.businessName}>{provider.business_name}</ThemedText>
                 <ThemedText style={styles.category}>{provider.category}</ThemedText>
-              </ThemedView>
-              
+                {provider.tagline && (
+                  <ThemedText style={styles.tagline}>{provider.tagline}</ThemedText>
+                )}
+              </View>
+
               <Button
                 title=""
                 variant="ghost"
@@ -257,115 +387,460 @@ export default function ProviderDetailScreen() {
                   />
                 }
               />
-            </ThemedView>
-            
+            </View>
+
             {/* Rating */}
-            <ThemedView style={styles.ratingContainer}>
-              <ThemedView style={styles.starsContainer}>
+            <View style={styles.ratingContainer}>
+              <View style={styles.starsContainer}>
                 {renderStars(provider.rating)}
-              </ThemedView>
+              </View>
               <ThemedText style={styles.ratingText}>
                 {provider.rating.toFixed(1)} ({provider.total_reviews} reseñas)
               </ThemedText>
-            </ThemedView>
+            </View>
 
             {/* Información de contacto */}
             {provider.address && (
-              <ThemedView style={styles.contactInfo}>
+              <View style={styles.contactInfo}>
                 <IconSymbol name="location" size={16} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.contactText}>{provider.address}</ThemedText>
-              </ThemedView>
+              </View>
             )}
-            
+
             {provider.phone && (
-              <ThemedView style={styles.contactInfo}>
+              <View style={styles.contactInfo}>
                 <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.contactText}>{provider.phone}</ThemedText>
-              </ThemedView>
+              </View>
             )}
-          </ThemedView>
+
+            {provider.specialties && provider.specialties.length > 0 && (
+              <View style={styles.specialtiesRow}>
+                {provider.specialties.slice(0, 4).map((specialty, index) => (
+                  <View key={`${specialty}-${index}`} style={styles.specialtyChip}>
+                    <IconSymbol name="sparkles" size={12} color={Colors.light.primary} />
+                    <ThemedText style={styles.specialtyText}>{specialty}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.quickActionsRow}>
+              {quickActions.map((action) => (
+                <TouchableOpacity
+                  key={action.id}
+                  style={[
+                    styles.quickActionButton,
+                    action.disabled && styles.quickActionDisabled,
+                  ]}
+                  onPress={action.onPress}
+                  disabled={action.disabled}
+                >
+                  <IconSymbol
+                    name={action.icon}
+                    size={18}
+                    color={action.disabled ? Colors.light.textSecondary : Colors.light.primary}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.quickActionLabel,
+                      action.disabled && styles.quickActionLabelDisabled,
+                    ]}
+                  >
+                    {action.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
           {provider.bio && (
             <ThemedText style={styles.bio}>{provider.bio}</ThemedText>
           )}
+
+          {provider.mission && (
+            <ThemedText style={styles.mission}>{provider.mission}</ThemedText>
+          )}
         </Card>
+
+        {highlights.length > 0 && (
+          <MotionFadeIn delay={80}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Lo que nos distingue</ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.highlightScroll}
+              >
+                {highlights.map((highlight) => (
+                  <TouchableOpacity key={highlight.id} onPress={() => handleHighlightPress(highlight)} activeOpacity={0.9}>
+                    <Card variant="elevated" style={styles.highlightCard}>
+                      <View style={styles.highlightHeader}>
+                        <View style={styles.highlightIconWrapper}>
+                          <IconSymbol
+                            name={(highlight.icon as IconSymbolName) || 'star'}
+                            size={18}
+                            color={Colors.light.primary}
+                          />
+                        </View>
+                        {highlight.badge && (
+                          <View style={styles.highlightBadge}>
+                            <ThemedText style={styles.highlightBadgeText}>{highlight.badge}</ThemedText>
+                          </View>
+                        )}
+                      </View>
+                      <ThemedText style={styles.highlightTitle}>{highlight.title}</ThemedText>
+                      {highlight.description && (
+                        <ThemedText style={styles.highlightDescription}>{highlight.description}</ThemedText>
+                      )}
+                    </Card>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
 
         {/* Servicios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Servicios ({services.length})</ThemedText>
           {services.length > 0 ? (
-            services.map((service) => (
-              <Card key={service.id} variant="outlined" style={styles.serviceCard}>
-                <ThemedView style={styles.serviceContent}>
-                  <ThemedView style={styles.serviceInfo}>
-                    <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
-                    {service.description && (
-                      <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
-                    )}
-                    <ThemedView style={styles.serviceDetails}>
-                      <Badge variant="secondary" style={styles.durationBadge}>
-                        <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
-                        <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
-                      </Badge>
-                      <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
-                    </ThemedView>
-                  </ThemedView>
-                  <Button
-                    title="Reservar"
-                    onPress={() => handleBookService(service)}
-                    style={styles.bookButton}
-                    size="small"
-                  />
-                </ThemedView>
-              </Card>
+            services.map((service, index) => (
+              <MotionFadeIn key={service.id} delay={index * 60}>
+                <Card variant="default" style={styles.serviceCard}>
+                  <View style={styles.serviceContent}>
+                    <View style={styles.serviceInfo}>
+                      <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                      {service.description && (
+                        <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                      )}
+                      <View style={styles.serviceDetails}>
+                        <View style={styles.serviceMetaChip}>
+                          <IconSymbol name="clock" size={12} color={Colors.light.primary} />
+                          <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                        </View>
+                        <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
+                      </View>
+                    </View>
+                    <Button
+                      title="Reservar"
+                      onPress={() => handleBookService(service)}
+                      style={styles.bookButton}
+                      size="small"
+                    />
+                  </View>
+                </Card>
+              </MotionFadeIn>
             ))
           ) : (
             <Card variant="outlined" style={styles.emptyServicesCard}>
-              <ThemedView style={styles.emptyServicesContent}>
+              <View style={styles.emptyServicesContent}>
                 <IconSymbol name="wrench.and.screwdriver" size={48} color={Colors.light.textSecondary} />
                 <ThemedText style={styles.emptyServicesText}>Este proveedor aún no ha configurado servicios</ThemedText>
                 <ThemedText style={styles.emptyServicesSubtext}>Contacta directamente para obtener más información</ThemedText>
-              </ThemedView>
+              </View>
             </Card>
           )}
         </ThemedView>
 
+        {(media.length > 0 || refreshing) && (
+          <MotionFadeIn delay={100}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Galería</ThemedText>
+              {media.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.galleryScroll}
+                >
+                  {media.map((item) => (
+                    <Image
+                      key={item.id}
+                      source={{ uri: item.thumbnail_url || item.url }}
+                      style={styles.galleryImage}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ))}
+                </ScrollView>
+              ) : (
+                <MediaGallerySkeleton />
+              )}
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
+        {teamMembers.length > 0 && (
+          <MotionFadeIn delay={120}>
+            <ThemedView style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Conoce al equipo</ThemedText>
+              <View style={styles.teamGrid}>
+                {teamMembers.map((member) => (
+                  <Card key={member.id} variant="outlined" style={styles.teamCard}>
+                    <View style={styles.teamHeader}>
+                      <Image
+                        source={{ uri: member.avatar_url || provider.logo_url || undefined }}
+                        style={styles.teamAvatar}
+                        contentFit="cover"
+                      />
+                      <View style={styles.teamInfo}>
+                        <ThemedText style={styles.teamName}>{member.full_name}</ThemedText>
+                        {member.role && (
+                          <ThemedText style={styles.teamRole}>{member.role}</ThemedText>
+                        )}
+                      </View>
+                    </View>
+                    {member.bio && (
+                      <ThemedText style={styles.teamBio}>{member.bio}</ThemedText>
+                    )}
+                    {member.expertise && member.expertise.length > 0 && (
+                      <View style={styles.teamTagRow}>
+                        {member.expertise.slice(0, 3).map((tag, index) => (
+                          <View key={`${member.id}-tag-${index}`} style={styles.teamTag}>
+                            <ThemedText style={styles.teamTagText}>{tag}</ThemedText>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Card>
+                ))}
+              </View>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
+        {(provider.loyalty_enabled ?? true) && (
+          <MotionFadeIn delay={140}>
+            <ThemedView style={styles.section}>
+              <Card variant="elevated" style={styles.loyaltyCard}>
+                <View style={styles.loyaltyHeader}>
+                  <View style={styles.loyaltyHeaderText}>
+                    <ThemedText style={styles.sectionTitle}>Programa de Lealtad</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Acumula puntos en cada visita para canjear beneficios exclusivos.
+                    </ThemedText>
+                  </View>
+                  <IconSymbol name="rosette" size={28} color={Colors.light.primary} />
+                </View>
+
+                {isClient ? (
+                  loyaltySummary ? (
+                    <View style={styles.loyaltyStatsRow}>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyPoints}>{loyaltySummary.pointsBalance}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Puntos acumulados</ThemedText>
+                      </View>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyTier}>{loyaltySummary.tier}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Tu nivel actual</ThemedText>
+                      </View>
+                      <View style={styles.loyaltyStat}>
+                        <ThemedText style={styles.loyaltyPoints}>{loyaltySummary.pointsToNextReward}</ThemedText>
+                        <ThemedText style={styles.loyaltyLabel}>Pts. para próxima recompensa</ThemedText>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.loyaltyEmptyState}>
+                      <ThemedText style={styles.loyaltyEmptyTitle}>Aún no tienes puntos</ThemedText>
+                      <ThemedText style={styles.loyaltySubtitle}>
+                        Reserva tu primera cita para comenzar a acumular recompensas.
+                      </ThemedText>
+                    </View>
+                  )
+                ) : user ? (
+                  <View style={styles.loyaltyEmptyState}>
+                    <ThemedText style={styles.loyaltyEmptyTitle}>Programa disponible para clientes</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Pídele a tus clientes que inicien sesión para acumular puntos y canjear beneficios.
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={styles.loyaltyEmptyState}>
+                    <ThemedText style={styles.loyaltyEmptyTitle}>Inicia sesión para sumar puntos</ThemedText>
+                    <ThemedText style={styles.loyaltySubtitle}>
+                      Crea una cuenta o inicia sesión para participar en el programa de lealtad.
+                    </ThemedText>
+                    <Button
+                      title="Ingresar"
+                      variant="outline"
+                      onPress={() => router.push('/(auth)/login')}
+                      style={styles.loyaltyButton}
+                    />
+                  </View>
+                )}
+
+                {loyaltySummary?.recentActivity?.length ? (
+                  <View style={styles.loyaltyActivityList}>
+                    {loyaltySummary.recentActivity.map((activity) => (
+                      <View key={activity.id} style={styles.loyaltyActivityRow}>
+                        <View>
+                          <ThemedText style={styles.loyaltyActivityReason}>
+                            {activity.reason || 'Movimiento de puntos'}
+                          </ThemedText>
+                          <ThemedText style={styles.loyaltyActivityDate}>
+                            {new Date(activity.created_at).toLocaleDateString('es-VE', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </ThemedText>
+                        </View>
+                        <ThemedText
+                          style={[
+                            styles.loyaltyActivityPoints,
+                            activity.points_change >= 0 ? styles.loyaltyPointsEarned : styles.loyaltyPointsRedeemed,
+                          ]}
+                        >
+                          {activity.points_change >= 0 ? '+' : ''}{activity.points_change}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </Card>
+            </ThemedView>
+          </MotionFadeIn>
+        )}
+
         {/* Horarios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Horarios de Atención</ThemedText>
-          <Card variant="outlined" style={styles.availabilityCard}>
-            <ThemedText style={styles.availabilityText}>
-              {formatAvailability(availability)}
-            </ThemedText>
-          </Card>
+          <MotionFadeIn delay={120} offset={24}>
+            <Card variant="elevated" style={styles.availabilityCard}>
+              <View style={styles.availabilityHeader}>
+                <View style={styles.availabilityIcon}>
+                  <IconSymbol name="clock" size={18} color={Colors.light.primary} />
+                </View>
+                <View>
+                  <ThemedText style={styles.availabilityTitle}>Atención Personalizada</ThemedText>
+                  <ThemedText style={styles.availabilitySubtitle}>
+                    Agenda dentro de los horarios disponibles
+                  </ThemedText>
+                </View>
+              </View>
+
+              {availabilitySlots.length > 0 ? (
+                <View style={styles.availabilityList}>
+                  {availabilitySlots.map((slot, index) => (
+                    <View
+                      key={slot.id}
+                      style={[
+                        styles.availabilityRow,
+                        index === availabilitySlots.length - 1 && styles.availabilityRowLast,
+                      ]}
+                    >
+                      <ThemedText style={styles.availabilityDay}>{slot.day}</ThemedText>
+                      <View style={styles.availabilityPill}>
+                        <IconSymbol name="clock" size={14} color={Colors.light.primary} />
+                        <ThemedText style={styles.availabilitySlot}>{slot.range}</ThemedText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyAvailability}>
+                  <IconSymbol name="calendar.badge.clock" size={20} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.emptyAvailabilityText}>
+                    Este proveedor aún no ha configurado horarios públicos.
+                  </ThemedText>
+                </View>
+              )}
+            </Card>
+          </MotionFadeIn>
         </ThemedView>
 
         {/* Reseñas */}
         {reviews.length > 0 && (
           <ThemedView style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Reseñas ({reviews.length})</ThemedText>
+            <ThemedView style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Reseñas ({reviews.length})</ThemedText>
+              {reviews.length > 3 && (
+                <Button
+                  title="Ver todas"
+                  variant="ghost"
+                  size="small"
+                  onPress={() => {
+                    log.userAction('View all reviews', {
+                      providerId,
+                      totalReviews: reviews.length,
+                      screen: 'ProviderDetail'
+                    });
+                    router.push({
+                      pathname: '/(booking)/reviews',
+                      params: {
+                        providerId: providerId!,
+                        providerName: provider.business_name
+                      }
+                    });
+                  }}
+                />
+              )}
+            </ThemedView>
             {reviews.slice(0, 3).map((review) => (
               <Card key={review.id} variant="outlined" style={styles.reviewCard}>
                 <ThemedView style={styles.reviewHeader}>
-                  <ThemedText style={styles.reviewerName}>
-                    {review.client?.display_name || 'Cliente'}
-                  </ThemedText>
+                  <View style={styles.reviewTitleRow}>
+                    <ThemedText style={styles.reviewerName}>
+                      {review.client?.display_name || 'Cliente'}
+                    </ThemedText>
+                    {review.is_verified && (
+                      <View style={styles.verifiedBadge}>
+                        <IconSymbol name="checkmark.seal" size={12} color={Colors.light.success} />
+                        <ThemedText style={styles.verifiedText}>Reserva verificada</ThemedText>
+                      </View>
+                    )}
+                  </View>
                   <ThemedView style={styles.reviewStars}>
                     {renderStars(review.rating)}
                   </ThemedView>
                 </ThemedView>
+                {review.highlight && (
+                  <ThemedText style={styles.reviewHighlight}>{review.highlight}</ThemedText>
+                )}
                 {review.comment && (
                   <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
+                )}
+                {review.tags && review.tags.length > 0 && (
+                  <View style={styles.reviewTagRow}>
+                    {review.tags.slice(0, 4).map((tag, index) => (
+                      <View key={`${review.id}-tag-${index}`} style={styles.reviewTag}>
+                        <ThemedText style={styles.reviewTagText}>{tag}</ThemedText>
+                      </View>
+                    ))}
+                  </View>
                 )}
                 <ThemedText style={styles.reviewDate}>
                   {new Date(review.created_at).toLocaleDateString('es-VE')}
                 </ThemedText>
               </Card>
             ))}
+            {reviews.length > 3 && (
+              <ThemedView style={styles.viewAllContainer}>
+                <Button
+                  title={`Ver las ${reviews.length - 3} reseñas restantes`}
+                  variant="outline"
+                  size="medium"
+                  onPress={() => {
+                    log.userAction('View all reviews', {
+                      providerId,
+                      totalReviews: reviews.length,
+                      screen: 'ProviderDetail'
+                    });
+                    router.push({
+                      pathname: '/(booking)/reviews',
+                      params: {
+                        providerId: providerId!,
+                        providerName: provider.business_name
+                      }
+                    });
+                  }}
+                />
+              </ThemedView>
+            )}
           </ThemedView>
         )}
       </ScrollView>
-    </TabSafeAreaView>
+    </BookingSafeAreaView>
   );
 }
 
@@ -379,6 +854,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: DesignTokens.spacing['6xl'],
+  },
+  heroImage: {
+    marginHorizontal: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.lg,
+    height: 220,
+    borderRadius: DesignTokens.radius['3xl'],
+    overflow: 'hidden',
+    backgroundColor: Colors.light.surfaceVariant,
   },
   loadingContainer: {
     flex: 1,
@@ -427,13 +910,18 @@ const styles = StyleSheet.create({
   },
   businessName: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
+  },
+  tagline: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
   },
   category: {
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.primary,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -458,82 +946,421 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     flex: 1,
   },
+  specialtiesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.md,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: DesignTokens.spacing.lg,
+  },
+  quickActionButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderRadius: DesignTokens.radius.xl,
+    paddingVertical: DesignTokens.spacing.sm,
+    paddingHorizontal: DesignTokens.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DesignTokens.spacing.sm,
+    marginRight: DesignTokens.spacing.sm,
+  },
+  quickActionDisabled: {
+    opacity: 0.4,
+  },
+  quickActionLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  quickActionLabelDisabled: {
+    color: Colors.light.textSecondary,
+  },
+  specialtyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  specialtyText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
   bio: {
     fontSize: DesignTokens.typography.fontSizes.base,
     color: Colors.light.text,
     lineHeight: 22,
     marginTop: DesignTokens.spacing.md,
   },
+  mission: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginTop: DesignTokens.spacing.sm,
+  },
   section: {
     marginHorizontal: DesignTokens.spacing.lg,
     marginBottom: DesignTokens.spacing.xl,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.md,
+  },
+  highlightScroll: {
+    gap: DesignTokens.spacing.md,
+    paddingRight: DesignTokens.spacing.lg,
+  },
+  highlightCard: {
+    width: 220,
+    padding: DesignTokens.spacing.lg,
+    marginRight: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius['2xl'],
+  },
+  highlightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  highlightIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  highlightBadge: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.primary + '15',
+  },
+  highlightBadgeText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  highlightTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  highlightDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  galleryScroll: {
+    gap: DesignTokens.spacing.md,
+    paddingRight: DesignTokens.spacing.lg,
+  },
+  galleryImage: {
+    width: 220,
+    height: 160,
+    borderRadius: DesignTokens.radius['2xl'],
+    marginRight: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamGrid: {
+    gap: DesignTokens.spacing.lg,
+  },
+  teamCard: {
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    gap: DesignTokens.spacing.md,
+  },
+  teamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+  },
+  teamAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamInfo: {
+    flex: 1,
+    gap: DesignTokens.spacing.xs,
+  },
+  teamName: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  teamRole: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primary,
+  },
+  teamBio: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  teamTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+  },
+  teamTag: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  teamTagText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyCard: {
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['3xl'],
+    gap: DesignTokens.spacing.lg,
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: DesignTokens.spacing.md,
+  },
+  loyaltyHeaderText: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  loyaltySubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  loyaltyStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.lg,
+  },
+  loyaltyStat: {
+    flex: 1,
+    gap: DesignTokens.spacing.xs,
+  },
+  loyaltyPoints: {
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
+    color: Colors.light.primary,
+  },
+  loyaltyTier: {
+    fontSize: DesignTokens.typography.fontSizes['xl'],
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.accent,
+  },
+  loyaltyLabel: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyEmptyState: {
+    padding: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius['2xl'],
+    backgroundColor: Colors.light.surfaceVariant,
+    gap: DesignTokens.spacing.sm,
+  },
+  loyaltyEmptyTitle: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  loyaltyButton: {
+    alignSelf: 'flex-start',
+  },
+  loyaltyActivityList: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    paddingTop: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.md,
+  },
+  loyaltyActivityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  loyaltyActivityReason: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  loyaltyActivityDate: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+  },
+  loyaltyActivityPoints: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+  },
+  loyaltyPointsEarned: {
+    color: Colors.light.success,
+  },
+  loyaltyPointsRedeemed: {
+    color: Colors.light.warning,
+  },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
+  viewAllContainer: {
+    marginTop: DesignTokens.spacing.md,
+    alignItems: 'center',
+  },
   serviceCard: {
     marginBottom: DesignTokens.spacing.md,
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['2xl'],
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    ...DesignTokens.elevation.sm,
   },
   serviceContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: DesignTokens.spacing.lg,
   },
   serviceInfo: {
     flex: 1,
-    marginRight: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.sm,
   },
   serviceName: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.xs,
   },
   serviceDescription: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.sm,
+    color: Colors.light.textSecondary,
     lineHeight: 18,
   },
   serviceDetails: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: DesignTokens.spacing.md,
   },
-  durationBadge: {
+  serviceMetaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: DesignTokens.spacing.xs,
-    paddingHorizontal: DesignTokens.spacing.sm,
+    backgroundColor: Colors.light.surfaceVariant,
+    paddingHorizontal: DesignTokens.spacing.md,
     paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
   },
-  durationText: {
+  serviceMetaText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.text,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
   },
   bookButton: {
     minWidth: 80,
   },
   availabilityCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing['2xl'],
+    borderRadius: DesignTokens.radius['3xl'],
+    backgroundColor: Colors.light.surface,
+    borderWidth: 0,
+    gap: DesignTokens.spacing.lg,
+    ...DesignTokens.elevation.md,
   },
-  availabilityText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+  availabilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+  },
+  availabilityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availabilityTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
-    lineHeight: 22,
+  },
+  availabilitySubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  availabilityList: {
+    gap: DesignTokens.spacing.sm,
+  },
+  availabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: DesignTokens.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  availabilityRowLast: {
+    borderBottomWidth: 0,
+  },
+  availabilityDay: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  availabilityPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.full,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.xs,
+  },
+  availabilitySlot: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  emptyAvailability: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.lg,
+  },
+  emptyAvailabilityText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
   },
   reviewCard: {
     marginBottom: DesignTokens.spacing.md,
     padding: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.sm,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -541,20 +1368,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: DesignTokens.spacing.sm,
   },
+  reviewTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
   reviewerName: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.success + '15',
+  },
+  verifiedText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.successDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   reviewStars: {
     flexDirection: 'row',
     gap: 2,
+  },
+  reviewHighlight: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
   },
   reviewComment: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
     lineHeight: 18,
     marginBottom: DesignTokens.spacing.sm,
+  },
+  reviewTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  reviewTag: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  reviewTagText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
   },
   reviewDate: {
     fontSize: DesignTokens.typography.fontSizes.xs,
@@ -569,7 +1437,7 @@ const styles = StyleSheet.create({
   },
   emptyServicesText: {
     fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
     color: Colors.light.text,
     textAlign: 'center',
     marginTop: DesignTokens.spacing.md,

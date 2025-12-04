@@ -1,15 +1,26 @@
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
+import {
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  useFonts
+} from '@expo-google-fonts/outfit';
+import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { useNotificationRouting } from '@/hooks/useNotificationRouting';
+import { DesignSystemProvider } from '@/theme';
 
 export default function RootLayout() {
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
   });
 
   if (!loaded) {
@@ -20,16 +31,26 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <ThemeProvider value={DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(booking)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="light" />
-        </ThemeProvider>
+        <DesignSystemProvider>
+          <NavigationThemeProvider value={DefaultTheme}>
+            {/** Deep link handling for notification taps */}
+            {loaded && <NotificationRouter />}
+            <Stack>
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(booking)" options={{ headerShown: false }} />
+              <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación' }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="light" />
+          </NavigationThemeProvider>
+        </DesignSystemProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
+}
+
+function NotificationRouter() {
+  useNotificationRouting();
+  return null;
 }

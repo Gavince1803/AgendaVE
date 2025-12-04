@@ -3,12 +3,12 @@ import { Card } from '@/components/ui/Card';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { BookingService } from '@/lib/booking-service';
+import { Appointment, BookingService, Review } from '@/lib/booking-service';
 import { supabase } from '@/lib/supabase';
 // import { ReviewService } from '@/lib/review-service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -24,26 +24,21 @@ export default function RateAppointmentScreen() {
   const { user } = useAuth();
   const { appointmentId } = useLocalSearchParams();
   
-  const [appointment, setAppointment] = useState<any>(null);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingAppointment, setLoadingAppointment] = useState(true);
-  const [existingReview, setExistingReview] = useState<any>(null);
+  const [existingReview, setExistingReview] = useState<Review | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  useEffect(() => {
-    loadAppointment();
-  }, [appointmentId]);
-
-  const loadAppointment = async () => {
+  const loadAppointment = useCallback(async () => {
     try {
       setLoadingAppointment(true);
       const appointments = await BookingService.getClientAppointments();
-      const apt = appointments.find(a => a.id === appointmentId);
-      setAppointment(apt);
-      
-      // Check if there's already a review for this appointment
+      const apt = appointments.find((a) => a.id === appointmentId);
+      setAppointment(apt || null);
+
       if (apt) {
         const review = await BookingService.getExistingReview(apt.id);
         if (review) {
@@ -51,7 +46,15 @@ export default function RateAppointmentScreen() {
           setIsUpdating(true);
           setRating(review.rating);
           setComment(review.comment || '');
+        } else {
+          setExistingReview(null);
+          setIsUpdating(false);
+          setComment('');
         }
+      } else {
+        setExistingReview(null);
+        setIsUpdating(false);
+        setComment('');
       }
     } catch (error) {
       console.error('Error loading appointment:', error);
@@ -59,145 +62,88 @@ export default function RateAppointmentScreen() {
     } finally {
       setLoadingAppointment(false);
     }
-  };
+  }, [appointmentId]);
+
+  useEffect(() => {
+    loadAppointment();
+  }, [loadAppointment]);
 
   const handleSubmitRating = async () => {
     console.log('🔴 [RATE APPOINTMENT] Button pressed!', { rating, isUpdating, existingReview });
-    
+
     if (rating === 0) {
       Alert.alert('Error', 'Por favor selecciona una calificación');
       return;
     }
 
     if (!appointment || !user) {
-      console.log('🔴 [RATE APPOINTMENT] Missing data:', { appointment: !!appointment, user: !!user });
       Alert.alert('Error', 'Información de cita o usuario no disponible');
       return;
     }
 
-    console.log('🔴 [RATE APPOINTMENT] Starting submission...');
     setLoading(true);
-    
+
     try {
       if (isUpdating && existingReview) {
-        console.log('🔴 [RATE APPOINTMENT] Updating existing review...', { existingReview });
-        
-        // Use a direct approach to update the review without the problematic updateReview function
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) throw new Error('Usuario no autenticado');
 
-        console.log('🔴 [RATE APPOINTMENT] Performing direct update...');
-        
-        // Direct update using supabase client
         const { error: updateError } = await supabase
           .from('reviews')
           .update({
             rating,
-            comment: comment.trim() || null
+            comment: comment.trim() || null,
           })
           .eq('id', existingReview.id)
           .eq('client_id', authUser.id);
 
-        console.log('🔴 [RATE APPOINTMENT] Update result:', { error: updateError });
-        
         if (updateError) throw updateError;
-        
-        console.log('🔴 [RATE APPOINTMENT] Update successful, proceeding to provider rating update...');
 
-        // Update provider rating after successful review update
-        try {
-          if (appointment?.providers?.id || appointment?.provider_id) {
-            const providerId = appointment.providers?.id || appointment.provider_id;
-            await BookingService.updateProviderRating(providerId);
-          }
-        } catch (ratingError) {
-          console.error('Error updating provider rating:', ratingError);
+        if (appointment.providers?.id || appointment.provider_id) {
+          const providerId = appointment.providers?.id || appointment.provider_id;
+          await BookingService.updateProviderRating(providerId);
         }
-        
-        console.log('🔴 [RATE APPOINTMENT] About to show success alert...');
-        
-        // For web compatibility, use console log and direct navigation
-        console.log('🎉 [SUCCESS] ¡Calificación Actualizada! Tu calificación ha sido actualizada exitosamente.');
-        
-        try {
-          Alert.alert(
-            '¡Calificación Actualizada!',
-            'Tu calificación ha sido actualizada exitosamente.',
-            [
-              {
-                text: 'Ver Mis Citas',
-                onPress: () => router.push('/(tabs)/bookings'),
-              },
-              {
-                text: 'Volver al Inicio',
-                onPress: () => router.push('/(tabs)'),
-              },
-            ]
-          );
-        } catch (alertError) {
-          console.error('Alert failed, navigating directly:', alertError);
-          // Fallback: navigate directly to bookings after a short delay
-          setTimeout(() => {
-            router.push('/(tabs)/bookings');
-          }, 1000);
-        }
+
+        Alert.alert(
+          '¡Calificación Actualizada!',
+          'Tu calificación ha sido actualizada exitosamente.',
+          [
+            { text: 'Ver Mis Citas', onPress: () => router.push('/(tabs)/bookings') },
+            { text: 'Volver al Inicio', onPress: () => router.push('/(tabs)') },
+          ],
+        );
       } else {
-        console.log('🔴 [RATE APPOINTMENT] Creating new review...');
-        
-        // Create new review
         await BookingService.createReview(
           appointment.id,
           rating,
-          comment.trim() || undefined
+          comment.trim() || undefined,
         );
-        
-        console.log('🔴 [RATE APPOINTMENT] New review created successfully');
-        console.log('🎉 [SUCCESS] ¡Calificación Enviada! Gracias por tu calificación.');
 
-        try {
-          Alert.alert(
-            '¡Calificación Enviada!',
-            'Gracias por tu calificación. Tu opinión es muy importante para nosotros.',
-            [
-              {
-                text: 'Ver Mis Citas',
-                onPress: () => router.push('/(tabs)/bookings'),
-              },
-              {
-                text: 'Volver al Inicio',
-                onPress: () => router.push('/(tabs)'),
-              },
-            ]
-          );
-        } catch (alertError) {
-          console.error('Alert failed, navigating directly:', alertError);
-          // Fallback: navigate directly to bookings after a short delay
-          setTimeout(() => {
-            router.push('/(tabs)/bookings');
-          }, 1000);
-        }
+        Alert.alert(
+          '¡Calificación Enviada!',
+          'Gracias por tu calificación. Tu opinión es muy importante para nosotros.',
+          [
+            { text: 'Ver Mis Citas', onPress: () => router.push('/(tabs)/bookings') },
+            { text: 'Volver al Inicio', onPress: () => router.push('/(tabs)') },
+          ],
+        );
       }
     } catch (error) {
       console.error('Error submitting rating:', error);
-      
-      // Handle the specific duplicate constraint error
       if (error instanceof Error && error.message.includes('unique_review_per_appointment')) {
         Alert.alert(
           'Calificación ya Existe',
           'Ya has calificado esta cita anteriormente. Si deseas cambiar tu calificación, por favor recarga la pantalla.',
           [
-            { 
-              text: 'Recargar', 
-              onPress: () => loadAppointment() 
-            },
-            { text: 'OK' }
-          ]
+            { text: 'Recargar', onPress: () => loadAppointment() },
+            { text: 'OK' },
+          ],
         );
       } else {
         Alert.alert(
           'Error',
           error instanceof Error ? error.message : 'No se pudo enviar la calificación. Inténtalo de nuevo.',
-          [{ text: 'OK' }]
+          [{ text: 'OK' }],
         );
       }
     } finally {

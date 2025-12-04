@@ -5,6 +5,8 @@ import {
     Text,
     View,
     ViewStyle,
+    StyleProp,
+    TextStyle,
 } from 'react-native';
 
 interface BadgeProps {
@@ -12,7 +14,7 @@ interface BadgeProps {
   variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
   size?: 'small' | 'medium' | 'large';
   rounded?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Badge({
@@ -22,18 +24,18 @@ export function Badge({
   rounded = false,
   style,
 }: BadgeProps) {
-  const badgeStyle = [
+  const badgeStyle: StyleProp<ViewStyle> = [
     styles.base,
-    styles[variant],
-    styles[size],
-    rounded && styles.rounded,
+    styles[variant] as ViewStyle,
+    styles[size] as ViewStyle,
+    rounded ? styles.rounded : undefined,
     style,
   ];
 
-  const textStyle = [
+  const textStyle: StyleProp<TextStyle> = [
     styles.text,
-    styles[`${variant}Text`],
-    styles[`${size}Text`],
+    styles[`${variant}Text`] as TextStyle,
+    styles[`${size}Text`] as TextStyle,
   ];
 
   return (
@@ -43,7 +45,31 @@ export function Badge({
   );
 }
 
-const styles = StyleSheet.create({
+type BadgeStyles = {
+  base: ViewStyle;
+  primary: ViewStyle;
+  secondary: ViewStyle;
+  success: ViewStyle;
+  warning: ViewStyle;
+  error: ViewStyle;
+  info: ViewStyle;
+  small: ViewStyle;
+  medium: ViewStyle;
+  large: ViewStyle;
+  rounded: ViewStyle;
+  text: TextStyle;
+  primaryText: TextStyle;
+  secondaryText: TextStyle;
+  successText: TextStyle;
+  warningText: TextStyle;
+  errorText: TextStyle;
+  infoText: TextStyle;
+  smallText: TextStyle;
+  mediumText: TextStyle;
+  largeText: TextStyle;
+};
+
+const styles = StyleSheet.create<BadgeStyles>({
   base: {
     alignSelf: 'flex-start',
     alignItems: 'center',
@@ -95,7 +121,7 @@ const styles = StyleSheet.create({
   
   // Texto
   text: {
-    fontWeight: DesignTokens.typography.fontWeights.medium,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
     textAlign: 'center',
   },
   primaryText: {

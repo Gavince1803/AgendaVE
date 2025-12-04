@@ -5,6 +5,7 @@ import { IconSymbol } from './IconSymbol';
 import { Avatar } from './Avatar';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { Employee } from '@/lib/booking-service';
+import { EmployeeCarouselSkeleton } from './LoadingStates';
 
 interface EmployeeSelectorProps {
   employees: Employee[];
@@ -26,11 +27,7 @@ export function EmployeeSelector({
   selectedService = null
 }: EmployeeSelectorProps) {
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Cargando empleados...</Text>
-      </View>
-    );
+    return <EmployeeCarouselSkeleton />;
   }
 
   if (employees.length === 0) {
@@ -84,21 +81,19 @@ export function EmployeeSelector({
               <View style={styles.employeeContent}>
                 <Avatar 
                   name={employee.name}
-                  size="lg"
+                  size="medium"
                   style={styles.employeeAvatar}
-                  imageUrl={employee.profile_image_url}
+                  source={employee.profile_image_url ? { uri: employee.profile_image_url } : undefined}
                 />
                 
                 <View style={styles.employeeInfo}>
-                  <View style={styles.employeeNameRow}>
-                    <Text style={styles.employeeName}>{employee.name}</Text>
-                    {employee.is_owner && (
-                      <View style={styles.ownerBadge}>
-                        <IconSymbol name="crown" size={12} color={Colors.light.warning} />
-                        <Text style={styles.ownerText}>Dueño</Text>
-                      </View>
-                    )}
-                  </View>
+                  <Text style={styles.employeeName}>{employee.name}</Text>
+                  {employee.is_owner && (
+                    <View style={styles.ownerBadge}>
+                      <IconSymbol name="crown" size={10} color={Colors.light.warning} />
+                      <Text style={styles.ownerText}>Dueño</Text>
+                    </View>
+                  )}
                   
                   {employee.position && (
                     <Text style={styles.employeePosition}>{employee.position}</Text>
@@ -150,14 +145,6 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: DesignTokens.spacing['2xl'],
   },
-  loadingContainer: {
-    padding: DesignTokens.spacing['2xl'],
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
   emptyContainer: {
     padding: DesignTokens.spacing['2xl'],
     alignItems: 'center',
@@ -196,12 +183,15 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.md,
   },
   employeeCardWrapper: {
-    width: 280,
-    minWidth: 200, // Minimum width for readability
-    maxWidth: 320, // Maximum width to prevent stretching
+    width: 160,
+    minWidth: 140,
+    maxWidth: 180,
   },
   employeeCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing.md,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedEmployeeCard: {
     borderColor: Colors.light.primary,
@@ -217,34 +207,31 @@ const styles = StyleSheet.create({
   employeeInfo: {
     alignItems: 'center',
   },
-  employeeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: DesignTokens.spacing.xs,
-  },
   employeeName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     textAlign: 'center',
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: Colors.light.warning + '20',
     paddingHorizontal: DesignTokens.spacing.xs,
     paddingVertical: 2,
     borderRadius: DesignTokens.radius.sm,
-    marginLeft: DesignTokens.spacing.xs,
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.warning,
     marginLeft: 2,
   },
   employeePosition: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primary,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     marginBottom: DesignTokens.spacing.xs,

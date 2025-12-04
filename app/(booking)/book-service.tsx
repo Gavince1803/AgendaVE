@@ -1,9 +1,9 @@
 // 📱 Pantalla de Reserva de Servicio
 // Permite al cliente seleccionar fecha y hora para reservar un servicio
 
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Platform,
@@ -11,34 +11,28 @@ import {
     ScrollView,
     StyleSheet,
     TouchableOpacity,
+    type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { BookingService, Provider, Service } from '@/lib/booking-service';
+import { BookingService, type AppointmentValidationResult, type Provider, type Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function BookServiceScreen() {
   const { 
     providerId, 
     serviceId, 
-    serviceName, 
-    servicePrice, 
-    serviceDuration,
     rescheduleId,
     mode
   } = useLocalSearchParams<{
     providerId: string;
     serviceId: string;
-    serviceName: string;
-    servicePrice: string;
-    serviceDuration: string;
     rescheduleId?: string;
     mode?: string;
   }>();
@@ -47,26 +41,31 @@ export default function BookServiceScreen() {
   const [service, setService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [slotValidation, setSlotValidation] = useState<AppointmentValidationResult | null>(null);
+  const [slotValidationStatus, setSlotValidationStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const log = useLogger();
+  const defaultValidationSettings = useMemo(
+    () => ({
+      bufferBeforeMinutes: 0,
+      bufferAfterMinutes: 0,
+      allowOverlaps: false,
+      cancellationPolicyHours: 0,
+      cancellationPolicyMessage: '',
+      reminderLeadTimeMinutes: 0,
+    }),
+    []
+  );
 
-  useEffect(() => {
-    if (providerId && serviceId) {
-      loadData();
-    }
-  }, [providerId, serviceId]);
+  // Smooth auto-scroll handling
+  const scrollRef = useRef<ScrollView | null>(null);
+  const timeSectionYRef = useRef<number>(0);
 
-  useEffect(() => {
-    if (selectedDate && providerId) {
-      loadAvailableSlots();
-    }
-  }, [selectedDate, providerId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!providerId || !serviceId) return;
     
     try {
@@ -93,9 +92,9 @@ export default function BookServiceScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [log, providerId, serviceId]);
 
-  const loadAvailableSlots = async () => {
+  const loadAvailableSlots = useCallback(async () => {
     if (!providerId || !selectedDate) return;
     
     try {
@@ -128,7 +127,15 @@ export default function BookServiceScreen() {
       log.error(LogCategory.SERVICE, 'Error loading available slots', error);
       setAvailableSlots([]);
     }
-  };
+  }, [providerId, selectedDate, serviceId, log]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    loadAvailableSlots();
+  }, [loadAvailableSlots]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -137,11 +144,17 @@ export default function BookServiceScreen() {
     setRefreshing(false);
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (_event: DateTimePickerEvent, nextDate?: Date) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      setSelectedDate(selectedDate);
+    if (nextDate) {
+      setSelectedDate(nextDate);
       setSelectedTime(''); // Reset selected time when date changes
+      // Smooth scroll to time slots section shortly after selecting the date
+      setTimeout(() => {
+        if (scrollRef.current && timeSectionYRef.current > 0) {
+          scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
+        }
+      }, 120);
     }
   };
 
@@ -149,12 +162,74 @@ export default function BookServiceScreen() {
     const selectedDate = new Date(event.target.value);
     setSelectedDate(selectedDate);
     setSelectedTime(''); // Reset selected time when date changes
+    // Smooth scroll to time slots on web as well
+    setTimeout(() => {
+      if (scrollRef.current && timeSectionYRef.current > 0) {
+        scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
+      }
+    }, 120);
   };
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
     log.userAction('Select time slot', { time, date: selectedDate.toISOString().split('T')[0] });
   };
+
+  useEffect(() => {
+    if (!selectedTime || !service || !provider) {
+      setSlotValidation(null);
+      setSlotValidationStatus('idle');
+      return;
+    }
+
+    let isMounted = true;
+    const validate = async () => {
+      setSlotValidationStatus('checking');
+      try {
+        const validation = await BookingService.validateAppointmentSlot({
+          providerId: provider.id,
+          serviceId: service.id,
+          appointmentDate: selectedDate.toISOString().split('T')[0],
+          appointmentTime: selectedTime,
+          ignoreAppointmentId: mode === 'reschedule' && rescheduleId ? rescheduleId : undefined,
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSlotValidation(validation);
+        setSlotValidationStatus(validation.ok ? 'ok' : 'error');
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : 'No se pudo validar la disponibilidad.';
+        setSlotValidation({
+          ok: false,
+          reason: 'conflict',
+          message,
+          settings: defaultValidationSettings,
+        });
+        setSlotValidationStatus('error');
+      }
+    };
+
+    validate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    selectedTime,
+    selectedDate,
+    service,
+    provider,
+    rescheduleId,
+    mode,
+    defaultValidationSettings,
+  ]);
 
   const handleBookAppointment = async () => {
     if (!selectedTime || !service || !provider) {
@@ -165,31 +240,21 @@ export default function BookServiceScreen() {
     // Show confirmation dialog before booking
     const bookingDetails = `Servicio: ${service.name}\nProveedor: ${provider.business_name}\nFecha: ${formatDate(selectedDate)}\nHora: ${selectedTime}\nDuración: ${formatDuration(service.duration_minutes)}\nPrecio: ${formatPrice(service.price_amount)}`;
     
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Confirmar esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`
-      );
-      
-      if (confirmed) {
-        createAppointment();
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Reserva',
-        `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Confirmar Reserva',
-            style: 'default',
-            onPress: createAppointment
-          }
-        ]
-      );
-    }
+    Alert.alert(
+      'Confirmar Reserva',
+      `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Confirmar Reserva',
+          style: 'default',
+          onPress: createAppointment
+        }
+      ]
+    );
   };
 
   const createAppointment = async () => {
@@ -207,14 +272,31 @@ export default function BookServiceScreen() {
         originalAppointmentId: rescheduleId
       });
 
+      const validation = await BookingService.validateAppointmentSlot({
+        providerId: provider.id,
+        serviceId: service.id,
+        appointmentDate: selectedDate.toISOString().split('T')[0],
+        appointmentTime: selectedTime,
+        ignoreAppointmentId: isRescheduling && rescheduleId ? rescheduleId : undefined,
+      });
+
+      if (!validation.ok) {
+        setSlotValidation(validation);
+        setSlotValidationStatus('error');
+        Alert.alert('Horario no disponible', validation.message || 'Este horario ya fue tomado.');
+        return;
+      }
+
       let appointment;
       if (isRescheduling) {
         // Update existing appointment with new date/time
         appointment = await BookingService.updateAppointment(rescheduleId, {
           appointment_date: selectedDate.toISOString().split('T')[0],
           appointment_time: selectedTime,
-          status: 'pending' // Reset to pending for provider confirmation
         });
+
+        // Reset status to pending for provider confirmation
+        appointment = await BookingService.updateAppointmentStatus(rescheduleId, 'pending');
       } else {
         // Create new appointment
         appointment = await BookingService.createAppointment(
@@ -232,30 +314,25 @@ export default function BookServiceScreen() {
         ? `Tu cita ha sido reprogramada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor confirmará el nuevo horario pronto.`
         : `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`;
 
-      if (Platform.OS === 'web') {
-        window.alert(`${successTitle}\n\n${successMessage}`);
-        router.push('/(tabs)/bookings');
-      } else {
-        Alert.alert(
-          successTitle,
-          successMessage,
-          [
-            {
-              text: 'Ver Mis Citas',
-              onPress: () => router.push('/(tabs)/bookings')
-            },
-            {
-              text: 'Continuar',
-              onPress: () => router.back()
-            }
-          ]
-        );
-      }
+      Alert.alert(
+        successTitle,
+        successMessage,
+        [
+          {
+            text: 'Ver Mis Citas',
+            onPress: () => router.push('/(tabs)/bookings')
+          },
+          {
+            text: 'Continuar',
+            onPress: () => router.back()
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
       
       const errorMessage = error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtalo de nuevo.';
-      Platform.OS === 'web' ? window.alert(`Error: ${errorMessage}`) : Alert.alert('Error', errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setBooking(false);
     }
@@ -279,12 +356,6 @@ export default function BookServiceScreen() {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
-  };
-
-  const isDateValid = (date: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date >= today;
   };
 
   if (loading) {
@@ -315,6 +386,7 @@ export default function BookServiceScreen() {
   return (
     <TabSafeAreaView style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -342,7 +414,12 @@ export default function BookServiceScreen() {
         </Card>
 
         {/* Selección de Fecha */}
-        <ThemedView style={styles.section}>
+        <ThemedView
+          style={styles.section}
+          onLayout={(e) => {
+            // Date section position is not used currently, but retained for extensibility
+          }}
+        >
           <ThemedText style={styles.sectionTitle}>Selecciona la Fecha</ThemedText>
           {Platform.OS === 'web' ? (
             // Web date input
@@ -377,7 +454,12 @@ export default function BookServiceScreen() {
         </ThemedView>
 
         {/* Selección de Hora */}
-        <ThemedView style={styles.section}>
+        <ThemedView
+          style={styles.section}
+          onLayout={(e) => {
+            timeSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
           <ThemedText style={styles.sectionTitle}>Selecciona la Hora</ThemedText>
           {availableSlots.length > 0 ? (
             <ThemedView style={styles.timeSlotsContainer}>
@@ -406,6 +488,22 @@ export default function BookServiceScreen() {
               </ThemedText>
             </Card>
           )}
+          {slotValidationStatus === 'checking' && (
+            <ThemedText style={styles.slotStatusInfo}>
+              Verificando disponibilidad en tiempo real...
+            </ThemedText>
+          )}
+          {slotValidationStatus === 'error' && slotValidation?.message && (
+            <Card variant="outlined" style={styles.slotWarningCard}>
+              <IconSymbol name="exclamationmark.triangle" size={16} color={Colors.light.warning} />
+              <ThemedText style={styles.slotWarningText}>{slotValidation.message}</ThemedText>
+            </Card>
+          )}
+          {slotValidationStatus === 'ok' && (
+            <ThemedText style={styles.slotStatusSuccess}>
+              Horario disponible • sin conflictos
+            </ThemedText>
+          )}
         </ThemedView>
 
         {/* Botón de Reserva */}
@@ -413,7 +511,7 @@ export default function BookServiceScreen() {
           <Button
             title={booking ? (mode === 'reschedule' ? "Reprogramando..." : "Reservando...") : (mode === 'reschedule' ? "Confirmar Reprogramación" : "Confirmar Reserva")}
             onPress={handleBookAppointment}
-            disabled={!selectedTime || booking}
+            disabled={!selectedTime || booking || slotValidationStatus === 'error' || slotValidationStatus === 'checking'}
             style={styles.bookButton}
             size="large"
           />
@@ -422,13 +520,27 @@ export default function BookServiceScreen() {
 
       {/* Date Picker - Native Only */}
       {Platform.OS !== 'web' && showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          minimumDate={new Date()}
-          onChange={handleDateChange}
-        />
+        Platform.OS === 'ios' ? (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="spinner"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+            style={{
+              backgroundColor: Colors.light.surface,
+            }}
+            textColor={Colors.light.text}
+          />
+        ) : (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            minimumDate={new Date()}
+            onChange={handleDateChange}
+          />
+        )
       )}
     </TabSafeAreaView>
   );
@@ -482,7 +594,7 @@ const styles = StyleSheet.create({
   },
   serviceName: {
     fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
   },
   serviceDetails: {
@@ -507,7 +619,7 @@ const styles = StyleSheet.create({
   },
   servicePrice: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.primary,
   },
   serviceDescription: {
@@ -522,7 +634,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
@@ -545,25 +657,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: DesignTokens.spacing.sm,
+    justifyContent: 'flex-start',
+  },
+  slotStatusInfo: {
+    marginTop: DesignTokens.spacing.md,
+    color: Colors.light.textSecondary,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+  },
+  slotStatusSuccess: {
+    marginTop: DesignTokens.spacing.md,
+    color: Colors.light.success,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  slotWarningCard: {
+    marginTop: DesignTokens.spacing.md,
+    padding: DesignTokens.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+    borderColor: Colors.light.warning,
+    backgroundColor: Colors.light.warningBg,
+  },
+  slotWarningText: {
+    flex: 1,
+    color: Colors.light.warning,
+    fontSize: DesignTokens.typography.fontSizes.sm,
   },
   timeSlot: {
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
     backgroundColor: Colors.light.surface,
     borderRadius: DesignTokens.radius.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    minWidth: 80,
+    minWidth: 70,
+    flex: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedTimeSlot: {
     backgroundColor: Colors.light.primary,
     borderColor: Colors.light.primary,
   },
   timeSlotText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+    textAlign: 'center',
   },
   selectedTimeSlotText: {
     color: Colors.light.surface,

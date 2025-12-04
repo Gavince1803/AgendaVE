@@ -8,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -49,13 +51,17 @@ export class NotificationService {
         return null;
       }
 
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: 'ldgxxrgdcerftlmeyrmi', // Project ID de Supabase
-      });
+      // Skip token generation on web; mobile requires proper EAS project ID
+      // Web push is not implemented in this project
+      // @ts-ignore Platform available from react-native
+      if (Platform.OS === 'web') {
+        return null;
+      }
 
+      const token = await Notifications.getExpoPushTokenAsync();
       return token.data;
     } catch (error) {
-      console.error('Error getting device token:', error);
+      console.log('Push notifications not available in Expo Go');
       return null;
     }
   }
@@ -72,7 +78,7 @@ export class NotificationService {
       }
 
       const platform = Platform.OS;
-      
+
       // Verificar si el token ya existe
       const { data: existingToken } = await supabase
         .from('device_push_tokens')
@@ -131,10 +137,13 @@ export class NotificationService {
    * Enviar notificación push a un usuario específico
    */
   static async sendPushNotification(
-    userId: string, 
+    userId: string,
     notification: NotificationData
   ): Promise<void> {
     try {
+      console.log('📤 [NOTIFICATION SERVICE] Sending push notification to user:', userId);
+      console.log('📤 [NOTIFICATION SERVICE] Notification:', notification);
+
       // Obtener tokens del usuario
       const { data: tokens, error } = await supabase
         .from('device_push_tokens')
@@ -143,14 +152,17 @@ export class NotificationService {
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error fetching user tokens:', error);
+        console.error('❌ [NOTIFICATION SERVICE] Error fetching user tokens:', error);
         return;
       }
 
       if (!tokens || tokens.length === 0) {
-        console.log('No active tokens found for user');
+        console.warn('⚠️ [NOTIFICATION SERVICE] No active tokens found for user:', userId);
+        console.warn('⚠️ [NOTIFICATION SERVICE] User may need to register their device token');
         return;
       }
+
+      console.log('✅ [NOTIFICATION SERVICE] Found', tokens.length, 'active token(s) for user');
 
       // Enviar notificación a todos los tokens del usuario
       const messages = tokens.map(tokenData => ({
@@ -205,17 +217,72 @@ export class NotificationService {
     }
   }
 
+  static async notifyEmployeeNewAppointment(
+    employeeProfileId: string,
+    appointmentData: any
+  ): Promise<void> {
+    try {
+      const timeLabel = appointmentData.appointment_time
+        ? ` a las ${appointmentData.appointment_time}`
+        : '';
+
+      const notification: NotificationData = {
+        title: 'Nueva cita asignada 📆',
+        body: `${appointmentData.service_name || 'Servicio'} en ${appointmentData.provider_name}${timeLabel}`,
+        data: {
+          type: 'employee_new_appointment',
+          appointment_id: appointmentData.id,
+          provider_name: appointmentData.provider_name,
+          client_name: appointmentData.client_name,
+        },
+      };
+
+      await this.sendPushNotification(employeeProfileId, notification);
+    } catch (error) {
+      console.error('Error notifying employee new appointment:', error);
+    }
+  }
+
+  static async notifyEmployeeAppointmentUpdate(
+    employeeProfileId: string,
+    appointmentData: any
+  ): Promise<void> {
+    try {
+      const timeLabel = appointmentData.appointment_time
+        ? ` a las ${appointmentData.appointment_time}`
+        : '';
+
+      const notification: NotificationData = {
+        title: 'Cita reprogramada 🔄',
+        body: `La cita de ${appointmentData.service_name || 'Servicio'} ha sido reprogramada para el ${appointmentData.appointment_date}${timeLabel}`,
+        data: {
+          type: 'employee_appointment_update',
+          appointment_id: appointmentData.id,
+          provider_name: appointmentData.provider_name,
+          client_name: appointmentData.client_name,
+        },
+      };
+
+      await this.sendPushNotification(employeeProfileId, notification);
+    } catch (error) {
+      console.error('Error notifying employee appointment update:', error);
+    }
+  }
+
   /**
    * Notificar confirmación de cita al cliente
    */
   static async notifyAppointmentConfirmation(
-    clientId: string, 
+    clientId: string,
     appointmentData: any
   ): Promise<void> {
     try {
+      const timeLabel = appointmentData.appointment_time
+        ? ` a las ${appointmentData.appointment_time}`
+        : '';
       const notification: NotificationData = {
         title: 'Cita Confirmada ✅',
-        body: `Tu cita en ${appointmentData.provider_name} ha sido confirmada para ${appointmentData.appointment_date}`,
+        body: `Tu cita en ${appointmentData.provider_name} ha sido confirmada para ${appointmentData.appointment_date}${timeLabel}`,
         data: {
           type: 'appointment_confirmed',
           appointment_id: appointmentData.id,
@@ -233,14 +300,14 @@ export class NotificationService {
    * Notificar cancelación de cita
    */
   static async notifyAppointmentCancellation(
-    userId: string, 
+    userId: string,
     appointmentData: any,
     isClient: boolean
   ): Promise<void> {
     try {
       const notification: NotificationData = {
         title: 'Cita Cancelada ❌',
-        body: isClient 
+        body: isClient
           ? `Tu cita en ${appointmentData.provider_name} ha sido cancelada`
           : `La cita con ${appointmentData.client_name} ha sido cancelada`,
         data: {
@@ -260,7 +327,7 @@ export class NotificationService {
    * Notificar recordatorio de cita
    */
   static async notifyAppointmentReminder(
-    userId: string, 
+    userId: string,
     appointmentData: any
   ): Promise<void> {
     try {

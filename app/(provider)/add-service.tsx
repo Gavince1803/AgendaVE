@@ -5,7 +5,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Input } from '@/components/ui/Input';
+import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
+import { SimpleInput } from '@/components/ui/SimpleInput';
 import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +14,7 @@ import { BookingService } from '@/lib/booking-service';
 import { useLogger, LogCategory } from '@/lib/logger';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function AddServiceScreen() {
   const { user } = useAuth();
@@ -120,6 +121,10 @@ export default function AddServiceScreen() {
     console.log('🔴 [ADD-SERVICE] createService called with:', { price, duration });
     
     try {
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
       setSaving(true);
       console.log('🔴 [ADD-SERVICE] Setting saving state to true');
       
@@ -201,7 +206,7 @@ export default function AddServiceScreen() {
 
   return (
     <BookingSafeAreaView>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollableInputView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <ThemedView style={styles.header}>
           <TouchableOpacity 
@@ -218,40 +223,44 @@ export default function AddServiceScreen() {
 
         {/* Formulario */}
         <ThemedView style={styles.form}>
-          <Input
+          <SimpleInput
             label="Nombre del Servicio *"
             value={serviceData.name}
             onChangeText={(text) => setServiceData({...serviceData, name: text})}
             placeholder="Ej: Corte de Cabello"
             autoCapitalize="words"
+            returnKeyType="next"
           />
 
-          <Input
+          <SimpleInput
             label="Descripción"
             value={serviceData.description}
             onChangeText={(text) => setServiceData({...serviceData, description: text})}
             placeholder="Describe el servicio..."
             multiline
             numberOfLines={4}
+            returnKeyType="default"
           />
 
           <View style={styles.row}>
             <View style={styles.halfWidth}>
-              <Input
+              <SimpleInput
                 label="Precio ($) *"
                 value={serviceData.price_amount}
                 onChangeText={(text) => setServiceData({...serviceData, price_amount: text})}
                 placeholder="0.00"
                 keyboardType="numeric"
+                returnKeyType="next"
               />
             </View>
             <View style={styles.halfWidth}>
-              <Input
+              <SimpleInput
                 label="Duración (min) *"
                 value={serviceData.duration_minutes}
                 onChangeText={(text) => setServiceData({...serviceData, duration_minutes: text})}
                 placeholder="30"
                 keyboardType="numeric"
+                returnKeyType="done"
               />
             </View>
           </View>
@@ -265,7 +274,7 @@ export default function AddServiceScreen() {
               </ThemedText>
               <ThemedText style={styles.infoDescription}>
                 • El servicio se creará como activo por defecto{'\n'}
-                • Puedes editarlo o desactivarlo desde "Mi Negocio"{'\n'}
+                {'• Puedes editarlo o desactivarlo desde "Mi Negocio"'}{'\n'}
                 • Los clientes podrán reservar este servicio inmediatamente
               </ThemedText>
             </View>
@@ -290,7 +299,7 @@ export default function AddServiceScreen() {
 
         {/* Espacio adicional */}
         <View style={styles.bottomSpacing} />
-      </ScrollView>
+      </ScrollableInputView>
     </BookingSafeAreaView>
   );
 }
@@ -299,6 +308,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+  },
+  scrollContent: {
+    paddingBottom: DesignTokens.spacing['3xl'],
   },
   header: {
     flexDirection: 'row',

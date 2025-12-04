@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -9,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -77,10 +77,17 @@ export default function EmployeeScheduleScreen() {
       employeeAvailabilities.forEach((avail: EmployeeAvailability) => {
         const weekday = WEEKDAYS.find(w => w.dayOfWeek === avail.day_of_week);
         if (weekday) {
+          // Convert database time format (HH:MM:SS) to picker format (HH:MM)
+          const convertTimeFormat = (timeStr: string) => {
+            if (!timeStr) return '09:00';
+            const parts = timeStr.split(':');
+            return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
+          };
+          
           newAvailability[weekday.key] = {
             enabled: avail.is_available,
-            startTime: avail.start_time,
-            endTime: avail.end_time,
+            startTime: convertTimeFormat(avail.start_time),
+            endTime: convertTimeFormat(avail.end_time),
           };
         }
       });
@@ -107,6 +114,9 @@ export default function EmployeeScheduleScreen() {
 
   const handleCustomScheduleToggle = async (enabled: boolean) => {
     try {
+      if (!employeeId) {
+        throw new Error('ID de empleado inválido');
+      }
       console.log('🔴 [EMPLOYEE SCHEDULE] Toggling custom schedule:', { employeeId, enabled });
       
       await BookingService.updateEmployeeCustomSchedule(employeeId, enabled);
@@ -293,7 +303,7 @@ export default function EmployeeScheduleScreen() {
   }
 
   return (
-    <TabSafeAreaView>
+    <TabSafeAreaView style={styles.container}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>

@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
+import { NotificationService } from '@/lib/notification-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     View,
 } from 'react-native';
 
@@ -52,6 +54,28 @@ export default function BookingConfirmationScreen() {
     });
   };
 
+  const formatDurationValue = (value?: string | string[]) => {
+    const rawValue = Array.isArray(value) ? value[0] : value;
+    if (!rawValue) {
+      return null;
+    }
+
+    const minutes = Number(rawValue);
+    if (Number.isNaN(minutes)) {
+      return rawValue;
+    }
+
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}min` : `${hours}h`;
+  };
+
+  const durationLabel = formatDurationValue(serviceDuration);
+
   const handleConfirmBooking = async () => {
     if (!user) {
       Alert.alert('Error', 'Debes estar autenticado para hacer una reserva');
@@ -61,18 +85,7 @@ export default function BookingConfirmationScreen() {
     setLoading(true);
     
     try {
-      // Crear la reserva usando el servicio
-      const bookingData = {
-        client_id: user.id,
-        provider_id: providerId as string,
-        service_id: parseInt(serviceId as string),
-        appointment_date: selectedDate as string,
-        appointment_time: selectedTime as string,
-        status: 'pending' as const,
-        notes: notes || undefined,
-      };
-
-      await BookingService.createAppointment(
+      const created = await BookingService.createAppointment(
         providerId as string,
         serviceId as string,
         selectedDate as string,
@@ -81,41 +94,43 @@ export default function BookingConfirmationScreen() {
         notes
       );
 
-      if (Platform.OS === 'web') {
-        const action = window.confirm('¡Reserva Confirmada!\n\nTu cita ha sido reservada exitosamente. ¿Quieres ver tus citas o volver al inicio?\n\nPresiona OK para ver tus citas o Cancelar para volver al inicio.');
-        if (action) {
-          router.push('/(tabs)/bookings');
-        } else {
-          router.push('/(tabs)');
-        }
-      } else {
-        Alert.alert(
-          '¡Reserva Confirmada!',
-          'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
-          [
-            {
-              text: 'Ver Mis Citas',
-              onPress: () => {
-                router.push('/(tabs)/bookings');
-              },
-            },
-            {
-              text: 'Volver al Inicio',
-              onPress: () => {
-                router.push('/(tabs)');
-              },
-            },
-          ]
-        );
+      // Intentar enviar notificaciones push (no bloquear la UX si falla)
+      try {
+        // Notificar al cliente (confirmación/local)
+        await NotificationService.sendLocalNotification({
+          title: 'Reserva creada',
+          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
+          data: { type: 'booking_created', appointment_id: created.id },
+        });
+
+        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
+        // a través de BookingService.createAppointment.
+      } catch (notifyErr) {
+        console.warn('Push notifications failed or unavailable:', notifyErr);
       }
+
+      Alert.alert(
+        '¡Reserva Confirmada!',
+        'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
+        [
+          {
+            text: 'Ver Mis Citas',
+            onPress: () => {
+              router.push('/(tabs)/bookings');
+            },
+          },
+          {
+            text: 'Volver al Inicio',
+            onPress: () => {
+              router.push('/(tabs)');
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.';
-      if (Platform.OS === 'web') {
-        window.alert(`Error\n\n${errorMessage}`);
-      } else {
-        Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
-      }
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -187,6 +202,16 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryValue}>{selectedTime}</Text>
               </View>
             </View>
+
+            {durationLabel && (
+              <View style={styles.summaryItem}>
+                <IconSymbol name="timer" size={20} color={Colors.light.primary} />
+                <View style={styles.summaryContent}>
+                  <Text style={styles.summaryLabel}>Duración</Text>
+                  <Text style={styles.summaryValue}>{durationLabel}</Text>
+                </View>
+              </View>
+            )}
             
             <View style={styles.summaryItem}>
               <IconSymbol name="dollarsign.circle" size={20} color={Colors.light.primary} />
@@ -220,16 +245,22 @@ export default function BookingConfirmationScreen() {
             <Text style={styles.notesLabel}>
               ¿Hay algo específico que quieras mencionar para tu cita?
             </Text>
-            <View style={styles.notesInput}>
-              <Text style={styles.notesPlaceholder}>
-                Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.
-              </Text>
-            </View>
+            <TextInput
+              style={styles.notesInput}
+              multiline
+              placeholder='Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos"...'
+              placeholderTextColor={Colors.light.textSecondary}
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={240}
+              textAlignVertical="top"
+            />
+            <Text style={styles.notesCounter}>{`${notes.length}/240`}</Text>
           </Card>
         </View>
 
         {/* Términos y condiciones */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.termsSection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.termsContainer}>
               <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
@@ -247,7 +278,7 @@ export default function BookingConfirmationScreen() {
         </View>
 
         {/* Política de cancelación */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.policySection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.policyContainer}>
               <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.warning} />
@@ -321,6 +352,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
+  termsSection: {
+    marginBottom: 12,
+  },
+  policySection: {
+    marginBottom: 24,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -383,49 +420,53 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     minHeight: 80,
-  },
-  notesPlaceholder: {
-    fontSize: 14,
     color: Colors.light.text,
-    fontStyle: 'italic',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  notesCounter: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    textAlign: 'right',
+    marginTop: 8,
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   termsContent: {
-    marginLeft: 12,
     flex: 1,
   },
   termsTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   termsText: {
     fontSize: 12,
     color: Colors.light.text,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   policyContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   policyContent: {
-    marginLeft: 12,
     flex: 1,
   },
   policyTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   policyText: {
     fontSize: 12,
     color: Colors.light.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   bottomSection: {
     padding: 20,

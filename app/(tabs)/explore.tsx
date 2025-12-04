@@ -2,29 +2,28 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { FiltersModal, FilterOptions } from '@/components/ui/FiltersModal';
+import { FilterOptions, FiltersModal } from '@/components/ui/FiltersModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Input } from '@/components/ui/Input';
 import {
-  ProviderListSkeleton,
-  EmptyState,
-  ErrorState,
   createRefreshControl,
+  EmptyState,
+  ProviderListSkeleton,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { BookingService, Provider } from '@/lib/booking-service';
+import { BookingService, DiscoverySection, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function ExploreScreen() {
@@ -37,6 +36,8 @@ export default function ExploreScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({});
+  const [discoverySections, setDiscoverySections] = useState<DiscoverySection[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(true);
   const [filters, setFilters] = useState<FilterOptions>({
     priceRange: { min: 0, max: 1000 },
     rating: 0,
@@ -45,7 +46,7 @@ export default function ExploreScreen() {
     sortBy: 'distance',
   });
   const log = useLogger();
-  
+
   // Colores fijos para modo claro
   const backgroundColor = Colors.light.background;
   const surfaceColor = Colors.light.surface;
@@ -74,6 +75,10 @@ export default function ExploreScreen() {
     loadFavoriteStatuses();
   }, [filteredProviders]);
 
+  useEffect(() => {
+    loadDiscoverySections();
+  }, []);
+
   const loadProviders = async () => {
     try {
       setLoading(true);
@@ -91,25 +96,25 @@ export default function ExploreScreen() {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         providersData = providersData.filter(provider => {
-          const businessName = provider.business_name.toLowerCase();
-          const providerName = provider.name.toLowerCase();
-          const category = provider.category.toLowerCase();
-          const address = provider.address.toLowerCase();
-          
+          const businessName = (provider.business_name || '').toLowerCase();
+          const providerName = (provider.name || '').toLowerCase();
+          const category = (provider.category || '').toLowerCase();
+          const address = (provider.address || '').toLowerCase();
+
           // Búsqueda directa
-          if (businessName.includes(query) || providerName.includes(query) || 
-              category.includes(query) || address.includes(query)) {
+          if (businessName.includes(query) || providerName.includes(query) ||
+            category.includes(query) || address.includes(query)) {
             return true;
           }
-          
+
           // Búsqueda por palabras clave de categorías
           const selectedCat = categories.find(cat => cat.id === selectedCategory);
           if (selectedCat && selectedCat.keywords) {
-            return selectedCat.keywords.some(keyword => 
+            return selectedCat.keywords.some(keyword =>
               businessName.includes(keyword) || category.includes(keyword)
             );
           }
-          
+
           return false;
         });
       }
@@ -122,6 +127,21 @@ export default function ExploreScreen() {
       setProviders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDiscoverySections = async () => {
+    try {
+      setDiscoveryLoading(true);
+      log.info(LogCategory.DATA, 'Loading discovery sections', {});
+      const sections = await BookingService.getDiscoverySections();
+      setDiscoverySections(sections);
+      log.info(LogCategory.DATA, 'Discovery sections loaded', { count: sections.length });
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error loading discovery sections', error);
+      setDiscoverySections([]);
+    } finally {
+      setDiscoveryLoading(false);
     }
   };
 
@@ -145,22 +165,22 @@ export default function ExploreScreen() {
         case 'rating':
           return b.rating - a.rating;
         case 'name':
-          return a.business_name.localeCompare(b.business_name);
+          return (a.business_name || '').localeCompare(b.business_name || '');
         case 'price':
           // In a real app, this would sort by actual service prices
-          return a.business_name.localeCompare(b.business_name); // Placeholder
+          return (a.business_name || '').localeCompare(b.business_name || ''); // Placeholder
         case 'distance':
         default:
           // In a real app, this would sort by actual distance
-          return a.business_name.localeCompare(b.business_name); // Placeholder
+          return (a.business_name || '').localeCompare(b.business_name || ''); // Placeholder
       }
     });
 
     setFilteredProviders(filtered);
-    log.info(LogCategory.DATA, 'Filters applied', { 
+    log.info(LogCategory.DATA, 'Filters applied', {
       originalCount: providers.length,
       filteredCount: filtered.length,
-      filters 
+      filters
     });
   };
 
@@ -176,7 +196,7 @@ export default function ExploreScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadProviders();
+    await Promise.all([loadProviders(), loadDiscoverySections()]);
     setRefreshing(false);
   };
 
@@ -188,7 +208,7 @@ export default function ExploreScreen() {
   const loadFavoriteStatuses = async () => {
     try {
       if (filteredProviders.length === 0) return;
-      
+
       const providerIds = filteredProviders.map(p => p.id);
       const statuses = await BookingService.getFavoriteStatuses(providerIds);
       setFavoriteStatuses(statuses);
@@ -200,23 +220,23 @@ export default function ExploreScreen() {
   const handleToggleFavorite = async (provider: Provider) => {
     try {
       const isFavorite = favoriteStatuses[provider.id] || false;
-      
+
       if (isFavorite) {
         await BookingService.removeFromFavorites(provider.id);
-        log.userAction('Remove from favorites', { 
-          providerId: provider.id, 
+        log.userAction('Remove from favorites', {
+          providerId: provider.id,
           providerName: provider.business_name,
           screen: 'Explore'
         });
       } else {
         await BookingService.addToFavorites(provider.id);
-        log.userAction('Add to favorites', { 
-          providerId: provider.id, 
+        log.userAction('Add to favorites', {
+          providerId: provider.id,
           providerName: provider.business_name,
           screen: 'Explore'
         });
       }
-      
+
       // Update local state
       setFavoriteStatuses(prev => ({
         ...prev,
@@ -226,6 +246,88 @@ export default function ExploreScreen() {
       log.error(LogCategory.ERROR, 'Error toggling favorite', error);
       // You might want to show a toast or alert here
     }
+  };
+
+  const renderDiscoverySection = (section: DiscoverySection) => {
+    const cards = section.items.filter(item => item.provider);
+    if (cards.length === 0) {
+      return null;
+    }
+
+    return (
+      <View key={section.id} style={styles.discoverySection}>
+        <View style={styles.discoveryHeader}>
+          <ThemedText style={styles.discoveryTitle}>{section.title}</ThemedText>
+          {section.subtitle ? (
+            <ThemedText style={styles.discoverySubtitle}>{section.subtitle}</ThemedText>
+          ) : null}
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.discoveryCarousel}
+        >
+          {cards.map((item) => {
+            const featuredProvider = item.provider!;
+            const ratingValue = Number.isFinite(featuredProvider.rating)
+              ? featuredProvider.rating
+              : 0;
+            return (
+              <Card
+                key={item.id}
+                variant="elevated"
+                style={styles.discoveryCard}
+                onPress={() => {
+                  log.userAction('Open discovery provider', {
+                    section: section.slug,
+                    providerId: featuredProvider.id,
+                  });
+                  router.push({
+                    pathname: '/(booking)/provider-detail',
+                    params: { providerId: featuredProvider.id },
+                  });
+                }}
+              >
+                <Image
+                  source={{ uri: featuredProvider.hero_image_url || featuredProvider.logo_url || undefined }}
+                  style={styles.discoveryImage}
+                  contentFit="cover"
+                />
+                <View style={styles.discoveryContent}>
+                  <ThemedText style={styles.discoveryProvider} numberOfLines={1}>
+                    {featuredProvider.business_name}
+                  </ThemedText>
+                  {featuredProvider.tagline ? (
+                    <ThemedText style={styles.discoveryTagline} numberOfLines={2}>
+                      {featuredProvider.tagline}
+                    </ThemedText>
+                  ) : null}
+                  <View style={styles.discoveryMetaRow}>
+                    <View style={styles.discoveryRating}>
+                      <IconSymbol name="star.fill" size={14} color={Colors.light.accent} />
+                      <ThemedText style={styles.discoveryRatingText}>
+                        {ratingValue.toFixed(1)}
+                      </ThemedText>
+                    </View>
+                    {featuredProvider.loyalty_enabled && (
+                      <View style={styles.discoveryLoyaltyChip}>
+                        <IconSymbol name="rosette" size={12} color={Colors.light.primary} />
+                        <ThemedText style={styles.discoveryLoyaltyText}>Recompensas</ThemedText>
+                      </View>
+                    )}
+                    {item.badge && (
+                      <View style={styles.discoveryBadge}>
+                        <ThemedText style={styles.discoveryBadgeText}>{item.badge}</ThemedText>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </Card>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
   };
 
 
@@ -243,7 +345,13 @@ export default function ExploreScreen() {
       >
         <View style={styles.providerHeader}>
           <View style={[styles.providerImage, { backgroundColor: surfaceColor }]}>
-            <IconSymbol name="building.2" size={32} color={primaryColor} />
+            <Image
+              source={{ uri: provider.logo_url || `https://picsum.photos/seed/${provider.id}/200` }}
+              style={{ width: '100%', height: '100%', borderRadius: 12 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
           </View>
           <View style={styles.providerMainInfo}>
             <ThemedText style={styles.providerName} numberOfLines={1}>
@@ -254,7 +362,7 @@ export default function ExploreScreen() {
             </ThemedText>
             <View style={styles.providerStatus}>
               <View style={[
-                styles.statusIndicator, 
+                styles.statusIndicator,
                 { backgroundColor: provider.is_active ? Colors.light.success : Colors.light.error }
               ]} />
               <ThemedText style={styles.statusText}>
@@ -300,7 +408,7 @@ export default function ExploreScreen() {
           )}
         </View>
       </TouchableOpacity>
-      
+
       <View style={styles.providerActions}>
         <Button
           title="Ver Detalles"
@@ -325,7 +433,7 @@ export default function ExploreScreen() {
         <ThemedText type="title" style={[styles.title, { color: primaryColor }]}>
           Explorar Servicios
         </ThemedText>
-        
+
         <Input
           placeholder="Buscar servicios, proveedores..."
           value={searchQuery}
@@ -335,20 +443,32 @@ export default function ExploreScreen() {
       </ThemedView>
 
       {/* Contenido scrolleable */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={createRefreshControl(refreshing, handleRefresh)}
       >
+        {discoveryLoading && discoverySections.length === 0 && (
+          <View style={styles.discoverySkeleton}>
+            <ProviderListSkeleton />
+          </View>
+        )}
+
+        {discoverySections.length > 0 && (
+          <View style={styles.discoveryContainer}>
+            {discoverySections.map((section) => renderDiscoverySection(section))}
+          </View>
+        )}
+
         {/* Categorías */}
-        <ThemedView style={styles.section}>
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor }]}>
+        <ThemedView style={[styles.section, { paddingTop: DesignTokens.spacing['2xl'], paddingBottom: DesignTokens.spacing.xs }]}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textColor, marginBottom: DesignTokens.spacing.xl }]} >
             Categorías
           </ThemedText>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
             style={styles.categoriesScroll}
             contentContainerStyle={styles.categoriesContent}
           >
@@ -357,7 +477,7 @@ export default function ExploreScreen() {
                 key={category.id}
                 style={[
                   styles.categoryChip,
-                  { 
+                  {
                     backgroundColor: selectedCategory === category.id ? primaryColor : surfaceColor,
                     borderColor: selectedCategory === category.id ? primaryColor : borderColor,
                     borderWidth: 1,
@@ -399,11 +519,11 @@ export default function ExploreScreen() {
               onPress={handleShowFilters}
             />
           </View>
-          
+
           <ScreenLoading
             loading={loading}
             skeleton={<ProviderListSkeleton />}
-            error={error}
+            error={error || undefined}
             onRetry={handleRetry}
           >
             {filteredProviders.length > 0 ? (
@@ -412,9 +532,9 @@ export default function ExploreScreen() {
               <EmptyState
                 title="No hay proveedores"
                 message={
-                  providers.length > 0 
-                    ? 'No se encontraron proveedores con estos filtros. Intenta ajustar tus criterios de búsqueda.' 
-                    : searchQuery.trim() 
+                  providers.length > 0
+                    ? 'No se encontraron proveedores con estos filtros. Intenta ajustar tus criterios de búsqueda.'
+                    : searchQuery.trim()
                       ? `No se encontraron proveedores para "${searchQuery}". Intenta con otro término.`
                       : 'No hay proveedores disponibles en esta categoría por el momento.'
                 }
@@ -475,6 +595,99 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: DesignTokens.spacing['6xl'], // Espacio extra para el TabBar
+  },
+  discoveryContainer: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing['2xl'],
+    gap: DesignTokens.spacing['2xl'],
+  },
+  discoverySkeleton: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginVertical: DesignTokens.spacing.xl,
+  },
+  discoverySection: {
+    gap: DesignTokens.spacing.md,
+  },
+  discoveryHeader: {
+    gap: DesignTokens.spacing.xs,
+  },
+  discoveryTitle: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+    letterSpacing: -0.2,
+  },
+  discoverySubtitle: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  discoveryCarousel: {
+    paddingRight: DesignTokens.spacing.xl,
+    gap: DesignTokens.spacing.md,
+  },
+  discoveryCard: {
+    width: 240,
+    marginRight: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius['2xl'],
+    overflow: 'hidden',
+  },
+  discoveryImage: {
+    width: '100%',
+    height: 140,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  discoveryContent: {
+    padding: DesignTokens.spacing.lg,
+    gap: DesignTokens.spacing.sm,
+  },
+  discoveryProvider: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
+    color: Colors.light.text,
+  },
+  discoveryTagline: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+  },
+  discoveryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+  },
+  discoveryRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+  },
+  discoveryRatingText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+  },
+  discoveryLoyaltyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.primary + '12',
+  },
+  discoveryLoyaltyText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  discoveryBadge: {
+    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.xs,
+    borderRadius: DesignTokens.radius.full,
+    backgroundColor: Colors.light.secondary + '15',
+  },
+  discoveryBadgeText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.secondaryDark,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
   },
   section: {
     paddingHorizontal: DesignTokens.spacing.xl,
