@@ -1,18 +1,17 @@
 import { Colors, DesignTokens } from '@/constants/Colors';
-import React from 'react';
+import { Image } from 'expo-image';
 import {
-    Image,
-    ImageSourcePropType,
-    StyleSheet,
-    Text,
-    View,
-    ViewStyle,
-    StyleProp,
-    TextStyle,
+  ImageSourcePropType,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextStyle,
+  View,
+  ViewStyle,
 } from 'react-native';
 
 interface AvatarProps {
-  source?: ImageSourcePropType;
+  source?: ImageSourcePropType | { uri: string };
   name?: string;
   size?: 'small' | 'medium' | 'large' | 'xl';
   variant?: 'circle' | 'rounded' | 'square';
@@ -56,7 +55,12 @@ export function Avatar({
   return (
     <View style={avatarStyle}>
       {source ? (
-        <Image source={source} style={styles.image} />
+        <Image
+          source={source}
+          style={styles.image}
+          contentFit="cover"
+          transition={200}
+        />
       ) : name ? (
         <Text style={textStyle}>{getInitials(name)}</Text>
       ) : (
@@ -73,7 +77,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surfaceVariant,
     overflow: 'hidden',
   },
-  
+
   // Tamaños
   small: {
     width: 32,
@@ -91,7 +95,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
   },
-  
+
   // Variantes
   circle: {
     borderRadius: DesignTokens.radius.full,
@@ -102,13 +106,13 @@ const styles = StyleSheet.create({
   square: {
     borderRadius: DesignTokens.radius.sm,
   },
-  
+
   // Imagen
   image: {
     width: '100%',
     height: '100%',
   },
-  
+
   // Texto
   text: {
     fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],

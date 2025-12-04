@@ -1,38 +1,40 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
 import { NotificationService } from '@/lib/notification-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function BookingConfirmationScreen() {
   const { user } = useAuth();
-  const { 
-    providerId, 
-    providerName, 
-    serviceId, 
-    serviceName, 
-    servicePrice, 
+  const {
+    providerId,
+    providerName,
+    serviceId,
+    serviceName,
+    servicePrice,
     serviceDuration,
     employeeId,
     employeeName,
     selectedDate,
     selectedTime,
   } = useLocalSearchParams();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -46,9 +48,9 @@ export default function BookingConfirmationScreen() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      day: 'numeric', 
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
@@ -83,14 +85,14 @@ export default function BookingConfirmationScreen() {
     }
 
     setLoading(true);
-    
+
     try {
       const created = await BookingService.createAppointment(
         providerId as string,
         serviceId as string,
         selectedDate as string,
         selectedTime as string,
-        (employeeId as string) || undefined,
+        (employeeId && employeeId !== 'any' ? (employeeId as string) : undefined),
         notes
       );
 
@@ -142,8 +144,8 @@ export default function BookingConfirmationScreen() {
       '¿Estás seguro de que quieres cancelar esta reserva?',
       [
         { text: 'No', style: 'cancel' },
-        { 
-          text: 'Sí, Cancelar', 
+        {
+          text: 'Sí, Cancelar',
           style: 'destructive',
           onPress: () => router.back()
         },
@@ -151,10 +153,17 @@ export default function BookingConfirmationScreen() {
     );
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -175,32 +184,60 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryLabel}>Servicio</Text>
                 <Text style={styles.summaryValue}>{serviceName}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.push({
+                  pathname: '/(booking)/service-selection',
+                  params: { providerId, providerName }
+                })}
+              />
             </View>
-            
-            {employeeName && (
-              <View style={styles.summaryItem}>
-                <IconSymbol name="person" size={20} color={Colors.light.primary} />
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Empleado</Text>
-                  <Text style={styles.summaryValue}>{employeeName}</Text>
-                </View>
+
+            <View style={styles.summaryItem}>
+              <IconSymbol name="person" size={20} color={Colors.light.primary} />
+              <View style={styles.summaryContent}>
+                <Text style={styles.summaryLabel}>Empleado</Text>
+                <Text style={styles.summaryValue}>{employeeName || 'Sin preferencia'}</Text>
               </View>
-            )}
-            
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.push({
+                  pathname: '/(booking)/service-selection',
+                  params: { providerId, providerName, preselectedServiceId: serviceId }
+                })}
+              />
+            </View>
+
             <View style={styles.summaryItem}>
               <IconSymbol name="calendar" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.summaryLabel}>Fecha</Text>
                 <Text style={styles.summaryValue}>{formatDate(selectedDate as string)}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.back()}
+              />
             </View>
-            
+
             <View style={styles.summaryItem}>
               <IconSymbol name="clock" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.summaryLabel}>Hora</Text>
                 <Text style={styles.summaryValue}>{selectedTime}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.back()}
+              />
             </View>
 
             {durationLabel && (
@@ -212,27 +249,12 @@ export default function BookingConfirmationScreen() {
                 </View>
               </View>
             )}
-            
+
             <View style={styles.summaryItem}>
               <IconSymbol name="dollarsign.circle" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.summaryLabel}>Precio</Text>
                 <Text style={styles.summaryValue}>${servicePrice}</Text>
-              </View>
-            </View>
-          </Card>
-        </View>
-
-        {/* Información del proveedor */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Proveedor</Text>
-          <Card variant="elevated" padding="medium">
-            <View style={styles.providerInfo}>
-              <View style={styles.providerDetails}>
-                <Text style={styles.providerNameDetails}>{providerName}</Text>
-                <Text style={styles.providerCategory}>Peluquería</Text>
-                <Text style={styles.providerAddress}>Av. Francisco de Miranda, Caracas</Text>
-                <Text style={styles.providerPhone}>+58 212 555-0123</Text>
               </View>
             </View>
           </Card>
@@ -259,19 +281,47 @@ export default function BookingConfirmationScreen() {
           </Card>
         </View>
 
+        {/* Información del proveedor */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Información del Proveedor</Text>
+          <Card variant="elevated" padding="medium">
+            <View style={styles.providerInfo}>
+              <View style={styles.providerDetails}>
+                <Text style={styles.providerNameDetails}>{providerName}</Text>
+                <Text style={styles.providerCategory}>Peluquería</Text>
+                <Text style={styles.providerAddress}>Av. Francisco de Miranda, Caracas</Text>
+                <Text style={styles.providerPhone}>+58 212 555-0123</Text>
+              </View>
+            </View>
+          </Card>
+        </View>
+
         {/* Términos y condiciones */}
         <View style={[styles.section, styles.termsSection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.termsContainer}>
-              <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
               <View style={styles.termsContent}>
                 <Text style={styles.termsTitle}>Términos y Condiciones</Text>
-                <Text style={styles.termsText}>
-                  • Puedes cancelar tu cita hasta 2 horas antes sin costo{'\n'}
-                  • Llega 10 minutos antes de tu cita{'\n'}
-                  • En caso de retraso, tu cita podría ser reprogramada{'\n'}
-                  • El pago se realiza al finalizar el servicio
-                </Text>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="clock.arrow.circlepath" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Cancelación gratuita hasta 2 horas antes</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="figure.walk" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Llega 10 minutos antes de tu cita</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="exclamationmark.circle" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Retrasos pueden causar reprogramación</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="creditcard" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Pago al finalizar el servicio</Text>
+                </View>
               </View>
             </View>
           </Card>
@@ -279,9 +329,9 @@ export default function BookingConfirmationScreen() {
 
         {/* Política de cancelación */}
         <View style={[styles.section, styles.policySection]}>
-          <Card variant="elevated" padding="medium">
+          <Card variant="elevated" padding="medium" style={styles.policyCard}>
             <View style={styles.policyContainer}>
-              <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.warning} />
+              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={Colors.light.warning} />
               <View style={styles.policyContent}>
                 <Text style={styles.policyTitle}>Política de Cancelación</Text>
                 <Text style={styles.policyText}>
@@ -294,7 +344,7 @@ export default function BookingConfirmationScreen() {
       </ScrollView>
 
       {/* Botones de acción */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}>
         <View style={styles.buttonRow}>
           <Button
             title="Cancelar"
@@ -311,15 +361,15 @@ export default function BookingConfirmationScreen() {
             loading={loading}
             disabled={loading}
             style={styles.confirmButton}
-            icon={<IconSymbol name="checkmark" size={16} color="#ffffff" />}
+            icon={<IconSymbol name="checkmark" size={16} color={Colors.light.textOnPrimary} />}
           />
         </View>
-        
+
         <Text style={styles.confirmationNote}>
           Al confirmar, aceptas nuestros términos y condiciones
         </Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -335,51 +385,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     backgroundColor: Colors.light.background,
   },
   providerName: {
-    fontSize: 20,
+    fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: '600',
     color: Colors.light.text,
   },
   stepText: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.xl,
   },
   termsSection: {
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
   },
   policySection: {
-    marginBottom: 24,
+    marginBottom: DesignTokens.spacing['2xl'],
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   summaryContent: {
-    marginLeft: 12,
+    marginLeft: DesignTokens.spacing.md,
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
     marginBottom: 2,
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
   },
@@ -391,94 +441,94 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   providerNameDetails: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerCategory: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   providerAddress: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerPhone: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
   },
   notesLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
   },
   notesInput: {
     backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: DesignTokens.radius.md,
+    padding: DesignTokens.spacing.md,
     minHeight: 80,
     color: Colors.light.text,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
   notesCounter: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
     textAlign: 'right',
-    marginTop: 8,
+    marginTop: DesignTokens.spacing.sm,
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   termsContent: {
     flex: 1,
   },
   termsTitle: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.text,
     marginBottom: 10,
   },
   termsText: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.text,
     lineHeight: 20,
   },
   policyContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   policyContent: {
     flex: 1,
   },
   policyTitle: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.text,
     marginBottom: 10,
   },
   policyText: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
     lineHeight: 20,
   },
   bottomSection: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    padding: DesignTokens.spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? 80 : 40,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: DesignTokens.spacing.md,
+    marginBottom: DesignTokens.spacing.md,
   },
   cancelButton: {
     flex: 1,
@@ -487,9 +537,25 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   confirmationNote: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textTertiary,
     textAlign: 'center',
     lineHeight: 16,
+  },
+  termItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.sm,
+    gap: DesignTokens.spacing.sm,
+  },
+  termText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    flex: 1,
+  },
+  policyCard: {
+    backgroundColor: Colors.light.warning + '10',
+    borderColor: Colors.light.warning + '30',
+    borderWidth: 1,
   },
 });

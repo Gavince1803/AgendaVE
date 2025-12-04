@@ -1,10 +1,9 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
-import { Card } from './Card';
-import { IconSymbol } from './IconSymbol';
-import { Avatar } from './Avatar';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { Employee } from '@/lib/booking-service';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Avatar } from './Avatar';
+import { Card } from './Card';
+import { IconSymbol } from './IconSymbol';
 import { EmployeeCarouselSkeleton } from './LoadingStates';
 
 interface EmployeeSelectorProps {
@@ -59,12 +58,45 @@ export function EmployeeSelector({
         </View>
       )}
 
-      <ScrollView 
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.employeesList}
         style={styles.employeesScrollView}
       >
+        {/* Option: Any Employee */}
+        <TouchableOpacity
+          onPress={() => onEmployeeSelect({ id: 'any', name: 'Sin preferencia' } as Employee)}
+          style={styles.employeeCardWrapper}
+        >
+          <Card
+            variant={selectedEmployee?.id === 'any' ? "elevated" : "default"}
+            style={[
+              styles.employeeCard,
+              selectedEmployee?.id === 'any' && styles.selectedEmployeeCard
+            ]}
+          >
+            <View style={styles.employeeContent}>
+              <View style={[styles.employeeAvatar, styles.anyEmployeeAvatar]}>
+                <IconSymbol name="person.2.fill" size={32} color={Colors.light.primary} />
+              </View>
+
+              <View style={styles.employeeInfo}>
+                <Text style={styles.employeeName}>Sin preferencia</Text>
+                <Text style={styles.employeeBio} numberOfLines={2}>
+                  Asignaremos al profesional disponible
+                </Text>
+              </View>
+
+              {selectedEmployee?.id === 'any' && (
+                <View style={styles.selectedIndicator}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={Colors.light.success} />
+                </View>
+              )}
+            </View>
+          </Card>
+        </TouchableOpacity>
+
         {employees.map((employee) => (
           <TouchableOpacity
             key={employee.id}
@@ -79,13 +111,13 @@ export function EmployeeSelector({
               ]}
             >
               <View style={styles.employeeContent}>
-                <Avatar 
+                <Avatar
                   name={employee.name}
                   size="medium"
                   style={styles.employeeAvatar}
                   source={employee.profile_image_url ? { uri: employee.profile_image_url } : undefined}
                 />
-                
+
                 <View style={styles.employeeInfo}>
                   <Text style={styles.employeeName}>{employee.name}</Text>
                   {employee.is_owner && (
@@ -94,17 +126,17 @@ export function EmployeeSelector({
                       <Text style={styles.ownerText}>Dueño</Text>
                     </View>
                   )}
-                  
+
                   {employee.position && (
                     <Text style={styles.employeePosition}>{employee.position}</Text>
                   )}
-                  
+
                   {employee.bio && (
                     <Text style={styles.employeeBio} numberOfLines={2}>
                       {employee.bio}
                     </Text>
                   )}
-                  
+
                   {employee.custom_schedule_enabled && (
                     <View style={styles.scheduleIndicator}>
                       <IconSymbol name="clock" size={12} color={Colors.light.info} />
@@ -203,6 +235,14 @@ const styles = StyleSheet.create({
   employeeAvatar: {
     alignSelf: 'center',
     marginBottom: DesignTokens.spacing.md,
+  },
+  anyEmployeeAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: DesignTokens.radius['3xl'],
+    backgroundColor: Colors.light.primary + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   employeeInfo: {
     alignItems: 'center',

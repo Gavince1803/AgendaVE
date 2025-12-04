@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import {
   Animated,
+  StyleProp,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   TouchableOpacityProps,
-  StyleProp,
   ViewStyle,
-  TextStyle,
 } from 'react-native';
 
-import { LoadingSpinner } from './LoadingSpinner';
+import { Colors } from '@/constants/Colors';
 import { Theme, useTheme } from '@/theme';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type ButtonVariant =
   | 'primary'
@@ -233,18 +234,18 @@ function createStyles(theme: Theme) {
       ...tokens.elevation.md,
     },
     wellness: {
-      backgroundColor: '#14b8a6',
-      shadowColor: '#14b8a6',
+      backgroundColor: Colors.light.success,
+      shadowColor: Colors.light.success,
       ...tokens.elevation.md,
     },
     premium: {
-      backgroundColor: '#a855f7',
-      shadowColor: '#a855f7',
+      backgroundColor: Colors.light.accent,
+      shadowColor: Colors.light.accent,
       ...tokens.elevation.lg,
     },
     soft: {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#e2e8f0',
+      backgroundColor: Colors.light.surfaceVariant,
+      borderColor: Colors.light.border,
       borderWidth: 1,
     },
     small: {

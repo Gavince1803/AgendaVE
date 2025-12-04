@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Skeleton } from '@/components/ui/Skeleton';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService, Employee } from '@/lib/booking-service';
@@ -149,12 +149,12 @@ export default function EmployeeManagementScreen() {
     }
   };
 
-  const ensureInviteDetails = async (employee: Employee) => {
+  const ensureInviteDetails = async (employee: Employee, forceResend = false) => {
     const isExpired = employee.invite_token_expires_at
       ? Date.now() > new Date(employee.invite_token_expires_at).getTime()
       : false;
 
-    if (employee.invite_status === 'pending' && employee.invite_token && !isExpired) {
+    if (!forceResend && employee.invite_status === 'pending' && employee.invite_token && !isExpired) {
       return {
         inviteToken: employee.invite_token,
         inviteUrl: `${inviteBaseUrl}?token=${employee.invite_token}`,
@@ -186,6 +186,16 @@ export default function EmployeeManagementScreen() {
     } catch (error) {
       console.error('Error sharing invite:', error);
       Alert.alert('Error', 'No se pudo compartir la invitación.');
+    }
+  };
+
+  const handleResendInvite = async (employee: Employee) => {
+    try {
+      const invite = await ensureInviteDetails(employee, true);
+      Alert.alert('Invitación Reenviada', `Nuevo código: ${invite.inviteToken}\nExpira: ${new Date(invite.expiresAt).toLocaleString()}`);
+    } catch (error) {
+      console.error('Error resending invite:', error);
+      Alert.alert('Error', 'No se pudo reenviar la invitación.');
     }
   };
 
@@ -293,14 +303,21 @@ export default function EmployeeManagementScreen() {
                     {!employee.profile_id && employee.invite_token ? (
                       <View style={styles.inviteContainer}>
                         <View style={styles.inviteInfoRow}>
-                          <Text style={styles.inviteText}>Invitación pendiente</Text>
+                          <Text style={styles.inviteText}>
+                            Invitación pendiente
+                            {employee.invite_token_expires_at && (
+                              <Text style={{ fontSize: 10, color: Colors.light.error }}>
+                                {'\n'}Expira: {new Date(employee.invite_token_expires_at).toLocaleDateString()} {new Date(employee.invite_token_expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                            )}
+                          </Text>
                         </View>
                         <View style={styles.inviteButtons}>
                           <Button
                             title="Reenviar"
                             size="small"
                             variant="outline"
-                            onPress={() => ensureInviteDetails(employee).then(() => handleShareInvite(employee))}
+                            onPress={() => handleResendInvite(employee)}
                           />
                           <Button
                             title="Compartir"
@@ -311,47 +328,21 @@ export default function EmployeeManagementScreen() {
                       </View>
                     ) : null}
 
-                    <View style={styles.employeeSchedule}>
-                      <View style={styles.scheduleInfo}>
-                        <Text style={styles.scheduleText}>
-                          Horario personalizado {employee.custom_schedule_enabled ? 'activado' : 'desactivado'}
-                        </Text>
-                      </View>
-                      <Button
-                        title="Horario"
-                        size="small"
-                        variant="outline"
-                        onPress={() => handleManageSchedule(employee)}
-                      />
-                    </View>
-
                     <View style={styles.employeeActions}>
-                      {employee.is_owner ? (
-                        <Button
-                          title="Editar"
-                          size="small"
-                          variant="secondary"
-                          onPress={() => handleEditEmployee(employee)}
-                          fullWidth
-                        />
-                      ) : (
-                        <>
-                          <Button
-                            title="Editar"
-                            size="small"
-                            variant="secondary"
-                            onPress={() => handleEditEmployee(employee)}
-                            style={styles.actionButton}
-                          />
-                          <Button
-                            title="Eliminar"
-                            size="small"
-                            variant="outline"
-                            style={[styles.deleteButton, styles.actionButton]}
-                            onPress={() => handleDeleteEmployee(employee)}
-                          />
-                        </>
-                      )}
+                      <Button
+                        title="Editar"
+                        variant="outline"
+                        size="small"
+                        onPress={() => handleEditEmployee(employee)}
+                        style={styles.actionButton}
+                      />
+                      <Button
+                        title="Eliminar"
+                        variant="outline"
+                        size="small"
+                        onPress={() => handleDeleteEmployee(employee)}
+                        style={[styles.actionButton, styles.deleteButton]}
+                      />
                     </View>
                   </Card>
                 ))}
@@ -362,7 +353,6 @@ export default function EmployeeManagementScreen() {
       )}
     </TabSafeAreaView>
   );
-
 }
 
 const styles = StyleSheet.create({

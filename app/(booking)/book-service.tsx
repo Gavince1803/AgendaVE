@@ -5,13 +5,13 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    type TextStyle,
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -25,9 +25,9 @@ import { BookingService, type AppointmentValidationResult, type Provider, type S
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function BookServiceScreen() {
-  const { 
-    providerId, 
-    serviceId, 
+  const {
+    providerId,
+    serviceId,
     rescheduleId,
     mode
   } = useLocalSearchParams<{
@@ -67,7 +67,7 @@ export default function BookServiceScreen() {
 
   const loadData = useCallback(async () => {
     if (!providerId || !serviceId) return;
-    
+
     try {
       setLoading(true);
       log.info(LogCategory.DATABASE, 'Loading booking data', { providerId, serviceId });
@@ -96,31 +96,31 @@ export default function BookServiceScreen() {
 
   const loadAvailableSlots = useCallback(async () => {
     if (!providerId || !selectedDate) return;
-    
+
     try {
       const dateString = selectedDate.toISOString().split('T')[0];
       const dayOfWeek = selectedDate.getDay();
       const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      
+
       console.log('🔴 [BOOK SERVICE] Loading slots for:', {
         providerId,
         dateString,
         dayOfWeek,
         dayName: weekdayNames[dayOfWeek]
       });
-      
+
       const slots = await BookingService.getAvailableSlots(providerId, dateString, serviceId);
       setAvailableSlots(slots);
-      
-      console.log('🔴 [BOOK SERVICE] Slots loaded:', { 
-        date: dateString, 
+
+      console.log('🔴 [BOOK SERVICE] Slots loaded:', {
+        date: dateString,
         slotsCount: slots.length,
-        slots 
+        slots
       });
-      
-      log.info(LogCategory.DATABASE, 'Available slots loaded', { 
-        date: dateString, 
-        slotsCount: slots.length 
+
+      log.info(LogCategory.DATABASE, 'Available slots loaded', {
+        date: dateString,
+        slotsCount: slots.length
       });
     } catch (error) {
       console.error('🔴 [BOOK SERVICE] Error loading available slots:', error);
@@ -239,7 +239,7 @@ export default function BookServiceScreen() {
 
     // Show confirmation dialog before booking
     const bookingDetails = `Servicio: ${service.name}\nProveedor: ${provider.business_name}\nFecha: ${formatDate(selectedDate)}\nHora: ${selectedTime}\nDuración: ${formatDuration(service.duration_minutes)}\nPrecio: ${formatPrice(service.price_amount)}`;
-    
+
     Alert.alert(
       'Confirmar Reserva',
       `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
@@ -263,7 +263,7 @@ export default function BookServiceScreen() {
     try {
       setBooking(true);
       const isRescheduling = mode === 'reschedule' && rescheduleId;
-      
+
       log.userAction(isRescheduling ? 'Reschedule appointment' : 'Book appointment', {
         providerId: provider.id,
         serviceId: service.id,
@@ -310,7 +310,7 @@ export default function BookServiceScreen() {
       log.info(LogCategory.DATABASE, isRescheduling ? 'Appointment rescheduled successfully' : 'Appointment created successfully', { appointmentId: appointment.id });
 
       const successTitle = isRescheduling ? '¡Cita Reprogramada!' : '¡Reserva Confirmada!';
-      const successMessage = isRescheduling 
+      const successMessage = isRescheduling
         ? `Tu cita ha sido reprogramada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor confirmará el nuevo horario pronto.`
         : `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`;
 
@@ -330,7 +330,7 @@ export default function BookServiceScreen() {
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtalo de nuevo.';
       Alert.alert('Error', errorMessage);
     } finally {
@@ -398,7 +398,7 @@ export default function BookServiceScreen() {
           <ThemedView style={styles.headerContent}>
             <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
             <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
-            
+
             <ThemedView style={styles.serviceDetails}>
               <ThemedView style={styles.durationBadge}>
                 <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
@@ -428,15 +428,7 @@ export default function BookServiceScreen() {
               value={selectedDate.toISOString().split('T')[0]}
               min={new Date().toISOString().split('T')[0]}
               onChange={handleWebDateChange}
-              style={{
-                width: '100%',
-                padding: 16,
-                fontSize: 16,
-                borderRadius: 12,
-                border: `1px solid ${Colors.light.border}`,
-                backgroundColor: Colors.light.surface,
-                color: Colors.light.text
-              }}
+              style={styles.webDateInput}
             />
           ) : (
             // Native date selector
@@ -527,9 +519,7 @@ export default function BookServiceScreen() {
             display="spinner"
             minimumDate={new Date()}
             onChange={handleDateChange}
-            style={{
-              backgroundColor: Colors.light.surface,
-            }}
+            style={styles.datePicker}
             textColor={Colors.light.text}
           />
         ) : (
@@ -720,5 +710,18 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     marginTop: DesignTokens.spacing.lg,
+  },
+  webDateInput: {
+    width: '100%',
+    padding: DesignTokens.spacing.lg,
+    fontSize: DesignTokens.typography.fontSizes.base,
+    borderRadius: DesignTokens.radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+    color: Colors.light.text,
+  },
+  datePicker: {
+    backgroundColor: Colors.light.surface,
   },
 });

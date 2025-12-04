@@ -4,18 +4,18 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { CalendarSkeleton, TimeSlotsSkeleton } from '@/components/ui/LoadingStates';
 import { TimeSlots } from '@/components/ui/TimeSlots';
-import { Colors } from '@/constants/Colors';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  View,
   TouchableOpacity,
+  View,
 } from 'react-native';
 
 type NextSlotSuggestion = {
@@ -26,17 +26,17 @@ type NextSlotSuggestion = {
 };
 
 export default function TimeSelectionScreen() {
-  const { 
-    providerId, 
-    providerName, 
-    serviceId, 
-    serviceName, 
-    servicePrice, 
+  const {
+    providerId,
+    providerName,
+    serviceId,
+    serviceName,
+    servicePrice,
     serviceDuration,
     employeeId,
     employeeName
   } = useLocalSearchParams();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
   const timeSlotsYRef = useRef<number>(0);
@@ -55,12 +55,12 @@ export default function TimeSelectionScreen() {
     const startHour = 9;
     const endHour = 18;
     const interval = 30; // 30 minutos
-    
+
     for (let hour = startHour; hour < endHour; hour++) {
       for (let minutes = 0; minutes < 60; minutes += interval) {
         const timeString = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         const isAvailable = Math.random() > 0.3; // Simular disponibilidad
-        
+
         times.push({
           time: timeString,
           displayTime: `${hour}:${minutes.toString().padStart(2, '0')}`,
@@ -68,7 +68,7 @@ export default function TimeSelectionScreen() {
         });
       }
     }
-    
+
     return times.filter(t => t.isAvailable);
   };
 
@@ -88,7 +88,7 @@ export default function TimeSelectionScreen() {
       return [];
     }
 
-    if (employeeId && employeeId !== '') {
+    if (employeeId && employeeId !== '' && employeeId !== 'any') {
       console.log('🔴 [TIME SELECTION] Loading employee slots for:', { employeeId, providerId, date, serviceId });
       return BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
     }
@@ -144,7 +144,7 @@ export default function TimeSelectionScreen() {
     for (const date of dates) {
       let slots: string[] = [];
       try {
-        if (employeeId && employeeId !== '') {
+        if (employeeId && employeeId !== '' && employeeId !== 'any') {
           slots = await BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
         } else {
           slots = await BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
@@ -193,42 +193,42 @@ export default function TimeSelectionScreen() {
     try {
       console.log('🔴 [TIME SELECTION] Loading available dates for employee/provider:', { employeeId, providerId });
       const today = new Date();
-      
+
       // Optimized: Check availability for fewer days initially (next 14 days)
       // and only check more if needed
       const daysToCheck = 14;
       const datePromises = [];
-      
+
       for (let i = 0; i < daysToCheck; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         const dateString = date.toISOString().split('T')[0];
-        
+
         // Create promise for each date check
         const datePromise = (async () => {
           try {
             let hasAvailability = false;
-            
+
             // Check if employee or provider has availability for this date
-            if (employeeId && employeeId !== '') {
+            if (employeeId && employeeId !== '' && employeeId !== 'any') {
               // Check employee-specific availability
               const employeeSlots = await BookingService.getEmployeeAvailableSlots(
-                employeeId as string, 
-                providerId as string, 
-                dateString, 
+                employeeId as string,
+                providerId as string,
+                dateString,
                 serviceId as string
               );
               hasAvailability = employeeSlots.length > 0;
             } else {
               // Check provider availability
               const providerSlots = await BookingService.getAvailableSlots(
-                providerId as string, 
-                dateString, 
+                providerId as string,
+                dateString,
                 serviceId as string
               );
               hasAvailability = providerSlots.length > 0;
             }
-            
+
             return hasAvailability ? dateString : null;
           } catch (dateError) {
             // If there's an error checking this specific date, log it but continue
@@ -236,26 +236,26 @@ export default function TimeSelectionScreen() {
             return null;
           }
         })();
-        
+
         datePromises.push(datePromise);
       }
-      
+
       // Wait for all date checks to complete (parallel execution)
       const dateResults = await Promise.all(datePromises);
       const validDates = dateResults.filter(date => date !== null) as string[];
-      
-      console.log('🔴 [TIME SELECTION] Available dates found:', { 
-        totalDatesChecked: daysToCheck, 
-        availableDates: validDates.length, 
-        dates: validDates 
+
+      console.log('🔴 [TIME SELECTION] Available dates found:', {
+        totalDatesChecked: daysToCheck,
+        availableDates: validDates.length,
+        dates: validDates
       });
-      
+
       setAvailableDates(validDates);
       if (!selectedDateRef.current && validDates.length > 0) {
         setSelectedDate(validDates[0]);
       }
       prefetchNextSlots(validDates.slice(0, 5));
-      
+
     } catch (error) {
       console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
       // Fallback: show next 7 days if there's an error
@@ -341,10 +341,10 @@ export default function TimeSelectionScreen() {
 
   const selectedDateData = selectedDate ? {
     date: selectedDate,
-    displayDate: new Date(selectedDate).toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      day: 'numeric', 
-      month: 'long' 
+    displayDate: new Date(selectedDate).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
     })
   } : null;
   const selectedTimeData = selectedTime ? { time: selectedTime, displayTime: selectedTime } : null;
@@ -367,7 +367,7 @@ export default function TimeSelectionScreen() {
           <View style={styles.stepIndicator}>
             <Text style={styles.stepText}>Paso 2 de 3 • Fecha y Hora</Text>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '66%' }]} />
+              <View style={[styles.progressFill, styles.progressTwoThirds]} />
             </View>
             <View style={styles.progressSteps}>
               <View style={[styles.progressDot, styles.progressDotCompleted]} />
@@ -400,14 +400,21 @@ export default function TimeSelectionScreen() {
             <IconSymbol name="calendar.badge.clock" size={22} color={Colors.light.primary} />
             <Text style={styles.emptyStateTitle}>Sin disponibilidad inmediata</Text>
             <Text style={styles.emptyStateCopy}>
-              No encontramos horarios en las próximas dos semanas. Actualiza más tarde o prueba con otro profesional.
+              No encontramos horarios en las próximas dos semanas.
             </Text>
             <Button
-              title="Actualizar disponibilidad"
-              onPress={onRefresh}
+              title="Ver siguiente fecha disponible"
+              onPress={selectNextAvailableDate}
               variant="primary"
               size="medium"
               style={styles.emptyStateButton}
+            />
+            <Button
+              title="Actualizar disponibilidad"
+              onPress={onRefresh}
+              variant="ghost"
+              size="small"
+              style={{ marginTop: 8 }}
             />
           </Card>
         ) : (
@@ -535,7 +542,7 @@ export default function TimeSelectionScreen() {
           fullWidth
           elevated
           disabled={!selectedDate || !selectedTime}
-          icon={<IconSymbol name="arrow.right" size={18} color="#ffffff" />}
+          icon={<IconSymbol name="arrow.right" size={18} color={Colors.light.textOnPrimary} />}
         />
         {(!selectedDate || !selectedTime) && (
           <Text style={styles.requirementText}>
@@ -554,29 +561,29 @@ const BOTTOM_PADDING = Platform.OS === 'ios' ? 40 : 20;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: Colors.light.background,
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    padding: 16,
+    padding: DesignTokens.spacing.lg,
     paddingTop: HEADER_PADDING_TOP,
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
   },
   headerContent: {
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
   },
   providerName: {
-    fontSize: 22,
+    fontSize: DesignTokens.typography.fontSizes['2xl'],
     fontWeight: '700',
     color: Colors.light.text,
     letterSpacing: -0.5,
   },
   providerSubtitle: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
     marginTop: 2,
   },
@@ -584,34 +591,37 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   stepText: {
-    fontSize: 13,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.textSecondary,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
     letterSpacing: 0.5,
   },
   progressBar: {
     width: 120,
     height: 4,
     backgroundColor: Colors.light.borderLight,
-    borderRadius: 2,
+    borderRadius: DesignTokens.radius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: Colors.light.primary,
-    borderRadius: 2,
+    borderRadius: DesignTokens.radius.xs,
+  },
+  progressTwoThirds: {
+    width: '66%',
   },
   progressSteps: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: DesignTokens.spacing.sm,
     gap: 6,
   },
   progressDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: DesignTokens.radius.xs,
     backgroundColor: Colors.light.borderLight,
   },
   progressDotCompleted: {
@@ -624,9 +634,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   serviceSummary: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+    padding: DesignTokens.spacing.lg,
+    paddingTop: DesignTokens.spacing.md,
+    paddingBottom: DesignTokens.spacing.md,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -634,13 +644,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   summaryTitle: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     fontWeight: '600',
     color: Colors.light.textSecondary,
-    marginLeft: 8,
+    marginLeft: DesignTokens.spacing.sm,
   },
   serviceName: {
-    fontSize: 15,
+    fontSize: DesignTokens.typography.fontSizes.base,
     fontWeight: '600',
     color: Colors.light.text,
     marginBottom: 6,
@@ -651,42 +661,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryText: {
-    fontSize: 13,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
   },
   summaryPrice: {
-    fontSize: 15,
+    fontSize: DesignTokens.typography.fontSizes.base,
     fontWeight: 'bold',
     color: Colors.light.success,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.xl,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   timeSlotsSection: {
     flex: 1,
-    marginHorizontal: 16,
+    marginHorizontal: DesignTokens.spacing.lg,
   },
   emptySlotsCard: {
-    marginTop: 12,
-    gap: 12,
+    marginTop: DesignTokens.spacing.md,
+    gap: DesignTokens.spacing.md,
   },
   emptySlotsContent: {
     gap: 4,
   },
   emptySlotsTitle: {
-    fontSize: 15,
+    fontSize: DesignTokens.typography.fontSizes.base,
     fontWeight: '600',
     color: Colors.light.text,
   },
   emptySlotsCopy: {
-    fontSize: 13,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
     lineHeight: 18,
   },
@@ -694,73 +704,78 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   selectionSummary: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.xl,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '500',
     color: Colors.light.text,
   },
   totalRow: {
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
-    paddingTop: 8,
-    marginTop: 8,
+    paddingTop: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.sm,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
   },
   totalValue: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     fontWeight: 'bold',
     color: Colors.light.success,
   },
   bottomSection: {
-    padding: 20,
+    padding: DesignTokens.spacing.xl,
     paddingBottom: BOTTOM_PADDING,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
+    ...DesignTokens.elevation.lg,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    elevation: 20,
+    zIndex: 100,
   },
   loadingContainer: {
     backgroundColor: Colors.light.background,
-    borderRadius: 16,
-    padding: 40,
-    margin: 16,
+    borderRadius: DesignTokens.radius.xl,
+    padding: DesignTokens.spacing['4xl'],
+    margin: DesignTokens.spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     color: Colors.light.textSecondary,
     textAlign: 'center',
   },
   emptyStateCard: {
-    marginHorizontal: 16,
+    marginHorizontal: DesignTokens.spacing.lg,
     alignItems: 'center',
-    gap: 12,
+    gap: DesignTokens.spacing.md,
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
     textAlign: 'center',
   },
   emptyStateCopy: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
@@ -769,30 +784,30 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   quickSlotContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingBottom: DesignTokens.spacing.sm,
   },
   quickSlotScroll: {
-    paddingVertical: 8,
+    paddingVertical: DesignTokens.spacing.sm,
   },
   quickSlotPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    gap: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius.xl,
     backgroundColor: Colors.light.surface,
     borderWidth: 1,
     borderColor: Colors.light.borderLight,
-    marginRight: 12,
+    marginRight: DesignTokens.spacing.md,
   },
   quickSlotText: {
     flexDirection: 'column',
     gap: 2,
   },
   quickSlotLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.text,
     textTransform: 'capitalize',

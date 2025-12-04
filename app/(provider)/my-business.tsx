@@ -472,6 +472,36 @@ export default function MyBusinessScreen() {
             )}
           </Card>
 
+          {/* Clientes */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Clientes
+              </ThemedText>
+              <Button
+                title="Ver Lista"
+                size="small"
+                onPress={() => {
+                  log.userAction('Navigate to clients', { screen: 'MyBusiness' });
+                  router.push('/(provider)/clients');
+                }}
+                leftIcon={<IconSymbol name="person.2" size={16} color={Colors.light.surface} />}
+              />
+            </View>
+
+            <ThemedView style={styles.employeeInfo}>
+              <IconSymbol name="person.2" size={24} color={Colors.light.primary} />
+              <View style={styles.employeeText}>
+                <ThemedText style={styles.employeeTitle}>
+                  Base de Clientes
+                </ThemedText>
+                <ThemedText style={styles.employeeSubtext}>
+                  Consulta el historial y notas de tus clientes
+                </ThemedText>
+              </View>
+            </ThemedView>
+          </Card>
+
           {/* Servicios */}
           <Card variant="elevated" style={styles.section}>
             <View style={styles.sectionHeader}>

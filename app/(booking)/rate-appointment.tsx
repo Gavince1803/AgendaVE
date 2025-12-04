@@ -8,22 +8,22 @@ import { supabase } from '@/lib/supabase';
 // import { ReviewService } from '@/lib/review-service';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function RateAppointmentScreen() {
   const { user } = useAuth();
   const { appointmentId } = useLocalSearchParams();
-  
+
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -164,7 +164,7 @@ export default function RateAppointmentScreen() {
             <MaterialIcons
               name={star <= rating ? 'star' : 'star-border'}
               size={40}
-              color={star <= rating ? '#FFD700' : '#D1D5DB'}
+              color={star <= rating ? Colors.light.warning : Colors.light.borderMedium}
             />
           </TouchableOpacity>
         ))}
@@ -200,7 +200,7 @@ export default function RateAppointmentScreen() {
 
   return (
     <TabSafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
@@ -210,8 +210,8 @@ export default function RateAppointmentScreen() {
             {isUpdating ? 'Actualiza tu Calificación' : 'Califica tu Experiencia'}
           </Text>
           <Text style={styles.subtitle}>
-            {isUpdating 
-              ? 'Puedes cambiar tu calificación anterior' 
+            {isUpdating
+              ? 'Puedes cambiar tu calificación anterior'
               : 'Tu opinión nos ayuda a mejorar'
             }
           </Text>
@@ -220,18 +220,18 @@ export default function RateAppointmentScreen() {
         {/* Información de la cita */}
         <Card variant="elevated" padding="medium" style={styles.appointmentCard}>
           <Text style={styles.cardTitle}>Detalles de la Cita</Text>
-          
+
           <View style={styles.appointmentInfo}>
             <View style={styles.infoRow}>
               <MaterialIcons name="business" size={20} color={Colors.light.primary} />
               <Text style={styles.infoText}>{appointment.provider?.business_name}</Text>
             </View>
-            
+
             <View style={styles.infoRow}>
               <MaterialIcons name="content-cut" size={20} color={Colors.light.primary} />
               <Text style={styles.infoText}>{appointment.service?.name}</Text>
             </View>
-            
+
             <View style={styles.infoRow}>
               <MaterialIcons name="calendar-today" size={20} color={Colors.light.primary} />
               <Text style={styles.infoText}>
@@ -243,7 +243,7 @@ export default function RateAppointmentScreen() {
                 })}
               </Text>
             </View>
-            
+
             <View style={styles.infoRow}>
               <MaterialIcons name="access-time" size={20} color={Colors.light.primary} />
               <Text style={styles.infoText}>{appointment.appointment_time}</Text>
@@ -270,12 +270,12 @@ export default function RateAppointmentScreen() {
         <Card variant="elevated" padding="medium" style={styles.commentCard}>
           <Text style={styles.cardTitle}>Comentario (Opcional)</Text>
           <Text style={styles.commentSubtitle}>
-            {isUpdating 
-              ? 'Actualiza tu comentario si lo deseas' 
+            {isUpdating
+              ? 'Actualiza tu comentario si lo deseas'
               : 'Comparte tu experiencia para ayudar a otros clientes'
             }
           </Text>
-          
+
           <TextInput
             style={styles.commentInput}
             value={comment}
@@ -286,7 +286,7 @@ export default function RateAppointmentScreen() {
             numberOfLines={4}
             maxLength={500}
           />
-          
+
           <Text style={styles.characterCount}>
             {comment.length}/500 caracteres
           </Text>
@@ -301,8 +301,8 @@ export default function RateAppointmentScreen() {
               <Text style={styles.termsText}>
                 • Tu calificación será visible públicamente{'\n'}
                 • Los comentarios ayudan a otros clientes{'\n'}
-                {isUpdating 
-                  ? '• Esto actualizará tu calificación anterior\n' 
+                {isUpdating
+                  ? '• Esto actualizará tu calificación anterior\n'
                   : '• Puedes editar tu calificación más tarde\n'
                 }
                 • Mantén un tono respetuoso y constructivo
@@ -330,7 +330,7 @@ export default function RateAppointmentScreen() {
             loading={loading}
             disabled={loading || rating === 0}
             style={styles.submitButton}
-            icon={<MaterialIcons name="star" size={16} color="#ffffff" />}
+            icon={<MaterialIcons name="star" size={16} color={Colors.light.textOnPrimary} />}
           />
         </View>
       </View>

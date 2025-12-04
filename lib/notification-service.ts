@@ -133,6 +133,21 @@ export class NotificationService {
     }
   }
 
+  static async scheduleLocalNotification(data: NotificationData & { trigger: any }): Promise<void> {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: data.title,
+          body: data.body,
+          data: data.data,
+        },
+        trigger: data.trigger,
+      });
+    } catch (error) {
+      console.error('Error scheduling local notification:', error);
+    }
+  }
+
   /**
    * Enviar notificación push a un usuario específico
    */

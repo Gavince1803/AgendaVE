@@ -84,7 +84,9 @@ export interface Employee {
   updated_at: string;
   profiles?: {
     display_name?: string;
+    full_name?: string;
     phone?: string;
+    avatar_url?: string;
   } | null;
 }
 
@@ -108,6 +110,8 @@ export interface Appointment {
   appointment_date: string;
   appointment_time: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'done' | 'no_show';
+  payment_status: 'pending' | 'paid' | 'partial';
+  payment_method?: 'cash' | 'zelle' | 'pago_movil' | 'card' | 'other';
   note?: string;
   notes?: string;
   created_at: string;
@@ -585,14 +589,23 @@ export class BookingService {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*, profiles:profiles!employees_profile_id_fkey(display_name, phone)')
+        .select('*, profiles:profiles!employees_profile_id_fkey(display_name, phone, avatar_url)')
         .eq('provider_id', providerId)
         .eq('is_active', true)
         .order('is_owner', { ascending: false }) // Owners first
         .order('name');
 
       if (error) throw error;
-      return data || [];
+
+      return (data || []).map(emp => {
+        const profileData = Array.isArray(emp.profiles) ? emp.profiles[0] : emp.profiles;
+        const avatarUrl = profileData?.avatar_url;
+
+        return {
+          ...emp,
+          profile_image_url: avatarUrl || emp.profile_image_url
+        };
+      });
     } catch (error) {
       console.error('Error fetching provider employees:', error);
       throw error;
@@ -631,6 +644,9 @@ export class BookingService {
 
   // 👥 Obtener disponibilidad de un empleado
   static async getEmployeeAvailability(employeeId: string, dayOfWeek: number): Promise<{ start_time: string, end_time: string, is_available: boolean }[]> {
+    if (employeeId === 'any') {
+      return [];
+    }
     try {
       const { data, error } = await supabase
         .rpc('get_employee_availability', {
@@ -648,6 +664,9 @@ export class BookingService {
 
   // 👥 Obtener toda la disponibilidad semanal de un empleado
   static async getEmployeeWeeklyAvailability(employeeId: string): Promise<EmployeeAvailability[]> {
+    if (employeeId === 'any') {
+      return [];
+    }
     try {
       const { data, error } = await supabase
         .from('employee_availabilities')
@@ -961,6 +980,9 @@ export class BookingService {
     }
   }
 
+
+
+
   static async acceptEmployeeInvite(token: string): Promise<Employee> {
     const cleanedToken = token.trim();
     if (!cleanedToken) {
@@ -1235,6 +1257,9 @@ export class BookingService {
 
   // 👥 Obtener horarios disponibles para un empleado específico
   static async getEmployeeAvailableSlots(employeeId: string, providerId: string, date: string, serviceId?: string): Promise<string[]> {
+    if (employeeId === 'any') {
+      return this.getAvailableSlots(providerId, date, serviceId);
+    }
     try {
       console.log('🔴 [GET EMPLOYEE SLOTS] Getting available slots for employee:', { employeeId, providerId, date, serviceId });
       const settings = await this.getProviderSchedulingSettings(providerId);
@@ -1357,6 +1382,9 @@ export class BookingService {
       ignoreAppointmentId,
     } = params;
 
+    // Treat 'any' as undefined (no specific employee constraint)
+    const effectiveEmployeeId = employeeId === 'any' ? undefined : employeeId;
+
     const settings = await this.getProviderSchedulingSettings(providerId);
 
     const { data: serviceData } = await supabase
@@ -1407,8 +1435,8 @@ export class BookingService {
       };
     }
 
-    if (employeeId) {
-      const dayAvailabilityForEmployee = await this.getEmployeeAvailability(employeeId, dayOfWeek);
+    if (effectiveEmployeeId) {
+      const dayAvailabilityForEmployee = await this.getEmployeeAvailability(effectiveEmployeeId, dayOfWeek);
       const hasSlot = dayAvailabilityForEmployee.some((slot) => {
         if (!slot?.is_available) return false;
         const slotStart = this.timeStringToMinutes(slot.start_time);
@@ -1447,8 +1475,8 @@ export class BookingService {
         return false;
       }
 
-      if (employeeId) {
-        const sameEmployee = apt.employee_id && apt.employee_id === employeeId;
+      if (effectiveEmployeeId) {
+        const sameEmployee = apt.employee_id && apt.employee_id === effectiveEmployeeId;
         if (!sameEmployee) {
           return false;
         }
@@ -1610,10 +1638,59 @@ export class BookingService {
         console.warn('⚠️ [BOOKING SERVICE] Error sending notifications for new appointment:', notificationError);
       }
 
+      // ... (notifications logic)
+
+      // Schedule local reminders for the user who created the appointment
+      await this.scheduleAppointmentReminders(data);
+
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
       throw error;
+    }
+  }
+
+  static async scheduleAppointmentReminders(appointment: Appointment): Promise<void> {
+    try {
+      const appointmentDate = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`);
+      const now = new Date();
+
+      console.log('🔔 [REMINDERS] Scheduling for:', {
+        id: appointment.id,
+        dateStr: `${appointment.appointment_date}T${appointment.appointment_time}`,
+        parsedDate: appointmentDate.toISOString(),
+        now: now.toISOString()
+      });
+
+      // 24 hours before
+      const reminder24h = new Date(appointmentDate.getTime() - 24 * 60 * 60 * 1000);
+      if (reminder24h > now) {
+        console.log('🔔 [REMINDERS] Scheduling 24h reminder at:', reminder24h.toISOString());
+        await NotificationService.scheduleLocalNotification({
+          title: 'Recordatorio de Cita 📅',
+          body: `Mañana tienes una cita a las ${appointment.appointment_time}`,
+          data: { appointmentId: appointment.id },
+          trigger: reminder24h
+        });
+      } else {
+        console.log('🔔 [REMINDERS] 24h reminder skipped (past time)');
+      }
+
+      // 1 hour before
+      const reminder1h = new Date(appointmentDate.getTime() - 60 * 60 * 1000);
+      if (reminder1h > now) {
+        console.log('🔔 [REMINDERS] Scheduling 1h reminder at:', reminder1h.toISOString());
+        await NotificationService.scheduleLocalNotification({
+          title: 'Tu cita es en 1 hora ⏰',
+          body: `Prepárate para tu cita a las ${appointment.appointment_time}`,
+          data: { appointmentId: appointment.id },
+          trigger: reminder1h
+        });
+      } else {
+        console.log('🔔 [REMINDERS] 1h reminder skipped (past time)');
+      }
+    } catch (error) {
+      console.warn('⚠️ [BOOKING SERVICE] Error scheduling local reminders:', error);
     }
   }
 
@@ -2255,6 +2332,23 @@ export class BookingService {
     }
   }
 
+  static async updateAppointmentPayment(
+    appointmentId: string,
+    paymentStatus: 'pending' | 'paid' | 'partial',
+    paymentMethod?: 'cash' | 'zelle' | 'pago_movil' | 'card' | 'other'
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        payment_status: paymentStatus,
+        payment_method: paymentMethod,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', appointmentId);
+
+    if (error) throw error;
+  }
+
   // 📍 Confirmar cita (método específico)
   static async confirmAppointment(appointmentId: string): Promise<Appointment> {
     return this.updateAppointmentStatus(appointmentId, 'confirmed');
@@ -2885,6 +2979,27 @@ export class BookingService {
     console.log('🔴 [BOOKING SERVICE] ✅ Negocio desactivado correctamente');
   }
 
+  // ❌ Eliminar cuenta de cliente
+  static async deleteClientAccount(userId: string): Promise<void> {
+    console.log('🔴 [BOOKING SERVICE] Eliminando cuenta de cliente:', userId);
+
+    // 1. Eliminar perfil (esto debería disparar ON DELETE CASCADE para citas, reviews, etc. si está configurado)
+    // Si no, lo hacemos manual
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      console.error('🔴 [BOOKING SERVICE] Error eliminando perfil:', error);
+      throw error;
+    }
+
+    // Nota: La eliminación del usuario de auth.users debe hacerse vía RPC o Edge Function con service_role
+    // Por ahora, eliminamos los datos públicos.
+    console.log('🔴 [BOOKING SERVICE] Cuenta de cliente eliminada (datos públicos)');
+  }
+
   static async updateProvider(
     providerId: string,
     updateData: {
@@ -3411,6 +3526,143 @@ export class BookingService {
     } catch (error) {
       console.error('Error getting favorite statuses:', error);
       return {};
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // CRM Lite Methods
+  // ---------------------------------------------------------------------------
+
+  static async getProviderClients(providerId: string): Promise<any[]> {
+    try {
+      // 1. Get all unique clients from appointments
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select('client_id, appointment_date, status, services(price_amount)')
+        .eq('provider_id', providerId);
+
+      if (error) throw error;
+
+      if (!appointments || appointments.length === 0) return [];
+
+      // 2. Group by client_id
+      const clientStatsMap = new Map<string, {
+        totalVisits: number;
+        totalSpent: number;
+        lastVisit: string | null;
+        noShows: number;
+      }>();
+
+      appointments.forEach(apt => {
+        const current = clientStatsMap.get(apt.client_id) || {
+          totalVisits: 0,
+          totalSpent: 0,
+          lastVisit: null,
+          noShows: 0
+        };
+
+        if (apt.status === 'confirmed' || apt.status === 'done') {
+          current.totalVisits++;
+          current.totalSpent += (apt.services as any)?.price_amount || 0;
+          if (!current.lastVisit || new Date(apt.appointment_date) > new Date(current.lastVisit)) {
+            current.lastVisit = apt.appointment_date;
+          }
+        } else if (apt.status === 'cancelled' || apt.status === 'no_show') {
+          // Assuming 'cancelled' might be no-show if late, but for now just counting explicit no-shows if we had that status
+        }
+
+        clientStatsMap.set(apt.client_id, current);
+      });
+
+      // 3. Fetch profile details for these clients
+      const clientIds = Array.from(clientStatsMap.keys());
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone, avatar_url')
+        .in('id', clientIds);
+
+      if (profilesError) throw profilesError;
+
+      // 4. Merge data
+      return profiles.map(profile => ({
+        ...profile,
+        stats: clientStatsMap.get(profile.id)
+      }));
+
+    } catch (error) {
+      console.error('Error fetching provider clients:', error);
+      return [];
+    }
+  }
+
+  static async getClientNotes(providerId: string, clientId: string): Promise<string> {
+    try {
+      const { data, error } = await supabase
+        .from('provider_client_notes')
+        .select('notes')
+        .eq('provider_id', providerId)
+        .eq('client_id', clientId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.notes || '';
+    } catch (error) {
+      console.error('Error fetching client notes:', error);
+      return '';
+    }
+  }
+
+  static async saveClientNotes(providerId: string, clientId: string, notes: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('provider_client_notes')
+        .upsert({
+          provider_id: providerId,
+          client_id: clientId,
+          notes: notes,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'provider_id, client_id' });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving client notes:', error);
+      throw error;
+    }
+  }
+
+  static async getClientHistory(providerId: string, clientId: string): Promise<Appointment[]> {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*, services(name, price_amount, price_currency, duration_minutes)')
+        .eq('provider_id', providerId)
+        .eq('client_id', clientId)
+        .order('appointment_date', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as Appointment[];
+    } catch (error) {
+      console.error('Error fetching client history:', error);
+      return [];
+    }
+  }
+
+  static async getExpiredPendingAppointments(providerId: string): Promise<Appointment[]> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*, services(name, price_amount, price_currency, duration_minutes), profiles(full_name, phone)')
+        .eq('provider_id', providerId)
+        .eq('status', 'pending')
+        .lt('appointment_date', today)
+        .order('appointment_date', { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as Appointment[];
+    } catch (error) {
+      console.error('Error fetching expired pending appointments:', error);
+      return [];
     }
   }
 }

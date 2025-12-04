@@ -41,7 +41,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a AgendaVE acceder a tus fotos para actualizar tu perfil."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

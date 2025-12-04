@@ -12,12 +12,13 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function AppointmentsScreen() {
@@ -121,6 +122,44 @@ export default function AppointmentsScreen() {
       log.error(LogCategory.ERROR, 'Error updating appointment status', error);
       Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
     }
+  }
+
+
+  const handlePaymentAction = (appointment: Appointment) => {
+    Alert.alert(
+      'Registrar Pago',
+      'Selecciona el método de pago:',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '💵 Efectivo',
+          onPress: () => updatePayment(appointment.id, 'paid', 'cash')
+        },
+        {
+          text: '📱 Pago Móvil',
+          onPress: () => updatePayment(appointment.id, 'paid', 'pago_movil')
+        },
+        {
+          text: '🇺🇸 Zelle',
+          onPress: () => updatePayment(appointment.id, 'paid', 'zelle')
+        },
+        {
+          text: '💳 Tarjeta / Otro',
+          onPress: () => updatePayment(appointment.id, 'paid', 'card')
+        }
+      ]
+    );
+  };
+
+  const updatePayment = async (id: string, status: 'paid' | 'pending', method: any) => {
+    try {
+      await BookingService.updateAppointmentPayment(id, status, method);
+      await loadAppointments();
+      Alert.alert('Éxito', 'Pago registrado correctamente');
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error updating payment', error);
+      Alert.alert('Error', 'No se pudo registrar el pago');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -170,10 +209,19 @@ export default function AppointmentsScreen() {
             {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
           </ThemedText>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
-          <ThemedText style={styles.statusText}>
-            {getStatusText(appointment.status)}
-          </ThemedText>
+        <View style={styles.statusContainer}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
+            <ThemedText style={styles.statusText}>
+              {getStatusText(appointment.status)}
+            </ThemedText>
+          </View>
+          {appointment.payment_status === 'paid' && (
+            <View style={styles.paidBadge}>
+              <ThemedText style={styles.paidText}>
+                PAGADO {appointment.payment_method === 'pago_movil' ? '📱' : appointment.payment_method === 'zelle' ? '🇺🇸' : '💵'}
+              </ThemedText>
+            </View>
+          )}
         </View>
       </View>
 
@@ -196,51 +244,94 @@ export default function AppointmentsScreen() {
         </View>
       </View>
 
-      {(appointment as any).profiles?.phone && (
-        <View style={styles.contactInfo}>
-          <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.phoneText}>{(appointment as any).profiles.phone}</ThemedText>
-        </View>
-      )}
+      {
+        (appointment as any).profiles?.phone && (
+          <View style={styles.contactInfo}>
+            <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
+            <ThemedText style={styles.phoneText}>{(appointment as any).profiles.phone}</ThemedText>
+          </View>
+        )
+      }
 
-      {appointment.notes && (
-        <View style={styles.notesContainer}>
-          <ThemedText style={styles.notesLabel}>Notas:</ThemedText>
-          <ThemedText style={styles.notesText}>{appointment.notes}</ThemedText>
-        </View>
-      )}
+      {
+        appointment.notes && (
+          <View style={styles.notesContainer}>
+            <ThemedText style={styles.notesLabel}>Notas:</ThemedText>
+            <ThemedText style={styles.notesText}>{appointment.notes}</ThemedText>
+          </View>
+        )
+      }
 
-      {appointment.status === 'pending' && (
-        <View style={styles.appointmentActions}>
-          <Button
-            title="Confirmar"
-            variant="primary"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'confirm')}
-            style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-          />
-          <Button
-            title="Rechazar"
-            variant="outline"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'cancel')}
-            style={[styles.actionButton, { borderColor: Colors.light.error }]}
-          />
-        </View>
-      )}
+      {
+        appointment.status === 'pending' && (
+          <View style={styles.appointmentActions}>
+            <Button
+              title="Confirmar"
+              variant="primary"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'confirm')}
+              style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+            />
+            <Button
+              title="Rechazar"
+              variant="outline"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'cancel')}
+              style={[styles.actionButton, { borderColor: Colors.light.error }]}
+            />
+          </View>
+        )
+      }
 
-      {appointment.status === 'confirmed' && (
-        <View style={styles.appointmentActions}>
-          <Button
-            title="Completar"
-            variant="primary"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'complete')}
-            style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-          />
-        </View>
-      )}
-    </Card>
+      {
+        appointment.status === 'confirmed' && (
+          <View style={styles.appointmentActions}>
+            <Button
+              title="Completar"
+              variant="primary"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'complete')}
+              style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+            />
+            <Button
+              title="Recordar"
+              variant="outline"
+              size="small"
+              icon={<IconSymbol name="message" size={16} color={Colors.light.primary} />}
+              onPress={() => {
+                const phone = (appointment as any).profiles?.phone;
+                if (phone) {
+                  const message = `Hola ${(appointment as any).profiles?.full_name || 'Cliente'}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
+                  const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+                  Linking.openURL(url).catch(() => {
+                    Alert.alert('Error', 'No se pudo abrir WhatsApp');
+                  });
+                } else {
+                  Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+                }
+              }}
+              style={styles.actionButton}
+            />
+          </View>
+        )
+      }
+
+      {/* Botón de Pago para citas confirmadas o completadas que no están pagadas */}
+      {
+        (appointment.status === 'confirmed' || appointment.status === 'done') && appointment.payment_status !== 'paid' && (
+          <View style={styles.paymentActionContainer}>
+            <Button
+              title="Registrar Pago"
+              variant="outline"
+              size="small"
+              icon={<IconSymbol name="dollarsign.circle" size={16} color={Colors.light.success} />}
+              onPress={() => handlePaymentAction(appointment)}
+              style={[styles.actionButton, styles.paymentButton]}
+            />
+          </View>
+        )
+      }
+    </Card >
   );
 
   const currentAppointments = selectedTab === 'today' ? todayAppointments : upcomingAppointments;
@@ -293,9 +384,9 @@ export default function AppointmentsScreen() {
       >
         {loading ? (
           <View style={styles.loadingState}>
-            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton width="100%" height={180} borderRadius={16} style={{ marginBottom: 16 }} />
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
           </View>
         ) : currentAppointments.length === 0 ? (
           <View style={styles.emptyState}>
@@ -504,8 +595,41 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     color: Colors.light.text,
     textAlign: 'center',
+  },
+  statusContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: DesignTokens.spacing.xs,
+  },
+  paidBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: Colors.light.success + '20',
+    borderWidth: 1,
+    borderColor: Colors.light.success,
+  },
+  paidText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.light.success,
+  },
+  paymentActionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: DesignTokens.spacing.sm,
+    paddingTop: DesignTokens.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  paymentButton: {
+    borderColor: Colors.light.success,
+    width: '100%',
+  },
+  skeletonItem: {
+    marginBottom: DesignTokens.spacing.lg,
   },
 });

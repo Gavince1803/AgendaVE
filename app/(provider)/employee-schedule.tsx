@@ -30,14 +30,20 @@ const WEEKDAYS = [
   { key: 'sunday', label: 'Domingo', short: 'D', dayOfWeek: 0 },
 ];
 
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function EmployeeScheduleScreen() {
   const params = useLocalSearchParams();
   const log = useLogger();
+  const { employeeProfile, activeRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  const employeeId = params.employeeId as string;
-  const employeeName = params.employeeName as string;
+
+  // If activeRole is employee, use the logged-in employee's ID
+  const isEmployeeMode = activeRole === 'employee';
+  const employeeId = isEmployeeMode ? employeeProfile?.id : (params.employeeId as string);
+  const employeeName = isEmployeeMode ? 'Mí' : (params.employeeName as string);
+
   const [customScheduleEnabled, setCustomScheduleEnabled] = useState(
     params.customScheduleEnabled === 'true'
   );
@@ -55,7 +61,13 @@ export default function EmployeeScheduleScreen() {
   });
 
   useEffect(() => {
-    loadEmployeeAvailability();
+    if (employeeId) {
+      loadEmployeeAvailability();
+    } else if (isEmployeeMode && !employeeProfile) {
+      // Wait for profile to load
+    } else {
+      setLoading(false);
+    }
   }, [employeeId]);
 
   const loadEmployeeAvailability = async () => {
@@ -67,13 +79,13 @@ export default function EmployeeScheduleScreen() {
     try {
       setLoading(true);
       console.log('🔴 [EMPLOYEE SCHEDULE] Loading availability for:', employeeId);
-      
+
       const employeeAvailabilities = await BookingService.getEmployeeWeeklyAvailability(employeeId);
       console.log('🔴 [EMPLOYEE SCHEDULE] Loaded availabilities:', employeeAvailabilities);
-      
+
       // Convert database format to form format
       const newAvailability = { ...availability };
-      
+
       employeeAvailabilities.forEach((avail: EmployeeAvailability) => {
         const weekday = WEEKDAYS.find(w => w.dayOfWeek === avail.day_of_week);
         if (weekday) {
@@ -83,7 +95,7 @@ export default function EmployeeScheduleScreen() {
             const parts = timeStr.split(':');
             return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
           };
-          
+
           newAvailability[weekday.key] = {
             enabled: avail.is_available,
             startTime: convertTimeFormat(avail.start_time),
@@ -91,9 +103,9 @@ export default function EmployeeScheduleScreen() {
           };
         }
       });
-      
+
       setAvailability(newAvailability);
-      
+
       log.info(LogCategory.DATABASE, 'Employee availability loaded', {
         employeeId,
         availabilityCount: employeeAvailabilities.length
@@ -101,11 +113,11 @@ export default function EmployeeScheduleScreen() {
     } catch (error) {
       console.error('🔴 [EMPLOYEE SCHEDULE] Error loading availability:', error);
       log.error(LogCategory.SERVICE, 'Error loading employee availability', error);
-      
+
       if (Platform.OS === 'web') {
         console.error('🔴 [EMPLOYEE SCHEDULE] Full error details:', error);
       }
-      
+
       Alert.alert('Error', 'No se pudo cargar la disponibilidad del empleado.');
     } finally {
       setLoading(false);
@@ -118,10 +130,10 @@ export default function EmployeeScheduleScreen() {
         throw new Error('ID de empleado inválido');
       }
       console.log('🔴 [EMPLOYEE SCHEDULE] Toggling custom schedule:', { employeeId, enabled });
-      
+
       await BookingService.updateEmployeeCustomSchedule(employeeId, enabled);
       setCustomScheduleEnabled(enabled);
-      
+
       if (!enabled) {
         // Reset availability to default when disabling custom schedule
         const resetAvailability = { ...availability };
@@ -133,13 +145,13 @@ export default function EmployeeScheduleScreen() {
         });
         setAvailability(resetAvailability);
       }
-      
-      const message = enabled 
+
+      const message = enabled
         ? 'Horario personalizado habilitado. Ahora puedes configurar horarios específicos para este empleado.'
         : 'El empleado ahora usará el horario general del negocio.';
-      
+
       Platform.OS === 'web' ? window.alert(message) : Alert.alert('Éxito', message);
-      
+
       log.userAction('Toggle employee custom schedule', { employeeId, enabled });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error toggling custom schedule', error);
@@ -149,7 +161,7 @@ export default function EmployeeScheduleScreen() {
 
   const handleDayToggle = (dayKey: string) => {
     if (!customScheduleEnabled) return;
-    
+
     setAvailability(prev => ({
       ...prev,
       [dayKey]: {
@@ -161,7 +173,7 @@ export default function EmployeeScheduleScreen() {
 
   const handleTimeChange = (dayKey: string, timeType: 'startTime' | 'endTime', time: string) => {
     if (!customScheduleEnabled) return;
-    
+
     setAvailability(prev => ({
       ...prev,
       [dayKey]: {
@@ -196,7 +208,7 @@ export default function EmployeeScheduleScreen() {
       const confirmed = window.confirm(
         `¿Estás seguro de que quieres guardar estos horarios para ${employeeName}?\\n\\n${enabledDaysText}\\n\\nLos clientes podrán reservar citas con este empleado en estos horarios.`
       );
-      
+
       if (confirmed) {
         saveAvailability();
       }
@@ -222,11 +234,13 @@ export default function EmployeeScheduleScreen() {
   const saveAvailability = async () => {
     try {
       setSaving(true);
-      log.userAction('Save employee availability', { 
+      log.userAction('Save employee availability', {
         employeeId,
         employeeName,
         enabledDays: Object.values(availability).filter((day: any) => day.enabled).length
       });
+
+      if (!employeeId) throw new Error('No employee ID found');
 
       await BookingService.updateEmployeeAvailability(employeeId, availability);
 
@@ -235,7 +249,7 @@ export default function EmployeeScheduleScreen() {
         router.back();
       } else {
         Alert.alert(
-          'Éxito', 
+          'Éxito',
           'Horarios del empleado actualizados exitosamente',
           [
             {
@@ -247,7 +261,7 @@ export default function EmployeeScheduleScreen() {
       }
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving employee availability', { error: error instanceof Error ? error.message : String(error) });
-      
+
       let errorMessage = 'No se pudieron guardar los horarios del empleado';
       if (error instanceof Error) {
         if (error.message.includes('row-level security')) {
@@ -256,7 +270,7 @@ export default function EmployeeScheduleScreen() {
           errorMessage = `Error: ${error.message}`;
         }
       }
-      
+
       Platform.OS === 'web' ? window.alert(`Error al Guardar Horarios: ${errorMessage}`) : Alert.alert('Error al Guardar Horarios', errorMessage);
     } finally {
       setSaving(false);
@@ -265,12 +279,12 @@ export default function EmployeeScheduleScreen() {
 
   const handleQuickSetup = (type: 'weekdays' | 'weekends' | 'all') => {
     if (!customScheduleEnabled) return;
-    
+
     const newAvailability = { ...availability };
-    
+
     WEEKDAYS.forEach(day => {
       let shouldEnable = false;
-      
+
       switch (type) {
         case 'weekdays':
           shouldEnable = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day.key);
@@ -282,13 +296,13 @@ export default function EmployeeScheduleScreen() {
           shouldEnable = true;
           break;
       }
-      
+
       newAvailability[day.key] = {
         ...newAvailability[day.key],
         enabled: shouldEnable,
       };
     });
-    
+
     setAvailability(newAvailability);
   };
 
@@ -307,7 +321,7 @@ export default function EmployeeScheduleScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
@@ -332,7 +346,7 @@ export default function EmployeeScheduleScreen() {
                 Horario Personalizado
               </Text>
               <Text style={styles.toggleDescription}>
-                {customScheduleEnabled 
+                {customScheduleEnabled
                   ? 'Este empleado tiene horarios específicos diferentes al negocio'
                   : 'Este empleado usa los horarios generales del negocio'
                 }
@@ -355,7 +369,7 @@ export default function EmployeeScheduleScreen() {
               <Text style={styles.sectionTitle}>
                 Configuración Rápida
               </Text>
-              
+
               <View style={styles.quickSetup}>
                 <Button
                   title="Días Laborales"
@@ -386,7 +400,7 @@ export default function EmployeeScheduleScreen() {
               <Text style={styles.sectionTitle}>
                 Configuración por Día
               </Text>
-              
+
               <View style={styles.daysList}>
                 {WEEKDAYS.map((day) => (
                   <View key={day.key} style={styles.dayItem}>
@@ -412,7 +426,7 @@ export default function EmployeeScheduleScreen() {
                         thumbColor={Colors.light.surface}
                       />
                     </View>
-                    
+
                     {availability[day.key].enabled && (
                       <View style={styles.timeRow}>
                         <TimePicker
@@ -444,7 +458,7 @@ export default function EmployeeScheduleScreen() {
                 Información importante
               </Text>
               <Text style={styles.infoDescription}>
-                {customScheduleEnabled 
+                {customScheduleEnabled
                   ? '• Los clientes podrán reservar con este empleado solo en los horarios configurados\n• Si deshabilitas el horario personalizado, se usarán los horarios del negocio\n• Los cambios se aplicarán inmediatamente a nuevas reservas'
                   : '• Este empleado usa los horarios generales del negocio\n• Los clientes podrán reservar en todos los horarios disponibles del negocio\n• Puedes habilitar horarios personalizados si necesitas horarios específicos'
                 }

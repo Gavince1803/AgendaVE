@@ -116,6 +116,8 @@ export default function ProfileScreen() {
               setIsDeletingAccount(true);
               if (isProvider) {
                 await BookingService.deactivateProviderAccount(user.id);
+              } else {
+                await BookingService.deleteClientAccount(user.id);
               }
               await signOut();
               setToastMessage('Cuenta eliminada y sesión cerrada');
@@ -386,6 +388,7 @@ export default function ProfileScreen() {
         <Card variant="elevated" style={styles.profileCard}>
           <View style={styles.profileContent}>
             <Avatar
+              source={user?.profile?.avatar_url ? { uri: user.profile.avatar_url } : undefined}
               name={user?.profile?.display_name || 'Usuario'}
               size="xl"
               style={styles.avatar}

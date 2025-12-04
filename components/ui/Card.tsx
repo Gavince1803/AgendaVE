@@ -1,14 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
   Animated,
+  StyleProp,
   StyleSheet,
   TouchableOpacity,
   TouchableOpacityProps,
   View,
   ViewStyle,
-  StyleProp,
 } from 'react-native';
 
+import { Colors } from '@/constants/Colors';
 import { Theme, useTheme } from '@/theme';
 
 type CardVariant =
@@ -135,11 +136,11 @@ export function Card({
 function getBackgroundColor(theme: Theme, variant: CardVariant) {
   switch (variant) {
     case 'wellness':
-      return '#f0fdfa';
+      return Colors.light.successBg;
     case 'premium':
-      return '#faf5ff';
+      return Colors.light.accentBg;
     case 'soft':
-      return '#f8fafc';
+      return Colors.light.background;
     case 'glass':
       return 'rgba(255, 255, 255, 0.8)';
     default:
@@ -150,11 +151,11 @@ function getBackgroundColor(theme: Theme, variant: CardVariant) {
 function getBorderColor(theme: Theme, variant: CardVariant) {
   switch (variant) {
     case 'wellness':
-      return '#ccfbf1';
+      return Colors.light.successLight;
     case 'premium':
-      return '#f3e8ff';
+      return Colors.light.accentLight;
     case 'soft':
-      return '#e2e8f0';
+      return Colors.light.border;
     case 'glass':
       return 'rgba(255, 255, 255, 0.2)';
     default:

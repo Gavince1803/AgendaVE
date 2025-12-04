@@ -7,7 +7,8 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Appointment, BookingService, Provider, ProviderDashboardMetrics } from '@/lib/booking-service';
+import { Appointment, BookingService, Provider, ProviderDashboardMetrics, Service } from '@/lib/booking-service';
+import { CurrencyService } from '@/lib/currency-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { Image as ExpoImage } from 'expo-image';
 import { Href, router } from 'expo-router';
@@ -154,16 +155,7 @@ function ClientHomeScreen() {
       >
         {/* Header con saludo personalizado */}
         <View style={styles.header}>
-          <Card variant="glass" style={styles.welcomeCard} padding="medium">
-            <View style={styles.welcomeSection}>
-              <ThemedText type="title" style={styles.welcomeText}>
-                ¡Hola! 👋
-              </ThemedText>
-              <ThemedText style={styles.subtitle}>
-                Encuentra y reserva los mejores servicios en Venezuela
-              </ThemedText>
-            </View>
-          </Card>
+
 
           {/* Botón de búsqueda rápida */}
           <Button
@@ -245,11 +237,11 @@ function ClientHomeScreen() {
             {loading ? (
               <View style={styles.loadingContainer}>
                 {[1, 2, 3].map((i) => (
-                  <View key={i} style={{ marginBottom: 16, width: 280, marginRight: 16 }}>
-                    <Skeleton height={180} borderRadius={16} />
-                    <View style={{ marginTop: 12 }}>
+                  <View key={i} style={styles.skeletonContainer}>
+                    <Skeleton height={180} borderRadius={DesignTokens.radius.lg} />
+                    <View style={styles.skeletonTextContainer}>
                       <Skeleton width="60%" height={20} />
-                      <Skeleton width="40%" height={16} style={{ marginTop: 8 }} />
+                      <Skeleton width="40%" height={16} style={styles.skeletonSubtitle} />
                     </View>
                   </View>
                 ))}
@@ -377,34 +369,58 @@ function ClientHomeScreen() {
   );
 }
 
+
 function ProviderHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [appointments, setAppointments] = React.useState<Appointment[]>([]);
   const [metrics, setMetrics] = React.useState<ProviderDashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = React.useState(true);
-  const { user } = useAuth();
+  const [exchangeRate, setExchangeRate] = React.useState<number | null>(null);
+  const { user, employeeProfile } = useAuth();
+  const [expiredCount, setExpiredCount] = React.useState(0);
+  const [provider, setProvider] = React.useState<Provider | null>(null);
+  const [services, setServices] = React.useState<Service[]>([]);
+
   const log = useLogger(user?.id);
 
   React.useEffect(() => {
     loadDashboardData();
+    loadExchangeRate();
   }, []);
+
+  const loadExchangeRate = async () => {
+    const rate = await CurrencyService.getExchangeRate();
+    if (rate) {
+      setExchangeRate(rate.usd);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
       setMetricsLoading(true);
       log.info(LogCategory.DATABASE, 'Loading provider dashboard data', { screen: 'ProviderHome' });
 
-      const [appointmentsData, metricsData] = await Promise.all([
+      const providerId = employeeProfile?.provider_id;
+      if (!providerId) return;
+
+      const [appointmentsData, metricsData, expiredData, providerData, servicesData] = await Promise.all([
         BookingService.getProviderAppointments(),
         BookingService.getProviderDashboardMetrics(),
+        BookingService.getExpiredPendingAppointments(providerId),
+        BookingService.getProviderDetails(providerId),
+        BookingService.getProviderServices(providerId)
       ]);
       setAppointments(appointmentsData);
       setMetrics(metricsData);
+      setExpiredCount(expiredData.length);
+      setProvider(providerData);
+      setServices(servicesData);
 
       log.info(LogCategory.DATABASE, 'Provider dashboard data loaded', {
         count: appointmentsData.length,
         screen: 'ProviderHome',
         metrics: metricsData,
+        expiredCount: expiredData.length
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading provider dashboard', error);
@@ -418,7 +434,7 @@ function ProviderHomeScreen() {
   const onRefresh = async () => {
     log.userAction('Refresh dashboard', { screen: 'ProviderHome' });
     setRefreshing(true);
-    await loadDashboardData();
+    await Promise.all([loadDashboardData(), loadExchangeRate()]);
     setRefreshing(false);
     log.info(LogCategory.UI, 'Dashboard refresh completed', { screen: 'ProviderHome' });
   };
@@ -435,45 +451,52 @@ function ProviderHomeScreen() {
       value: metricsLoading
         ? '...'
         : formatCurrency(metrics?.revenue.amount ?? 0, metrics?.revenue.currency),
-      icon: 'creditcard',
-      color: Colors.light.primary,
-      helper: metricsLoading ? '' : `${metrics?.monthlyAppointments ?? 0} citas`,
+      icon: 'dollarsign.circle.fill',
+      color: Colors.light.success,
+      helper: 'Este mes'
     },
     {
-      label: 'Recompra',
-      value: metricsLoading ? '...' : formatPercentage(metrics?.rebookingRate ?? 0),
-      icon: 'arrow.2.squarepath',
-      color: Colors.light.secondary,
-      helper: metricsLoading ? '' : `${metrics?.repeatClients ?? 0} clientes repetidos`,
-    },
-    {
-      label: 'No Shows',
-      value: metricsLoading ? '...' : formatPercentage(metrics?.noShowRate ?? 0),
-      icon: 'exclamationmark.triangle',
+      label: 'Citas Pendientes',
+      value: metricsLoading ? '...' : pendingAppointments.toString(),
+      icon: 'clock.fill',
       color: Colors.light.warning,
-      helper: metricsLoading ? '' : `${metrics?.noShowAppointments ?? 0} ausencias`,
+      helper: 'Por confirmar'
     },
+    {
+      label: 'Citas Confirmadas',
+      value: metricsLoading ? '...' : confirmedAppointments.toString(),
+      icon: 'checkmark.circle.fill',
+      color: Colors.light.primary,
+      helper: 'Próximas'
+    },
+    {
+      label: 'Total Clientes',
+      value: metricsLoading ? '...' : (metrics?.totalClientsServed ?? 0).toString(),
+      icon: 'person.2.fill',
+      color: Colors.light.secondary,
+      helper: 'Activos'
+    }
   ];
 
   const operationalStats = [
     {
-      number: todayAppointments.length.toString(),
-      label: 'Citas Hoy',
-      icon: 'calendar',
-      color: Colors.light.primary,
+      label: 'Servicios Activos',
+      number: metricsLoading ? '...' : services.filter(s => s.is_active).length.toString(),
+      icon: 'scissors',
+      color: Colors.light.primary
     },
     {
-      number: pendingAppointments.toString(),
-      label: 'Pendientes',
-      icon: 'clock',
-      color: Colors.light.warning,
+      label: 'Calificación',
+      number: metricsLoading ? '...' : (provider?.rating ?? 0).toFixed(1),
+      icon: 'star.fill',
+      color: Colors.light.warning
     },
     {
-      number: confirmedAppointments.toString(),
-      label: 'Confirmadas',
-      icon: 'checkmark.circle',
-      color: Colors.light.success,
-    },
+      label: 'Reseñas',
+      number: metricsLoading ? '...' : (provider?.total_reviews ?? 0).toString(),
+      icon: 'text.bubble.fill',
+      color: Colors.light.secondary
+    }
   ];
 
   return (
@@ -515,6 +538,46 @@ function ProviderHomeScreen() {
             style={styles.searchButton}
           />
         </View>
+
+        {/* Citas Vencidas Warning */}
+        {expiredCount > 0 && (
+          <View style={styles.warningContainer}>
+            <Card variant="elevated" style={styles.warningCard}>
+              <View style={styles.warningHeader}>
+                <IconSymbol name="exclamationmark.triangle.fill" size={24} color={Colors.light.warning} />
+                <ThemedText style={styles.warningTitle}>
+                  Atención Requerida
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.warningText}>
+                Tienes {expiredCount} citas vencidas sin gestionar.
+              </ThemedText>
+              <Button
+                title="Resolver Ahora"
+                size="small"
+                onPress={() => router.push('/(provider)/resolve-expired')}
+                style={styles.warningButton}
+              />
+            </Card>
+          </View>
+        )}
+
+        {/* Tasa del Día */}
+        {exchangeRate && (
+          <View style={styles.exchangeRateContainer}>
+            <Card variant="elevated" style={styles.exchangeRateCard}>
+              <View style={styles.exchangeRateIconContainer}>
+                <Text style={styles.exchangeRateFlag}>🇻🇪</Text>
+              </View>
+              <View>
+                <Text style={styles.exchangeRateLabel}>Tasa BCV del Día</Text>
+                <Text style={styles.exchangeRateValue}>
+                  {exchangeRate.toFixed(4)} Bs
+                </Text>
+              </View>
+            </Card>
+          </View>
+        )}
 
         {/* Indicadores clave */}
         <View style={styles.section}>
@@ -595,6 +658,17 @@ function ProviderHomeScreen() {
                 log.userAction('Navigate to schedule', { screen: 'ProviderHome' });
                 log.navigation('ProviderHome', 'Calendar');
                 router.push('/(provider)/availability');
+              }}
+              style={styles.quickActionButton}
+            />
+            <Button
+              title="Clientes"
+              variant="outline"
+              size="medium"
+              icon={<IconSymbol name="person.2" size={18} color={Colors.light.primary} />}
+              onPress={() => {
+                log.userAction('Navigate to clients', { screen: 'ProviderHome' });
+                router.push('/(provider)/clients');
               }}
               style={styles.quickActionButton}
             />
@@ -872,9 +946,7 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
   },
-  searchButton: {
-    marginTop: DesignTokens.spacing.sm,
-  },
+  searchButton: {},
   section: {
     paddingHorizontal: DesignTokens.spacing.xl,
     marginBottom: DesignTokens.spacing['2xl'],
@@ -1213,9 +1285,7 @@ const styles = StyleSheet.create({
   employeeActionButton: {
     flex: 1,
   },
-  welcomeCard: {
-    marginBottom: DesignTokens.spacing.md,
-  },
+
   providerImageContainer: {
     height: 150,
     width: '100%',
@@ -1231,5 +1301,74 @@ const styles = StyleSheet.create({
   },
   providerHeader: {
     // Removed flexDirection row since image is top
+  },
+  skeletonContainer: {
+    marginBottom: DesignTokens.spacing.lg,
+    width: 280,
+    marginRight: DesignTokens.spacing.lg,
+  },
+  skeletonTextContainer: {
+    marginTop: DesignTokens.spacing.md,
+  },
+  skeletonSubtitle: {
+    marginTop: DesignTokens.spacing.sm,
+  },
+  warningContainer: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.md,
+  },
+  warningCard: {
+    padding: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.warning + '15',
+    borderColor: Colors.light.warning,
+    borderWidth: 1,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  warningTitle: {
+    marginLeft: DesignTokens.spacing.sm,
+    fontWeight: 'bold',
+    color: Colors.light.warning,
+  },
+  warningText: {
+    marginBottom: DesignTokens.spacing.md,
+    color: Colors.light.text,
+  },
+  warningButton: {
+    backgroundColor: Colors.light.warning,
+  },
+  exchangeRateContainer: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.md,
+  },
+  exchangeRateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: DesignTokens.spacing.md,
+    backgroundColor: Colors.light.surface,
+  },
+  exchangeRateIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.light.success + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: DesignTokens.spacing.md,
+  },
+  exchangeRateFlag: {
+    fontSize: 20,
+  },
+  exchangeRateLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  exchangeRateValue: {
+    fontSize: DesignTokens.typography.fontSizes.xl,
+    fontWeight: 'bold',
+    color: Colors.light.text,
   },
 });
