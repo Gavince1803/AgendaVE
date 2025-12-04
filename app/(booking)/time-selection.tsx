@@ -73,56 +73,60 @@ export default function TimeSelectionScreen() {
   };
 
   // Cargar fechas disponibles al inicio y cuando cambian los parámetros clave
-  // Auto-scroll to calendar on mount to show it immediately
-  useEffect(() => {
-    // Scroll to show calendar after initial load, keeping some of service card visible
-    setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTo({ y: 80, animated: true });
-      }
-    }, 300);
-  }, []);
-
-  const fetchSlots = useCallback(async (date: string) => {
-    if (!providerId || !serviceId) {
-      return [];
-    }
-
-    if (employeeId && employeeId !== '' && employeeId !== 'any') {
-      console.log('🔴 [TIME SELECTION] Loading employee slots for:', { employeeId, providerId, date, serviceId });
-      return BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
-    }
-
-    console.log('🔴 [TIME SELECTION] Loading provider slots for:', { providerId, date, serviceId });
-    return BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
-  }, [employeeId, providerId, serviceId]);
-
   const loadAvailableTimes = useCallback(async (date: string) => {
+    if (!providerId || !serviceId) return [];
+
     setLoadingTimes(true);
     try {
-      const times = await fetchSlots(date);
-      setAvailableTimes(times);
-      console.log('🔴 [TIME SELECTION] Loaded times:', { date, serviceId, serviceDuration, timesCount: times.length, employeeId });
-      return times;
+      console.log('🔴 [TIME SELECTION] Loading times for date:', date);
+      let slots: string[] = [];
+
+      if (employeeId && employeeId !== '' && employeeId !== 'any') {
+        slots = await BookingService.getEmployeeAvailableSlots(
+          employeeId as string,
+          providerId as string,
+          date,
+          serviceId as string
+        );
+      } else {
+        slots = await BookingService.getAvailableSlots(
+          providerId as string,
+          date,
+          serviceId as string
+        );
+      }
+
+      setAvailableTimes(slots);
+      return slots;
     } catch (error) {
-      console.error('Error loading available times:', error);
-      const mockTimes = generateMockTimes(date);
-      setAvailableTimes(mockTimes.map(t => t.time));
-      return mockTimes.map(t => t.time);
+      console.error('🔴 [TIME SELECTION] Error loading times:', error);
+      setAvailableTimes([]);
+      return [];
     } finally {
       setLoadingTimes(false);
     }
-  }, [fetchSlots, serviceDuration, employeeId, serviceId]);
+  }, [employeeId, providerId, serviceId]);
+
+  // Auto-scroll to calendar on mount to show it immediately
+  // Auto-scroll to time slots when they become available
+  useEffect(() => {
+    if (availableTimes.length > 0 && selectedDate) {
+      // Small delay to ensure layout is calculated
+      setTimeout(() => {
+        if (scrollRef.current && timeSlotsYRef.current > 0) {
+          scrollRef.current.scrollTo({
+            y: timeSlotsYRef.current - 20, // Add a bit more padding
+            animated: true
+          });
+        }
+      }, 100);
+    }
+  }, [availableTimes.length, selectedDate]);
 
   // Cargar horarios disponibles cuando se selecciona una fecha
   useEffect(() => {
     if (selectedDate && providerId) {
       loadAvailableTimes(selectedDate);
-      setTimeout(() => {
-        if (scrollRef.current && timeSlotsYRef.current > 0) {
-          scrollRef.current.scrollTo({ y: timeSlotsYRef.current - 12, animated: true });
-        }
-      }, 100);
     } else {
       setAvailableTimes([]);
     }

@@ -10,13 +10,14 @@ import React, { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -257,6 +258,16 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryValue}>${servicePrice}</Text>
               </View>
             </View>
+
+            {/* 
+            <View style={styles.summaryItem}>
+              <IconSymbol name="creditcard" size={20} color={Colors.light.primary} />
+              <View style={styles.summaryContent}>
+                <Text style={styles.summaryLabel}>Método de Pago</Text>
+                <Text style={styles.summaryValue}>Pago en sitio / Pago Móvil</Text>
+              </View>
+            </View>
+            */}
           </Card>
         </View>
 
@@ -293,6 +304,37 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.providerPhone}>+58 212 555-0123</Text>
               </View>
             </View>
+            <Button
+              title="Ayuda / Soporte"
+              onPress={() => {
+                const message = `Hola, necesito ayuda con mi reserva del ${formatDate(selectedDate as string)} a las ${selectedTime}.`;
+                const url = `whatsapp://send?text=${encodeURIComponent(message)}&phone=584121234567`; // Replace with real provider phone
+                Linking.openURL(url).catch(() => {
+                  alert('No se pudo abrir WhatsApp');
+                });
+              }}
+              variant="outline"
+              size="small"
+              style={{ marginTop: 12 }}
+              icon={<IconSymbol name="questionmark.circle" size={16} color={Colors.light.primary} />}
+            />
+            <Button
+              title="Compartir Comprobante"
+              onPress={async () => {
+                try {
+                  const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con AgendaVE ✨`;
+                  await Share.share({
+                    message,
+                  });
+                } catch (error) {
+                  alert('No se pudo compartir');
+                }
+              }}
+              variant="ghost"
+              size="small"
+              style={{ marginTop: 8 }}
+              icon={<IconSymbol name="square.and.arrow.up" size={16} color={Colors.light.primary} />}
+            />
           </Card>
         </View>
 

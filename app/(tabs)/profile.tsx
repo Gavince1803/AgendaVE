@@ -344,6 +344,14 @@ export default function ProfileScreen() {
       },
     ] : []),
     {
+      id: 'terms',
+      title: 'Términos y Condiciones',
+      icon: 'doc.text',
+      onPress: () => {
+        router.push('/(legal)/terms' as any);
+      },
+    },
+    {
       id: 'privacy',
       title: 'Privacidad y Seguridad',
       icon: 'lock.shield',

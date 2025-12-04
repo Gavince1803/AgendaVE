@@ -22,6 +22,7 @@ import { Card } from '@/components/ui/Card';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/IconSymbol';
 import { MediaGallerySkeleton, ProviderProfileSkeleton } from '@/components/ui/LoadingStates';
 import { MotionFadeIn } from '@/components/ui/MotionFadeIn';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +38,6 @@ import {
   Service
 } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { Image } from 'expo-image';
 
 export default function ProviderDetailScreen() {
   const { providerId } = useLocalSearchParams<{ providerId: string }>();
@@ -351,8 +351,8 @@ export default function ProviderDetailScreen() {
       >
         {provider.hero_image_url && (
           <MotionFadeIn delay={40}>
-            <Image
-              source={{ uri: provider.hero_image_url }}
+            <OptimizedImage
+              source={provider.hero_image_url}
               style={styles.heroImage}
               contentFit="cover"
             />
@@ -554,9 +554,9 @@ export default function ProviderDetailScreen() {
                   contentContainerStyle={styles.galleryScroll}
                 >
                   {media.map((item) => (
-                    <Image
+                    <OptimizedImage
                       key={item.id}
-                      source={{ uri: item.thumbnail_url || item.url }}
+                      source={item.thumbnail_url || item.url}
                       style={styles.galleryImage}
                       contentFit="cover"
                       transition={200}
@@ -578,8 +578,8 @@ export default function ProviderDetailScreen() {
                 {teamMembers.map((member) => (
                   <Card key={member.id} variant="outlined" style={styles.teamCard}>
                     <View style={styles.teamHeader}>
-                      <Image
-                        source={{ uri: member.avatar_url || provider.logo_url || undefined }}
+                      <OptimizedImage
+                        source={member.avatar_url || provider.logo_url || undefined}
                         style={styles.teamAvatar}
                         contentFit="cover"
                       />

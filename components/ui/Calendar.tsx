@@ -1,10 +1,10 @@
 import { Colors } from '@/constants/Colors';
 import { useState } from 'react';
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface CalendarProps {
@@ -35,30 +35,46 @@ export function Calendar({
     const startingDayOfWeek = firstDay.getDay();
 
     const days = [];
-    
+
+    // Helper to format date as YYYY-MM-DD in local time
+    const formatDateLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
     // Días del mes anterior para completar la primera semana
     const prevMonth = new Date(year, month - 1, 0);
     for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonth.getDate() - i);
       days.push({
-        date: prevMonth.getDate() - i,
+        date: d.getDate(),
         isCurrentMonth: false,
         isToday: false,
         isSelected: false,
         isAvailable: false,
         isBooked: false,
-        fullDate: new Date(year, month - 1, prevMonth.getDate() - i).toISOString().split('T')[0],
+        fullDate: formatDateLocal(d),
       });
     }
 
     // Días del mes actual
-    const today = new Date().toISOString().split('T')[0];
+    const todayDate = new Date();
+    const today = formatDateLocal(todayDate);
+
     for (let day = 1; day <= daysInMonth; day++) {
-      const fullDate = new Date(year, month, day).toISOString().split('T')[0];
+      const d = new Date(year, month, day);
+      const fullDate = formatDateLocal(d);
       const isToday = fullDate === today;
       const isSelected = fullDate === selectedDate;
       const isAvailable = availableDates.includes(fullDate);
       const isBooked = bookedDates.includes(fullDate);
-      const isPast = new Date(fullDate) < new Date(today);
+
+      // Compare dates without time components
+      const dateObj = new Date(fullDate + 'T00:00:00');
+      const todayObj = new Date(today + 'T00:00:00');
+      const isPast = dateObj < todayObj;
 
       days.push({
         date: day,
@@ -75,6 +91,7 @@ export function Calendar({
     // Días del mes siguiente para completar la última semana
     const remainingDays = 42 - days.length; // 6 semanas * 7 días
     for (let day = 1; day <= remainingDays; day++) {
+      const d = new Date(year, month + 1, day);
       days.push({
         date: day,
         isCurrentMonth: false,
@@ -82,7 +99,7 @@ export function Calendar({
         isSelected: false,
         isAvailable: false,
         isBooked: false,
-        fullDate: new Date(year, month + 1, day).toISOString().split('T')[0],
+        fullDate: formatDateLocal(d),
       });
     }
 
@@ -100,9 +117,9 @@ export function Calendar({
   };
 
   const formatMonthYear = (date: Date) => {
-    return date.toLocaleDateString('es-ES', { 
-      month: 'long', 
-      year: 'numeric' 
+    return date.toLocaleDateString('es-ES', {
+      month: 'long',
+      year: 'numeric'
     });
   };
 
@@ -119,11 +136,11 @@ export function Calendar({
         >
           <Text style={styles.navButtonText}>‹</Text>
         </TouchableOpacity>
-        
+
         <Text style={styles.monthYear}>
           {formatMonthYear(currentMonth)}
         </Text>
-        
+
         <TouchableOpacity
           style={styles.navButton}
           onPress={() => navigateMonth('next')}

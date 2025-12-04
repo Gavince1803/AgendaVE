@@ -1,4 +1,7 @@
 // 📅 Servicio de Reservas y Gestión de Citas
+import NetInfo from '@react-native-community/netinfo';
+import * as Haptics from 'expo-haptics';
+import { CacheService } from './cache-service';
 import { NotificationService } from './notification-service';
 import { supabase } from './supabase';
 
@@ -512,6 +515,15 @@ export class BookingService {
   // 📍 Obtener servicios de un proveedor (solo activos - para clientes)
   static async getProviderServices(providerId: string): Promise<Service[]> {
     try {
+      // Check cache first if offline or just for speed
+      const cached = await CacheService.get<Service[]>(`services_${providerId}`);
+      const netInfo = await NetInfo.fetch();
+
+      if (!netInfo.isConnected && cached) {
+        console.log('🔌 [BOOKING SERVICE] Returning cached services (offline)');
+        return cached;
+      }
+
       const { data, error } = await supabase
         .from('services')
         .select('*')
@@ -520,9 +532,21 @@ export class BookingService {
         .order('name');
 
       if (error) throw error;
+
+      // Update cache
+      if (data) {
+        await CacheService.set(`services_${providerId}`, data);
+      }
+
       return data || [];
     } catch (error) {
-      console.error('Error fetching provider services:', error);
+      console.error('Error fetching services:', error);
+      // Fallback to cache on error if available
+      const cached = await CacheService.get<Service[]>(`services_${providerId}`);
+      if (cached) {
+        console.log('⚠️ [BOOKING SERVICE] Fetch failed, returning cached services');
+        return cached;
+      }
       throw error;
     }
   }
@@ -587,17 +611,29 @@ export class BookingService {
   // 👥 Obtener empleados de un proveedor
   static async getProviderEmployees(providerId: string): Promise<Employee[]> {
     try {
+      const cached = await CacheService.get<Employee[]>(`employees_${providerId}`);
+      const netInfo = await NetInfo.fetch();
+
+      if (!netInfo.isConnected && cached) {
+        console.log('🔌 [BOOKING SERVICE] Returning cached employees (offline)');
+        return cached;
+      }
+
       const { data, error } = await supabase
         .from('employees')
-        .select('*, profiles:profiles!employees_profile_id_fkey(display_name, phone, avatar_url)')
+        .select(`
+          *,
+          profiles:profile_id (
+            avatar_url,
+            full_name
+          )
+        `)
         .eq('provider_id', providerId)
-        .eq('is_active', true)
-        .order('is_owner', { ascending: false }) // Owners first
-        .order('name');
+        .eq('is_active', true);
 
       if (error) throw error;
 
-      return (data || []).map(emp => {
+      const employees = (data || []).map(emp => {
         const profileData = Array.isArray(emp.profiles) ? emp.profiles[0] : emp.profiles;
         const avatarUrl = profileData?.avatar_url;
 
@@ -606,8 +642,13 @@ export class BookingService {
           profile_image_url: avatarUrl || emp.profile_image_url
         };
       });
+
+      await CacheService.set(`employees_${providerId}`, employees);
+      return employees;
     } catch (error) {
       console.error('Error fetching provider employees:', error);
+      const cached = await CacheService.get<Employee[]>(`employees_${providerId}`);
+      if (cached) return cached;
       throw error;
     }
   }
@@ -1212,8 +1253,19 @@ export class BookingService {
 
       const availableSlots: string[] = [];
       let currentMinute = dayStartMinutes;
-      // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
-      const slotIncrement = Math.min(15, serviceDuration);
+
+      // 🧠 Smart Interval Logic:
+      // - If service is short (< 15 mins), use exact duration (e.g. 10, 12 mins).
+      // - If service is a multiple of 30 mins (30, 60, 90), use 30 min intervals for a cleaner grid.
+      // - Otherwise (e.g. 45 mins), use 15 min intervals to maximize flexibility.
+      let slotIncrement = 15;
+      if (serviceDuration < 15) {
+        slotIncrement = serviceDuration;
+      } else if (serviceDuration % 30 === 0) {
+        slotIncrement = 30;
+      } else {
+        slotIncrement = 15;
+      }
 
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
@@ -1231,9 +1283,20 @@ export class BookingService {
             return false;
           }
 
-          const service = serviceMap.get(apt.service_id);
-          const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
-          const aptStart = this.timeStringToMinutes(apt.appointment_time);
+          let aptStart = this.timeStringToMinutes(apt.appointment_time);
+          let aptDuration = serviceDuration;
+
+          // Prioritize actual start/end timestamps if available (most accurate)
+          if (apt.start_ts && apt.end_ts) {
+            const start = new Date(apt.start_ts);
+            const end = new Date(apt.end_ts);
+            aptDuration = (end.getTime() - start.getTime()) / 60000;
+          } else {
+            // Fallback to service duration lookup
+            const service = serviceMap.get(apt.service_id);
+            aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+          }
+
           const aptEnd = aptStart + aptDuration;
           const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
           const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
@@ -1321,8 +1384,19 @@ export class BookingService {
 
       const availableSlots: string[] = [];
       let currentMinute = dayStartMinutes;
-      // Usar intervalos más pequeños (15 min) para más flexibilidad, o la duración del servicio si es menor
-      const slotIncrement = Math.min(15, serviceDuration);
+
+      // 🧠 Smart Interval Logic:
+      // - If service is short (< 15 mins), use exact duration (e.g. 10, 12 mins).
+      // - If service is a multiple of 30 mins (30, 60, 90), use 30 min intervals for a cleaner grid.
+      // - Otherwise (e.g. 45 mins), use 15 min intervals to maximize flexibility.
+      let slotIncrement = 15;
+      if (serviceDuration < 15) {
+        slotIncrement = serviceDuration;
+      } else if (serviceDuration % 30 === 0) {
+        slotIncrement = 30;
+      } else {
+        slotIncrement = 15;
+      }
 
       while (currentMinute + serviceDuration <= dayEndMinutes) {
         const slotStart = currentMinute;
@@ -1340,9 +1414,20 @@ export class BookingService {
             return false;
           }
 
-          const service = serviceMap.get(apt.service_id);
-          const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
-          const aptStart = this.timeStringToMinutes(apt.appointment_time);
+          let aptStart = this.timeStringToMinutes(apt.appointment_time);
+          let aptDuration = serviceDuration;
+
+          // Prioritize actual start/end timestamps if available (most accurate)
+          if (apt.start_ts && apt.end_ts) {
+            const start = new Date(apt.start_ts);
+            const end = new Date(apt.end_ts);
+            aptDuration = (end.getTime() - start.getTime()) / 60000;
+          } else {
+            // Fallback to service duration lookup
+            const service = serviceMap.get(apt.service_id);
+            aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+          }
+
           const aptEnd = aptStart + aptDuration;
           const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
           const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
@@ -1486,9 +1571,20 @@ export class BookingService {
         return false;
       }
 
-      const service = serviceMap.get(apt.service_id);
-      const aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
-      const aptStart = this.timeStringToMinutes(apt.appointment_time);
+      let aptStart = this.timeStringToMinutes(apt.appointment_time);
+      let aptDuration = serviceDuration;
+
+      // Prioritize actual start/end timestamps if available (most accurate)
+      if (apt.start_ts && apt.end_ts) {
+        const start = new Date(apt.start_ts);
+        const end = new Date(apt.end_ts);
+        aptDuration = (end.getTime() - start.getTime()) / 60000;
+      } else {
+        // Fallback to service duration lookup
+        const service = serviceMap.get(apt.service_id);
+        aptDuration = service?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+      }
+
       const aptEnd = aptStart + aptDuration;
       const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
       const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
@@ -1643,6 +1739,9 @@ export class BookingService {
       // Schedule local reminders for the user who created the appointment
       await this.scheduleAppointmentReminders(data);
 
+      // Haptic feedback for success
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -1670,7 +1769,7 @@ export class BookingService {
           title: 'Recordatorio de Cita 📅',
           body: `Mañana tienes una cita a las ${appointment.appointment_time}`,
           data: { appointmentId: appointment.id },
-          trigger: reminder24h
+          trigger: { type: 'date', date: reminder24h }
         });
       } else {
         console.log('🔔 [REMINDERS] 24h reminder skipped (past time)');
@@ -1684,7 +1783,7 @@ export class BookingService {
           title: 'Tu cita es en 1 hora ⏰',
           body: `Prepárate para tu cita a las ${appointment.appointment_time}`,
           data: { appointmentId: appointment.id },
-          trigger: reminder1h
+          trigger: { type: 'date', date: reminder1h }
         });
       } else {
         console.log('🔔 [REMINDERS] 1h reminder skipped (past time)');
@@ -3010,7 +3109,7 @@ export class BookingService {
       phone?: string;
       email?: string;
       logo_url?: string;
-
+      hero_image_url?: string;
     }
   ): Promise<Provider | null> {
     try {
@@ -3026,6 +3125,7 @@ export class BookingService {
           phone: updateData.phone,
           email: updateData.email,
           logo_url: updateData.logo_url,
+          hero_image_url: updateData.hero_image_url,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)

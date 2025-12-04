@@ -34,6 +34,7 @@ export default function MyBusinessScreen() {
   const [revenueThisMonth, setRevenueThisMonth] = useState<{ currency: string; amount: number } | null>(null);
   const [monthlyAppointments, setMonthlyAppointments] = useState<number>(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   // Estados para edición
   const [editingBusiness, setEditingBusiness] = useState(false);
@@ -323,6 +324,59 @@ export default function MyBusinessScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <IconSymbol name="photo" size={18} color={Colors.light.primary} />
                     <ThemedText>{uploadingLogo ? 'Subiendo logo...' : 'Subir logo'}</ThemedText>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Banner uploader */}
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      setUploadingBanner(true);
+                      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                      if (permission.status !== 'granted') {
+                        Alert.alert('Permiso requerido', 'Habilita el acceso a la galería para subir la portada');
+                        return;
+                      }
+                      const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        aspect: [16, 9],
+                        quality: 0.8,
+                      });
+                      if (result.canceled || !result.assets?.length) return;
+                      const asset = result.assets[0];
+                      // Subir a Supabase Storage (bucket 'banners')
+                      try {
+                        const fileUri = asset.uri;
+                        const mime = (asset as any).mimeType || 'image/jpeg';
+                        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+                        const filePath = `${user?.id}/${Date.now()}.${ext}`;
+                        const response = await fetch(fileUri);
+                        const arrayBuffer = await response.arrayBuffer();
+                        const { error: uploadError } = await supabase.storage
+                          .from('banners')
+                          .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
+                        if (uploadError) throw uploadError;
+                        // Obtener URL pública
+                        const { data: publicUrl } = await supabase.storage
+                          .from('banners').getPublicUrl(filePath);
+                        // Persistir en provider
+                        await BookingService.updateProvider(user!.id, { hero_image_url: publicUrl.publicUrl });
+                        setProvider(prev => prev ? { ...prev, hero_image_url: publicUrl.publicUrl } as any : prev);
+                        Alert.alert('Portada subida', 'Imagen de portada actualizada correctamente');
+                      } catch (uploadErr) {
+                        console.error('Error uploading banner:', uploadErr);
+                        Alert.alert('Error', 'No se pudo subir la portada');
+                      }
+                    } finally {
+                      setUploadingBanner(false);
+                    }
+                  }}
+                  style={{ alignSelf: 'flex-start', marginTop: 12 }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <IconSymbol name="photo.fill" size={18} color={Colors.light.primary} />
+                    <ThemedText>{uploadingBanner ? 'Subiendo portada...' : 'Subir portada (Banner)'}</ThemedText>
                   </View>
                 </TouchableOpacity>
                 <View style={styles.fieldGroup}>
@@ -812,8 +866,8 @@ export default function MyBusinessScreen() {
           {/* Espacio adicional */}
           <View style={styles.bottomSpacing} />
         </ScrollView>
-      </KeyboardAvoidingView>
-    </TabSafeAreaView>
+      </KeyboardAvoidingView >
+    </TabSafeAreaView >
   );
 }
 
