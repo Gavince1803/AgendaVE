@@ -10,7 +10,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const { user, loading } = useAuth();
+  const { user, loading, activeRole } = useAuth();
 
   if (loading) {
     return null;
@@ -21,13 +21,15 @@ export default function TabLayout() {
   }
 
   // Determinar qué tabs mostrar según el rol del usuario
-  const isProvider = user.profile?.role === 'provider';
-  const isClient = user.profile?.role === 'client';
+  const isProvider = activeRole === 'provider';
+  const isClient = activeRole === 'client';
+  const isEmployee = activeRole === 'employee';
   
   // Debug logs
   console.log('🔍 [TAB LAYOUT] Usuario:', user?.email);
   console.log('🔍 [TAB LAYOUT] Rol:', user?.profile?.role);
   console.log('🔍 [TAB LAYOUT] isProvider:', isProvider);
+  console.log('🔍 [TAB LAYOUT] isEmployee:', isEmployee);
   console.log('🔍 [TAB LAYOUT] isClient:', isClient);
   console.log('🔍 [TAB LAYOUT] Profile completo:', user?.profile);
   console.log('🔍 [TAB LAYOUT] Renderizando tab bookings para cliente:', isClient);
@@ -108,7 +110,7 @@ export default function TabLayout() {
         name="appointments"
         options={{
           title: 'Citas',
-          href: isProvider ? '/appointments' : null,
+          href: (isProvider || isEmployee) ? '/appointments' : null,
           tabBarIcon: ({ color, focused }) => (
             <MaterialIcons 
               size={focused ? 30 : 26} 

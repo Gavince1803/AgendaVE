@@ -4,18 +4,21 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Linking,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function AppointmentsScreen() {
@@ -24,6 +27,7 @@ export default function AppointmentsScreen() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const log = useLogger();
+  const { activeRole, employeeProfile } = useAuth();
 
   useEffect(() => {
     loadAppointments();
@@ -32,17 +36,33 @@ export default function AppointmentsScreen() {
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      log.info(LogCategory.DATA, 'Loading provider appointments', { screen: 'Appointments' });
-      
-      const appointmentsData = await BookingService.getProviderAppointments();
+      log.info(LogCategory.DATA, 'Loading appointments', { screen: 'Appointments', role: activeRole });
+
+      let appointmentsData: Appointment[] = [];
+
+      if (activeRole === 'employee') {
+        appointmentsData = await BookingService.getEmployeeAppointments();
+
+        // Fallback: if none returned, try provider appointments filtered by this employee id
+        if ((!appointmentsData || appointmentsData.length === 0) && employeeProfile?.id && employeeProfile?.provider_id) {
+          const providerAppointments = await BookingService.getAppointmentsByProviderId(employeeProfile.provider_id);
+          appointmentsData = providerAppointments.filter(
+            (apt: any) => apt.employee_id === employeeProfile.id || !apt.employee_id
+          );
+        }
+      } else {
+        appointmentsData = await BookingService.getProviderAppointments();
+      }
+
       setAppointments(appointmentsData);
-      
-      log.info(LogCategory.DATA, 'Provider appointments loaded', { 
+
+      log.info(LogCategory.DATA, 'Appointments loaded', {
         count: appointmentsData.length,
-        screen: 'Appointments' 
+        screen: 'Appointments',
+        role: activeRole,
       });
     } catch (error) {
-      log.error(LogCategory.ERROR, 'Error loading provider appointments', error);
+      log.error(LogCategory.ERROR, 'Error loading appointments', error);
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -58,22 +78,22 @@ export default function AppointmentsScreen() {
   // Filtrar citas por fecha
   const today = new Date().toISOString().split('T')[0];
   const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
-  
-  const upcomingAppointments = appointments.filter(apt => 
+
+  const upcomingAppointments = appointments.filter(apt =>
     apt.appointment_date > today && (apt.status === 'pending' || apt.status === 'confirmed')
   );
-  
-  const pastAppointments = appointments.filter(apt => 
+
+  const pastAppointments = appointments.filter(apt =>
     apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
   );
 
   const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
     try {
-      log.userAction('Appointment action', { 
-        appointmentId: appointment.id, 
+      log.userAction('Appointment action', {
+        appointmentId: appointment.id,
         action,
         status: appointment.status,
-        screen: 'Appointments' 
+        screen: 'Appointments'
       });
 
       let newStatus: 'confirmed' | 'cancelled' | 'done';
@@ -90,10 +110,10 @@ export default function AppointmentsScreen() {
       }
 
       await BookingService.updateAppointmentStatus(appointment.id, newStatus);
-      
+
       // Recargar citas
       await loadAppointments();
-      
+
       Alert.alert(
         'Éxito',
         `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
@@ -101,6 +121,44 @@ export default function AppointmentsScreen() {
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error updating appointment status', error);
       Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
+    }
+  }
+
+
+  const handlePaymentAction = (appointment: Appointment) => {
+    Alert.alert(
+      'Registrar Pago',
+      'Selecciona el método de pago:',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '💵 Efectivo',
+          onPress: () => updatePayment(appointment.id, 'paid', 'cash')
+        },
+        {
+          text: '📱 Pago Móvil',
+          onPress: () => updatePayment(appointment.id, 'paid', 'pago_movil')
+        },
+        {
+          text: '🇺🇸 Zelle',
+          onPress: () => updatePayment(appointment.id, 'paid', 'zelle')
+        },
+        {
+          text: '💳 Tarjeta / Otro',
+          onPress: () => updatePayment(appointment.id, 'paid', 'card')
+        }
+      ]
+    );
+  };
+
+  const updatePayment = async (id: string, status: 'paid' | 'pending', method: any) => {
+    try {
+      await BookingService.updateAppointmentPayment(id, status, method);
+      await loadAppointments();
+      Alert.alert('Éxito', 'Pago registrado correctamente');
+    } catch (error) {
+      log.error(LogCategory.ERROR, 'Error updating payment', error);
+      Alert.alert('Error', 'No se pudo registrar el pago');
     }
   };
 
@@ -142,19 +200,28 @@ export default function AppointmentsScreen() {
         </View>
         <View style={styles.clientInfo}>
           <ThemedText style={styles.clientName}>
-            {appointment.profiles?.display_name || 'Cliente'}
+            {(appointment as any).profiles?.display_name || 'Cliente'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
-            {appointment.services?.name || 'Servicio'}
+            {appointment.service?.name || 'Servicio'}
           </ThemedText>
           <ThemedText style={styles.appointmentDate}>
             {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
           </ThemedText>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
-          <ThemedText style={styles.statusText}>
-            {getStatusText(appointment.status)}
-          </ThemedText>
+        <View style={styles.statusContainer}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) }]}>
+            <ThemedText style={styles.statusText}>
+              {getStatusText(appointment.status)}
+            </ThemedText>
+          </View>
+          {appointment.payment_status === 'paid' && (
+            <View style={styles.paidBadge}>
+              <ThemedText style={styles.paidText}>
+                PAGADO {appointment.payment_method === 'pago_movil' ? '📱' : appointment.payment_method === 'zelle' ? '🇺🇸' : '💵'}
+              </ThemedText>
+            </View>
+          )}
         </View>
       </View>
 
@@ -166,62 +233,105 @@ export default function AppointmentsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="timer" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.services?.duration_minutes ? `${appointment.services.duration_minutes} min` : 'N/A'}
+            {appointment.service?.duration_minutes ? `${appointment.service.duration_minutes} min` : 'N/A'}
           </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.services?.price_amount ? `$${appointment.services.price_amount} ${appointment.services.price_currency}` : 'N/A'}
+            {appointment.service?.price_amount ? `$${appointment.service.price_amount} ${appointment.service.price_currency}` : 'N/A'}
           </ThemedText>
         </View>
       </View>
 
-      {appointment.profiles?.phone && (
-        <View style={styles.contactInfo}>
-          <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-          <ThemedText style={styles.phoneText}>{appointment.profiles.phone}</ThemedText>
-        </View>
-      )}
+      {
+        (appointment as any).profiles?.phone && (
+          <View style={styles.contactInfo}>
+            <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
+            <ThemedText style={styles.phoneText}>{(appointment as any).profiles.phone}</ThemedText>
+          </View>
+        )
+      }
 
-      {appointment.notes && (
-        <View style={styles.notesContainer}>
-          <ThemedText style={styles.notesLabel}>Notas:</ThemedText>
-          <ThemedText style={styles.notesText}>{appointment.notes}</ThemedText>
-        </View>
-      )}
+      {
+        appointment.notes && (
+          <View style={styles.notesContainer}>
+            <ThemedText style={styles.notesLabel}>Notas:</ThemedText>
+            <ThemedText style={styles.notesText}>{appointment.notes}</ThemedText>
+          </View>
+        )
+      }
 
-      {appointment.status === 'pending' && (
-        <View style={styles.appointmentActions}>
-          <Button
-            title="Confirmar"
-            variant="primary"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'confirm')}
-            style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-          />
-          <Button
-            title="Rechazar"
-            variant="outline"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'cancel')}
-            style={[styles.actionButton, { borderColor: Colors.light.error }]}
-          />
-        </View>
-      )}
+      {
+        appointment.status === 'pending' && (
+          <View style={styles.appointmentActions}>
+            <Button
+              title="Confirmar"
+              variant="primary"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'confirm')}
+              style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+            />
+            <Button
+              title="Rechazar"
+              variant="outline"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'cancel')}
+              style={[styles.actionButton, { borderColor: Colors.light.error }]}
+            />
+          </View>
+        )
+      }
 
-      {appointment.status === 'confirmed' && (
-        <View style={styles.appointmentActions}>
-          <Button
-            title="Completar"
-            variant="primary"
-            size="small"
-            onPress={() => handleAppointmentAction(appointment, 'complete')}
-            style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-          />
-        </View>
-      )}
-    </Card>
+      {
+        appointment.status === 'confirmed' && (
+          <View style={styles.appointmentActions}>
+            <Button
+              title="Completar"
+              variant="primary"
+              size="small"
+              onPress={() => handleAppointmentAction(appointment, 'complete')}
+              style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+            />
+            <Button
+              title="Recordar"
+              variant="outline"
+              size="small"
+              icon={<IconSymbol name="message" size={16} color={Colors.light.primary} />}
+              onPress={() => {
+                const phone = (appointment as any).profiles?.phone;
+                if (phone) {
+                  const message = `Hola ${(appointment as any).profiles?.full_name || 'Cliente'}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
+                  const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+                  Linking.openURL(url).catch(() => {
+                    Alert.alert('Error', 'No se pudo abrir WhatsApp');
+                  });
+                } else {
+                  Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+                }
+              }}
+              style={styles.actionButton}
+            />
+          </View>
+        )
+      }
+
+      {/* Botón de Pago para citas confirmadas o completadas que no están pagadas */}
+      {
+        (appointment.status === 'confirmed' || appointment.status === 'done') && appointment.payment_status !== 'paid' && (
+          <View style={styles.paymentActionContainer}>
+            <Button
+              title="Registrar Pago"
+              variant="outline"
+              size="small"
+              icon={<IconSymbol name="dollarsign.circle" size={16} color={Colors.light.success} />}
+              onPress={() => handlePaymentAction(appointment)}
+              style={[styles.actionButton, styles.paymentButton]}
+            />
+          </View>
+        )
+      }
+    </Card >
   );
 
   const currentAppointments = selectedTab === 'today' ? todayAppointments : upcomingAppointments;
@@ -259,7 +369,7 @@ export default function AppointmentsScreen() {
       </ThemedView>
 
       {/* Appointments List */}
-      <ScrollView 
+      <ScrollView
         style={styles.appointmentsSection}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -274,19 +384,21 @@ export default function AppointmentsScreen() {
       >
         {loading ? (
           <View style={styles.loadingState}>
-            <ThemedText style={styles.loadingText}>Cargando citas...</ThemedText>
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
+            <Skeleton width="100%" height={180} borderRadius={DesignTokens.radius.xl} style={styles.skeletonItem} />
           </View>
         ) : currentAppointments.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="calendar" size={64} color={Colors.light.textTertiary} />
             <ThemedText style={styles.emptyStateText}>
-              {selectedTab === 'today' 
-                ? 'No tienes citas hoy' 
+              {selectedTab === 'today'
+                ? 'No tienes citas hoy'
                 : 'No tienes citas próximas'}
             </ThemedText>
             <ThemedText style={styles.emptyStateSubtext}>
-              {selectedTab === 'today' 
-                ? 'Disfruta de tu día libre' 
+              {selectedTab === 'today'
+                ? 'Disfruta de tu día libre'
                 : 'Las nuevas citas aparecerán aquí'}
             </ThemedText>
           </View>
@@ -306,9 +418,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
   },
   header: {
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 20 : 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 28,
@@ -483,9 +595,41 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     color: Colors.light.text,
     textAlign: 'center',
   },
+  statusContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: DesignTokens.spacing.xs,
+  },
+  paidBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: Colors.light.success + '20',
+    borderWidth: 1,
+    borderColor: Colors.light.success,
+  },
+  paidText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.light.success,
+  },
+  paymentActionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: DesignTokens.spacing.sm,
+    paddingTop: DesignTokens.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  paymentButton: {
+    borderColor: Colors.light.success,
+    width: '100%',
+  },
+  skeletonItem: {
+    marginBottom: DesignTokens.spacing.lg,
+  },
 });
-

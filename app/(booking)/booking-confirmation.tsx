@@ -1,36 +1,41 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Colors } from '@/constants/Colors';
+import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
+import { NotificationService } from '@/lib/notification-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function BookingConfirmationScreen() {
   const { user } = useAuth();
-  const { 
-    providerId, 
-    providerName, 
-    serviceId, 
-    serviceName, 
-    servicePrice, 
+  const {
+    providerId,
+    providerName,
+    serviceId,
+    serviceName,
+    servicePrice,
     serviceDuration,
     employeeId,
     employeeName,
     selectedDate,
     selectedTime,
   } = useLocalSearchParams();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -44,13 +49,35 @@ export default function BookingConfirmationScreen() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      day: 'numeric', 
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
   };
+
+  const formatDurationValue = (value?: string | string[]) => {
+    const rawValue = Array.isArray(value) ? value[0] : value;
+    if (!rawValue) {
+      return null;
+    }
+
+    const minutes = Number(rawValue);
+    if (Number.isNaN(minutes)) {
+      return rawValue;
+    }
+
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder > 0 ? `${hours}h ${remainder}min` : `${hours}h`;
+  };
+
+  const durationLabel = formatDurationValue(serviceDuration);
 
   const handleConfirmBooking = async () => {
     if (!user) {
@@ -59,63 +86,54 @@ export default function BookingConfirmationScreen() {
     }
 
     setLoading(true);
-    
-    try {
-      // Crear la reserva usando el servicio
-      const bookingData = {
-        client_id: user.id,
-        provider_id: providerId as string,
-        service_id: parseInt(serviceId as string),
-        appointment_date: selectedDate as string,
-        appointment_time: selectedTime as string,
-        status: 'pending' as const,
-        notes: notes || undefined,
-      };
 
-      await BookingService.createAppointment(
+    try {
+      const created = await BookingService.createAppointment(
         providerId as string,
         serviceId as string,
         selectedDate as string,
         selectedTime as string,
-        (employeeId as string) || undefined,
+        (employeeId && employeeId !== 'any' ? (employeeId as string) : undefined),
         notes
       );
 
-      if (Platform.OS === 'web') {
-        const action = window.confirm('¡Reserva Confirmada!\n\nTu cita ha sido reservada exitosamente. ¿Quieres ver tus citas o volver al inicio?\n\nPresiona OK para ver tus citas o Cancelar para volver al inicio.');
-        if (action) {
-          router.push('/(tabs)/bookings');
-        } else {
-          router.push('/(tabs)');
-        }
-      } else {
-        Alert.alert(
-          '¡Reserva Confirmada!',
-          'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
-          [
-            {
-              text: 'Ver Mis Citas',
-              onPress: () => {
-                router.push('/(tabs)/bookings');
-              },
-            },
-            {
-              text: 'Volver al Inicio',
-              onPress: () => {
-                router.push('/(tabs)');
-              },
-            },
-          ]
-        );
+      // Intentar enviar notificaciones push (no bloquear la UX si falla)
+      try {
+        // Notificar al cliente (confirmación/local)
+        await NotificationService.sendLocalNotification({
+          title: 'Reserva creada',
+          body: `${serviceName} el ${formatDate(selectedDate as string)} a las ${selectedTime}`,
+          data: { type: 'booking_created', appointment_id: created.id },
+        });
+
+        // La notificación push para el proveedor y el empleado asignado se maneja en el backend
+        // a través de BookingService.createAppointment.
+      } catch (notifyErr) {
+        console.warn('Push notifications failed or unavailable:', notifyErr);
       }
+
+      Alert.alert(
+        '¡Reserva Confirmada!',
+        'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
+        [
+          {
+            text: 'Ver Mis Citas',
+            onPress: () => {
+              router.push('/(tabs)/bookings');
+            },
+          },
+          {
+            text: 'Volver al Inicio',
+            onPress: () => {
+              router.push('/(tabs)');
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.';
-      if (Platform.OS === 'web') {
-        window.alert(`Error\n\n${errorMessage}`);
-      } else {
-        Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
-      }
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -127,8 +145,8 @@ export default function BookingConfirmationScreen() {
       '¿Estás seguro de que quieres cancelar esta reserva?',
       [
         { text: 'No', style: 'cancel' },
-        { 
-          text: 'Sí, Cancelar', 
+        {
+          text: 'Sí, Cancelar',
           style: 'destructive',
           onPress: () => router.back()
         },
@@ -136,10 +154,17 @@ export default function BookingConfirmationScreen() {
     );
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -160,34 +185,72 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryLabel}>Servicio</Text>
                 <Text style={styles.summaryValue}>{serviceName}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.push({
+                  pathname: '/(booking)/service-selection',
+                  params: { providerId, providerName }
+                })}
+              />
             </View>
-            
-            {employeeName && (
-              <View style={styles.summaryItem}>
-                <IconSymbol name="person" size={20} color={Colors.light.primary} />
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Empleado</Text>
-                  <Text style={styles.summaryValue}>{employeeName}</Text>
-                </View>
+
+            <View style={styles.summaryItem}>
+              <IconSymbol name="person" size={20} color={Colors.light.primary} />
+              <View style={styles.summaryContent}>
+                <Text style={styles.summaryLabel}>Empleado</Text>
+                <Text style={styles.summaryValue}>{employeeName || 'Sin preferencia'}</Text>
               </View>
-            )}
-            
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.push({
+                  pathname: '/(booking)/service-selection',
+                  params: { providerId, providerName, preselectedServiceId: serviceId }
+                })}
+              />
+            </View>
+
             <View style={styles.summaryItem}>
               <IconSymbol name="calendar" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.summaryLabel}>Fecha</Text>
                 <Text style={styles.summaryValue}>{formatDate(selectedDate as string)}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.back()}
+              />
             </View>
-            
+
             <View style={styles.summaryItem}>
               <IconSymbol name="clock" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
                 <Text style={styles.summaryLabel}>Hora</Text>
                 <Text style={styles.summaryValue}>{selectedTime}</Text>
               </View>
+              <Button
+                title="Editar"
+                variant="ghost"
+                size="small"
+                onPress={() => router.back()}
+              />
             </View>
-            
+
+            {durationLabel && (
+              <View style={styles.summaryItem}>
+                <IconSymbol name="timer" size={20} color={Colors.light.primary} />
+                <View style={styles.summaryContent}>
+                  <Text style={styles.summaryLabel}>Duración</Text>
+                  <Text style={styles.summaryValue}>{durationLabel}</Text>
+                </View>
+              </View>
+            )}
+
             <View style={styles.summaryItem}>
               <IconSymbol name="dollarsign.circle" size={20} color={Colors.light.primary} />
               <View style={styles.summaryContent}>
@@ -195,6 +258,37 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.summaryValue}>${servicePrice}</Text>
               </View>
             </View>
+
+            {/* 
+            <View style={styles.summaryItem}>
+              <IconSymbol name="creditcard" size={20} color={Colors.light.primary} />
+              <View style={styles.summaryContent}>
+                <Text style={styles.summaryLabel}>Método de Pago</Text>
+                <Text style={styles.summaryValue}>Pago en sitio / Pago Móvil</Text>
+              </View>
+            </View>
+            */}
+          </Card>
+        </View>
+
+        {/* Notas adicionales */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notas Adicionales (Opcional)</Text>
+          <Card variant="elevated" padding="medium">
+            <Text style={styles.notesLabel}>
+              ¿Hay algo específico que quieras mencionar para tu cita?
+            </Text>
+            <TextInput
+              style={styles.notesInput}
+              multiline
+              placeholder='Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos"...'
+              placeholderTextColor={Colors.light.textSecondary}
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={240}
+              textAlignVertical="top"
+            />
+            <Text style={styles.notesCounter}>{`${notes.length}/240`}</Text>
           </Card>
         </View>
 
@@ -210,47 +304,76 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.providerPhone}>+58 212 555-0123</Text>
               </View>
             </View>
-          </Card>
-        </View>
-
-        {/* Notas adicionales */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notas Adicionales (Opcional)</Text>
-          <Card variant="elevated" padding="medium">
-            <Text style={styles.notesLabel}>
-              ¿Hay algo específico que quieras mencionar para tu cita?
-            </Text>
-            <View style={styles.notesInput}>
-              <Text style={styles.notesPlaceholder}>
-                Ej: "Quiero un corte corto", "Tengo alergia a ciertos productos", etc.
-              </Text>
-            </View>
+            <Button
+              title="Ayuda / Soporte"
+              onPress={() => {
+                const message = `Hola, necesito ayuda con mi reserva del ${formatDate(selectedDate as string)} a las ${selectedTime}.`;
+                const url = `whatsapp://send?text=${encodeURIComponent(message)}&phone=584121234567`; // Replace with real provider phone
+                Linking.openURL(url).catch(() => {
+                  alert('No se pudo abrir WhatsApp');
+                });
+              }}
+              variant="outline"
+              size="small"
+              style={{ marginTop: 12 }}
+              icon={<IconSymbol name="questionmark.circle" size={16} color={Colors.light.primary} />}
+            />
+            <Button
+              title="Compartir Comprobante"
+              onPress={async () => {
+                try {
+                  const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con AgendaVE ✨`;
+                  await Share.share({
+                    message,
+                  });
+                } catch (error) {
+                  alert('No se pudo compartir');
+                }
+              }}
+              variant="ghost"
+              size="small"
+              style={{ marginTop: 8 }}
+              icon={<IconSymbol name="square.and.arrow.up" size={16} color={Colors.light.primary} />}
+            />
           </Card>
         </View>
 
         {/* Términos y condiciones */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.termsSection]}>
           <Card variant="elevated" padding="medium">
             <View style={styles.termsContainer}>
-              <IconSymbol name="info.circle" size={20} color={Colors.light.info} />
               <View style={styles.termsContent}>
                 <Text style={styles.termsTitle}>Términos y Condiciones</Text>
-                <Text style={styles.termsText}>
-                  • Puedes cancelar tu cita hasta 2 horas antes sin costo{'\n'}
-                  • Llega 10 minutos antes de tu cita{'\n'}
-                  • En caso de retraso, tu cita podría ser reprogramada{'\n'}
-                  • El pago se realiza al finalizar el servicio
-                </Text>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="clock.arrow.circlepath" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Cancelación gratuita hasta 2 horas antes</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="figure.walk" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Llega 10 minutos antes de tu cita</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="exclamationmark.circle" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Retrasos pueden causar reprogramación</Text>
+                </View>
+
+                <View style={styles.termItem}>
+                  <IconSymbol name="creditcard" size={16} color={Colors.light.textSecondary} />
+                  <Text style={styles.termText}>Pago al finalizar el servicio</Text>
+                </View>
               </View>
             </View>
           </Card>
         </View>
 
         {/* Política de cancelación */}
-        <View style={styles.section}>
-          <Card variant="elevated" padding="medium">
+        <View style={[styles.section, styles.policySection]}>
+          <Card variant="elevated" padding="medium" style={styles.policyCard}>
             <View style={styles.policyContainer}>
-              <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.warning} />
+              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={Colors.light.warning} />
               <View style={styles.policyContent}>
                 <Text style={styles.policyTitle}>Política de Cancelación</Text>
                 <Text style={styles.policyText}>
@@ -263,7 +386,7 @@ export default function BookingConfirmationScreen() {
       </ScrollView>
 
       {/* Botones de acción */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}>
         <View style={styles.buttonRow}>
           <Button
             title="Cancelar"
@@ -280,15 +403,15 @@ export default function BookingConfirmationScreen() {
             loading={loading}
             disabled={loading}
             style={styles.confirmButton}
-            icon={<IconSymbol name="checkmark" size={16} color="#ffffff" />}
+            icon={<IconSymbol name="checkmark" size={16} color={Colors.light.textOnPrimary} />}
           />
         </View>
-        
+
         <Text style={styles.confirmationNote}>
           Al confirmar, aceptas nuestros términos y condiciones
         </Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -304,45 +427,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     backgroundColor: Colors.light.background,
   },
   providerName: {
-    fontSize: 20,
+    fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: '600',
     color: Colors.light.text,
   },
   stepText: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
   },
   section: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.xl,
+  },
+  termsSection: {
+    marginBottom: DesignTokens.spacing.md,
+  },
+  policySection: {
+    marginBottom: DesignTokens.spacing['2xl'],
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: DesignTokens.typography.fontSizes.lg,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: DesignTokens.spacing.lg,
   },
   summaryContent: {
-    marginLeft: 12,
+    marginLeft: DesignTokens.spacing.md,
     flex: 1,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
     marginBottom: 2,
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
   },
@@ -354,90 +483,94 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   providerNameDetails: {
-    fontSize: 16,
+    fontSize: DesignTokens.typography.fontSizes.md,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerCategory: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: DesignTokens.spacing.sm,
   },
   providerAddress: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: DesignTokens.spacing.xs,
   },
   providerPhone: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
   },
   notesLabel: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     color: Colors.light.text,
-    marginBottom: 12,
+    marginBottom: DesignTokens.spacing.md,
   },
   notesInput: {
     backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: DesignTokens.radius.md,
+    padding: DesignTokens.spacing.md,
     minHeight: 80,
-  },
-  notesPlaceholder: {
-    fontSize: 14,
     color: Colors.light.text,
-    fontStyle: 'italic',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  notesCounter: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    textAlign: 'right',
+    marginTop: DesignTokens.spacing.sm,
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: DesignTokens.spacing.md,
   },
   termsContent: {
-    marginLeft: 12,
     flex: 1,
   },
   termsTitle: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   termsText: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.text,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   policyContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: DesignTokens.spacing.md,
   },
   policyContent: {
-    marginLeft: 12,
     flex: 1,
   },
   policyTitle: {
-    fontSize: 14,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   policyText: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   bottomSection: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    padding: DesignTokens.spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? 80 : 40,
     backgroundColor: Colors.light.background,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: DesignTokens.spacing.md,
+    marginBottom: DesignTokens.spacing.md,
   },
   cancelButton: {
     flex: 1,
@@ -446,9 +579,25 @@ const styles = StyleSheet.create({
     flex: 2,
   },
   confirmationNote: {
-    fontSize: 12,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.textTertiary,
     textAlign: 'center',
     lineHeight: 16,
+  },
+  termItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing.sm,
+    gap: DesignTokens.spacing.sm,
+  },
+  termText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.text,
+    flex: 1,
+  },
+  policyCard: {
+    backgroundColor: Colors.light.warning + '10',
+    borderColor: Colors.light.warning + '30',
+    borderWidth: 1,
   },
 });

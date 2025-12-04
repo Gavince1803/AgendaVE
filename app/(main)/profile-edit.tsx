@@ -8,16 +8,19 @@ import { Toast } from '@/components/ui/Toast';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { decode } from 'base64-arraybuffer';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { 
-  Alert, 
-  ScrollView, 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View 
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function ProfileEditScreen() {
@@ -26,12 +29,14 @@ export default function ProfileEditScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  
+
   const [formData, setFormData] = useState({
     full_name: '',
     display_name: '',
     phone: '',
+    avatar_url: '',
   });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (user?.profile) {
@@ -39,38 +44,84 @@ export default function ProfileEditScreen() {
         full_name: user.profile.full_name || '',
         display_name: user.profile.display_name || '',
         phone: user.profile.phone || '',
+        avatar_url: user.profile.avatar_url || '',
       });
     }
   }, [user]);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+
+        if (asset.base64) {
+          await uploadAvatar(asset.base64, asset.uri.split('.').pop()?.toLowerCase() || 'jpg');
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  };
+
+  const uploadAvatar = async (base64Data: string, fileExt: string) => {
+    try {
+      setUploading(true);
+      const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, decode(base64Data), {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading avatar:', uploadError);
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      setToastMessage('Imagen subida correctamente');
+      setToastType('success');
+      setShowToast(true);
+
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      Alert.alert('Error', 'No se pudo subir la imagen');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          display_name: formData.display_name,
-          phone: formData.phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setToastMessage('Perfil actualizado exitosamente');
-      setToastType('success');
-      setShowToast(true);
-      
-      // Update user profile
+      // Update user profile via AuthContext (which calls AuthService and updates local state)
       await updateProfile({
         full_name: formData.full_name,
         display_name: formData.display_name,
         phone: formData.phone,
+        avatar_url: formData.avatar_url,
       });
-      
+
+      setToastMessage('Perfil actualizado exitosamente');
+      setToastType('success');
+      setShowToast(true);
+
       setTimeout(() => {
         router.back();
       }, 1500);
@@ -103,11 +154,34 @@ export default function ProfileEditScreen() {
           <View style={styles.headerSpacer} />
         </ThemedView>
 
+        {/* Avatar Section */}
+        <View style={styles.avatarContainer}>
+          <TouchableOpacity onPress={pickImage} disabled={uploading}>
+            <View style={styles.avatarWrapper}>
+              <Image
+                source={formData.avatar_url || 'https://via.placeholder.com/150'}
+                style={styles.avatar}
+                contentFit="cover"
+                transition={200}
+              />
+              <View style={styles.editIconContainer}>
+                <IconSymbol name="camera.fill" size={20} color="#fff" />
+              </View>
+              {uploading && (
+                <View style={styles.uploadingOverlay}>
+                  <Text style={styles.uploadingText}>...</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.changePhotoText}>Cambiar foto</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Form */}
         <Card variant="elevated" style={styles.formCard}>
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>Información Personal</Text>
-            
+
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Nombre Completo</Text>
               <TextInput
@@ -145,7 +219,7 @@ export default function ProfileEditScreen() {
 
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>Información de Cuenta</Text>
-            
+
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Email</Text>
               <TextInput
@@ -163,8 +237,8 @@ export default function ProfileEditScreen() {
               <Text style={styles.fieldLabel}>Tipo de Usuario</Text>
               <TextInput
                 style={[styles.textInput, styles.disabledInput]}
-                value={user?.profile?.role === 'client' ? 'Cliente' : 
-                      user?.profile?.role === 'provider' ? 'Proveedor' : 'Usuario'}
+                value={user?.profile?.role === 'client' ? 'Cliente' :
+                  user?.profile?.role === 'provider' ? 'Proveedor' : 'Usuario'}
                 editable={false}
                 placeholderTextColor={Colors.light.textSecondary}
               />
@@ -332,5 +406,52 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 2,
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: DesignTokens.spacing['2xl'],
+  },
+  avatarWrapper: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: Colors.light.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: Colors.light.surface,
+  },
+  changePhotoText: {
+    textAlign: 'center',
+    color: Colors.light.primary,
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: '600',
+  },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

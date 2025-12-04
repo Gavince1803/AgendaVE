@@ -15,6 +15,8 @@ import {
   View
 } from 'react-native';
 
+type RegisterFieldErrors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword', string>>;
+
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,21 +25,36 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const role = 'client'; // Solo clientes se registran aquí
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const { signUp } = useAuth();
 
+  const validateFields = () => {
+    const nextErrors: RegisterFieldErrors = {};
+
+    if (!fullName.trim()) {
+      nextErrors.fullName = 'Ingresa tu nombre completo.';
+    }
+    if (!email.trim()) {
+      nextErrors.email = 'Ingresa un correo válido.';
+    } else if (!email.includes('@')) {
+      nextErrors.email = 'El correo parece inválido.';
+    }
+    if (!phone.trim()) {
+      nextErrors.phone = 'Ingresa tu teléfono.';
+    }
+    if (!password || password.length < 6) {
+      nextErrors.password = 'La contraseña debe tener 6+ caracteres.';
+    }
+    if (confirmPassword !== password) {
+      nextErrors.confirmPassword = 'Las contraseñas no coinciden.';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const handleRegister = async () => {
-    if (!fullName || !email || !phone || !password || !confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+    if (!validateFields()) {
       return;
     }
 
@@ -59,8 +76,9 @@ export default function RegisterScreen() {
           }
         ]
       );
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al registrarse');
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error('Error al registrarse');
+      Alert.alert('Error', err.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }
@@ -103,47 +121,67 @@ export default function RegisterScreen() {
             <SimpleInput
               label="Nombre Completo"
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={(text) => {
+                setFullName(text);
+                setErrors((prev) => ({ ...prev, fullName: undefined }));
+              }}
               placeholder="Tu nombre completo"
               autoCapitalize="words"
+              error={errors.fullName}
             />
 
             <SimpleInput
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                setErrors((prev) => ({ ...prev, email: undefined }));
+              }}
               placeholder="tu@email.com"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              error={errors.email}
             />
 
             <SimpleInput
               label="Teléfono"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(text) => {
+                setPhone(text);
+                setErrors((prev) => ({ ...prev, phone: undefined }));
+              }}
               placeholder="+58 412 123 4567"
               keyboardType="numeric"
               autoCapitalize="none"
               autoCorrect={false}
+              error={errors.phone}
             />
 
             <SimpleInput
               label="Contraseña"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrors((prev) => ({ ...prev, password: undefined }));
+              }}
               placeholder="Mínimo 6 caracteres"
               secureTextEntry
               autoCapitalize="none"
+              error={errors.password}
             />
 
             <SimpleInput
               label="Confirmar Contraseña"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+              }}
               placeholder="Repite tu contraseña"
               secureTextEntry
               autoCapitalize="none"
+              error={errors.confirmPassword}
             />
 
 
@@ -293,4 +331,3 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
 });
-

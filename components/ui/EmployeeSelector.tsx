@@ -1,10 +1,10 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
-import { Card } from './Card';
-import { IconSymbol } from './IconSymbol';
-import { Avatar } from './Avatar';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { Employee } from '@/lib/booking-service';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Avatar } from './Avatar';
+import { Card } from './Card';
+import { IconSymbol } from './IconSymbol';
+import { EmployeeCarouselSkeleton } from './LoadingStates';
 
 interface EmployeeSelectorProps {
   employees: Employee[];
@@ -26,11 +26,7 @@ export function EmployeeSelector({
   selectedService = null
 }: EmployeeSelectorProps) {
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Cargando empleados...</Text>
-      </View>
-    );
+    return <EmployeeCarouselSkeleton />;
   }
 
   if (employees.length === 0) {
@@ -62,12 +58,45 @@ export function EmployeeSelector({
         </View>
       )}
 
-      <ScrollView 
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.employeesList}
         style={styles.employeesScrollView}
       >
+        {/* Option: Any Employee */}
+        <TouchableOpacity
+          onPress={() => onEmployeeSelect({ id: 'any', name: 'Sin preferencia' } as Employee)}
+          style={styles.employeeCardWrapper}
+        >
+          <Card
+            variant={selectedEmployee?.id === 'any' ? "elevated" : "default"}
+            style={[
+              styles.employeeCard,
+              selectedEmployee?.id === 'any' && styles.selectedEmployeeCard
+            ]}
+          >
+            <View style={styles.employeeContent}>
+              <View style={[styles.employeeAvatar, styles.anyEmployeeAvatar]}>
+                <IconSymbol name="person.2.fill" size={32} color={Colors.light.primary} />
+              </View>
+
+              <View style={styles.employeeInfo}>
+                <Text style={styles.employeeName}>Sin preferencia</Text>
+                <Text style={styles.employeeBio} numberOfLines={2}>
+                  Asignaremos al profesional disponible
+                </Text>
+              </View>
+
+              {selectedEmployee?.id === 'any' && (
+                <View style={styles.selectedIndicator}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={Colors.light.success} />
+                </View>
+              )}
+            </View>
+          </Card>
+        </TouchableOpacity>
+
         {employees.map((employee) => (
           <TouchableOpacity
             key={employee.id}
@@ -82,34 +111,32 @@ export function EmployeeSelector({
               ]}
             >
               <View style={styles.employeeContent}>
-                <Avatar 
+                <Avatar
                   name={employee.name}
-                  size="lg"
+                  size="medium"
                   style={styles.employeeAvatar}
-                  imageUrl={employee.profile_image_url}
+                  source={employee.profile_image_url ? { uri: employee.profile_image_url } : undefined}
                 />
-                
+
                 <View style={styles.employeeInfo}>
-                  <View style={styles.employeeNameRow}>
-                    <Text style={styles.employeeName}>{employee.name}</Text>
-                    {employee.is_owner && (
-                      <View style={styles.ownerBadge}>
-                        <IconSymbol name="crown" size={12} color={Colors.light.warning} />
-                        <Text style={styles.ownerText}>Dueño</Text>
-                      </View>
-                    )}
-                  </View>
-                  
+                  <Text style={styles.employeeName}>{employee.name}</Text>
+                  {employee.is_owner && (
+                    <View style={styles.ownerBadge}>
+                      <IconSymbol name="crown" size={10} color={Colors.light.warning} />
+                      <Text style={styles.ownerText}>Dueño</Text>
+                    </View>
+                  )}
+
                   {employee.position && (
                     <Text style={styles.employeePosition}>{employee.position}</Text>
                   )}
-                  
+
                   {employee.bio && (
                     <Text style={styles.employeeBio} numberOfLines={2}>
                       {employee.bio}
                     </Text>
                   )}
-                  
+
                   {employee.custom_schedule_enabled && (
                     <View style={styles.scheduleIndicator}>
                       <IconSymbol name="clock" size={12} color={Colors.light.info} />
@@ -150,14 +177,6 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: DesignTokens.spacing['2xl'],
   },
-  loadingContainer: {
-    padding: DesignTokens.spacing['2xl'],
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
   emptyContainer: {
     padding: DesignTokens.spacing['2xl'],
     alignItems: 'center',
@@ -196,12 +215,15 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.md,
   },
   employeeCardWrapper: {
-    width: 280,
-    minWidth: 200, // Minimum width for readability
-    maxWidth: 320, // Maximum width to prevent stretching
+    width: 160,
+    minWidth: 140,
+    maxWidth: 180,
   },
   employeeCard: {
-    padding: DesignTokens.spacing.lg,
+    padding: DesignTokens.spacing.md,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedEmployeeCard: {
     borderColor: Colors.light.primary,
@@ -214,37 +236,42 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: DesignTokens.spacing.md,
   },
+  anyEmployeeAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: DesignTokens.radius['3xl'],
+    backgroundColor: Colors.light.primary + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   employeeInfo: {
     alignItems: 'center',
   },
-  employeeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: DesignTokens.spacing.xs,
-  },
   employeeName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
     color: Colors.light.text,
     textAlign: 'center',
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: Colors.light.warning + '20',
     paddingHorizontal: DesignTokens.spacing.xs,
     paddingVertical: 2,
     borderRadius: DesignTokens.radius.sm,
-    marginLeft: DesignTokens.spacing.xs,
+    marginBottom: DesignTokens.spacing.xs,
   },
   ownerText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.warning,
     marginLeft: 2,
   },
   employeePosition: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.primary,
     fontWeight: DesignTokens.typography.fontWeights.medium as any,
     marginBottom: DesignTokens.spacing.xs,

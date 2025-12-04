@@ -1,13 +1,13 @@
 import { Colors, DesignTokens } from '@/constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Modal,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { IconSymbol } from './IconSymbol';
 
@@ -28,10 +28,28 @@ export function TimePicker({
 
   // Convert time string to Date object
   const timeToDate = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
+    try {
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) {
+        throw new Error('Invalid time format');
+      }
+      
+      const [hours, minutes] = parts.map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        throw new Error('Invalid time values');
+      }
+      
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch (error) {
+      console.warn('Invalid time string:', timeStr, error);
+      // Return default time (9:00 AM) if parsing fails
+      const date = new Date();
+      date.setHours(9, 0, 0, 0);
+      return date;
+    }
   };
 
   // Convert Date object to time string
@@ -52,11 +70,30 @@ export function TimePicker({
     }
   };
 
+  const handleModalClose = () => {
+    setShowPicker(false);
+  };
+
   const formatTimeDisplay = (timeStr: string): string => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const hour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const period = hours >= 12 ? 'PM' : 'AM';
-    return `${hour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    try {
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) {
+        return '9:00 AM';
+      }
+      
+      const [hours, minutes] = parts.map(Number);
+      
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        return '9:00 AM';
+      }
+      
+      const hour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      const period = hours >= 12 ? 'PM' : 'AM';
+      return `${hour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    } catch (error) {
+      console.warn('Error formatting time display:', timeStr, error);
+      return '9:00 AM';
+    }
   };
 
   return (
@@ -93,14 +130,20 @@ export function TimePicker({
               transparent
               animationType="slide"
               visible={showPicker}
-              onRequestClose={() => setShowPicker(false)}
+              onRequestClose={handleModalClose}
+              presentationStyle="overFullScreen"
             >
               <View style={styles.modalOverlay}>
+                <TouchableOpacity 
+                  style={styles.modalBackdrop}
+                  activeOpacity={1}
+                  onPress={handleModalClose}
+                />
                 <View style={styles.modalContent}>
                   <View style={styles.modalHeader}>
                     <TouchableOpacity
                       style={styles.modalButton}
-                      onPress={() => setShowPicker(false)}
+                      onPress={handleModalClose}
                     >
                       <Text style={styles.modalButtonText}>Cancelar</Text>
                     </TouchableOpacity>
@@ -109,7 +152,7 @@ export function TimePicker({
                     </Text>
                     <TouchableOpacity
                       style={styles.modalButton}
-                      onPress={() => setShowPicker(false)}
+                      onPress={handleModalClose}
                     >
                       <Text style={[styles.modalButtonText, styles.modalButtonDone]}>
                         Listo
@@ -117,13 +160,16 @@ export function TimePicker({
                     </TouchableOpacity>
                   </View>
                   
-                  <DateTimePicker
-                    value={timeToDate(value)}
-                    mode="time"
-                    display="wheels"
-                    onChange={handleTimeChange}
-                    style={styles.picker}
-                  />
+                  <View style={styles.pickerContainer}>
+                    <DateTimePicker
+                      value={timeToDate(value)}
+                      mode="time"
+                      display="spinner"
+                      onChange={handleTimeChange}
+                      style={styles.picker}
+                      textColor={Colors.light.text}
+                    />
+                  </View>
                 </View>
               </View>
             </Modal>
@@ -179,6 +225,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  modalBackdrop: {
+    flex: 1,
+  },
   modalContent: {
     backgroundColor: Colors.light.background,
     borderTopLeftRadius: DesignTokens.radius.xl,
@@ -210,7 +259,12 @@ const styles = StyleSheet.create({
   modalButtonDone: {
     fontWeight: DesignTokens.typography.fontWeights.semibold as any,
   },
+  pickerContainer: {
+    paddingHorizontal: DesignTokens.spacing.xl,
+    paddingVertical: DesignTokens.spacing.lg,
+  },
   picker: {
     backgroundColor: Colors.light.background,
+    height: 200,
   },
 });

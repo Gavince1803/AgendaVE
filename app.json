@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gavince1803.AgendaVE",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.gavince1803.AgendaVE"
+      "package": "com.gavince1803.AgendaVE",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
@@ -36,10 +41,22 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a AgendaVE acceder a tus fotos para actualizar tu perfil."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "69bc4e64-1cfc-420b-ad61-eb8d3df07f03"
+      }
     }
   }
 }

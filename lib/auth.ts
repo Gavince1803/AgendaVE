@@ -45,7 +45,7 @@ export class AuthService {
     // Crear perfil inmediatamente (sin esperar confirmación de email)
     if (data.user) {
       console.log('🔴 [AUTH SERVICE] Creando perfil para usuario:', data.user.id);
-      
+
       try {
         const { data: insertData, error: profileError } = await supabase
           .from('profiles')
@@ -70,12 +70,12 @@ export class AuthService {
       // Si es un proveedor, crear también el registro en la tabla providers
       if (role === 'provider') {
         console.log('🔴 [AUTH SERVICE] Creando registro de proveedor...');
-        
+
         try {
           const { data: providerData, error: providerError } = await supabase
             .from('providers')
             .insert({
-              owner_id: data.user.id,
+              user_id: data.user.id,
               name: fullName,
               business_name: businessInfo?.businessName || fullName,
               category: businessInfo?.businessType || 'general',
@@ -89,7 +89,7 @@ export class AuthService {
               is_active: true,
             })
             .select();
-            
+
           if (providerError) {
             console.error('🔴 [AUTH SERVICE] ❌ Error creando proveedor:', providerError);
             // No lanzar error aquí para no romper el registro del usuario
@@ -122,24 +122,24 @@ export class AuthService {
   static async signOut() {
     console.log('🔴 [AUTH SERVICE] Iniciando signOut...');
     console.log('🔴 [AUTH SERVICE] Verificando configuración de Supabase...');
-    
+
     if (!supabase) {
       console.error('🔴 [AUTH SERVICE] ❌ Supabase no está configurado');
       throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
     }
-    
+
     console.log('🔴 [AUTH SERVICE] ✅ Supabase configurado correctamente');
     console.log('🔴 [AUTH SERVICE] Llamando a supabase.auth.signOut()...');
 
     const { error } = await supabase.auth.signOut();
-    
+
     if (error) {
       console.error('🔴 [AUTH SERVICE] ❌ Error en supabase.auth.signOut():', error);
       console.error('🔴 [AUTH SERVICE] ❌ Código de error:', error.code);
       console.error('🔴 [AUTH SERVICE] ❌ Mensaje de error:', error.message);
       throw error;
     }
-    
+
     console.log('🔴 [AUTH SERVICE] ✅ supabase.auth.signOut() completado exitosamente');
     console.log('🔴 [AUTH SERVICE] ✅ Proceso de signOut finalizado');
   }
@@ -151,7 +151,7 @@ export class AuthService {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     if (!user) return null;
 
     let { data: profile } = await supabase
@@ -182,7 +182,7 @@ export class AuthService {
           profile: null,
         };
       }
-      
+
       profile = newProfile;
     }
 

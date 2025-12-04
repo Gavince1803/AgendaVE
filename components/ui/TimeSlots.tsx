@@ -1,5 +1,4 @@
 import { Colors } from '@/constants/Colors';
-import React from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -127,21 +126,7 @@ export function TimeSlots({
         )}
       </ScrollView>
 
-      {/* Leyenda */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendAvailable]} />
-          <Text style={styles.legendText}>Disponible</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendBooked]} />
-          <Text style={styles.legendText}>Ocupado</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendSelected]} />
-          <Text style={styles.legendText}>Seleccionado</Text>
-        </View>
-      </View>
+      {/* Leyenda removida para evitar duplicación con la guía del calendario */}
     </View>
   );
 }
@@ -177,36 +162,54 @@ const styles = StyleSheet.create({
   },
   timeSlot: {
     width: '30%',
-    aspectRatio: 2.5,
-    borderRadius: 12,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     position: 'relative',
+    marginVertical: 4,
   },
   timeSlotAvailable: {
-    backgroundColor: Colors.light.success + '20',
-    borderColor: Colors.light.success,
+    backgroundColor: Colors.light.surface,
+    borderColor: Colors.light.primary,
+    shadowColor: Colors.light.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   timeSlotBooked: {
-    backgroundColor: Colors.light.error + '20',
+    backgroundColor: Colors.light.error + '15',
     borderColor: Colors.light.error,
   },
   timeSlotSelected: {
     backgroundColor: Colors.light.primary,
     borderColor: Colors.light.primary,
+    shadowColor: Colors.light.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
   timeSlotUnavailable: {
     backgroundColor: Colors.light.surfaceVariant,
-    borderColor: Colors.light.border,
+    borderColor: Colors.light.borderLight,
+    opacity: 0.5,
   },
   timeSlotText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   timeSlotTextAvailable: {
-    color: Colors.light.success,
+    color: Colors.light.primary,
   },
   timeSlotTextBooked: {
     color: Colors.light.error,
@@ -224,7 +227,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(239, 68, 68, 0.8)',
-    borderRadius: 12,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
