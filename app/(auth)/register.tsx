@@ -7,7 +7,7 @@ import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Platform,
@@ -15,10 +15,11 @@ import {
   View
 } from 'react-native';
 
-type RegisterFieldErrors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword', string>>;
+type RegisterFieldErrors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword' | 'cedula', string>>;
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
+  const [cedula, setCedula] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +34,11 @@ export default function RegisterScreen() {
 
     if (!fullName.trim()) {
       nextErrors.fullName = 'Ingresa tu nombre completo.';
+    }
+    if (!cedula.trim()) {
+      nextErrors.cedula = 'Ingresa tu cédula.';
+    } else if (cedula.length < 5) {
+      nextErrors.cedula = 'Cédula inválida.';
     }
     if (!email.trim()) {
       nextErrors.email = 'Ingresa un correo válido.';
@@ -60,8 +66,8 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email, password, fullName, role, phone);
-      
+      await signUp(email, password, fullName, role, phone, undefined, cedula);
+
       // Mostrar mensaje de éxito con información sobre confirmación de email
       Alert.alert(
         '¡Cuenta creada exitosamente! 🎉',
@@ -86,7 +92,7 @@ export default function RegisterScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollableInputView 
+      <ScrollableInputView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
       >
@@ -111,13 +117,13 @@ export default function RegisterScreen() {
             <ThemedText style={styles.formTitle}>
               Información Personal
             </ThemedText>
-            
+
             <View style={styles.clientBadge}>
               <ThemedText style={styles.clientBadgeText}>
                 👤 Cuenta de Cliente
               </ThemedText>
             </View>
-            
+
             <SimpleInput
               label="Nombre Completo"
               value={fullName}
@@ -128,6 +134,19 @@ export default function RegisterScreen() {
               placeholder="Tu nombre completo"
               autoCapitalize="words"
               error={errors.fullName}
+            />
+
+            <SimpleInput
+              label="Cédula de Identidad"
+              value={cedula}
+              onChangeText={(text) => {
+                setCedula(text.replace(/\D/g, ''));
+                setErrors((prev) => ({ ...prev, cedula: undefined }));
+              }}
+              placeholder="Ej: 12345678"
+              keyboardType="numeric"
+              autoCapitalize="none"
+              error={errors.cedula}
             />
 
             <SimpleInput

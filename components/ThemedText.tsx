@@ -34,19 +34,28 @@ const typeStyles: Record<string, TextStyle> = {
   },
 };
 
+import { useTextScale } from '@/contexts/TextScaleContext';
+
 export function ThemedText({ style, type = 'default', ...props }: ThemedTextProps) {
   const { colors } = useTheme();
+  const { scale } = useTextScale();
   const typeStyle = typeStyles[type] || typeStyles.default;
   const defaultColor = type === 'link' ? colors.primary : colors.text;
-  
+
+  const scaledStyle = {
+    ...typeStyle,
+    fontSize: (typeStyle.fontSize as number) * scale,
+    lineHeight: (typeStyle.lineHeight as number) * scale,
+  };
+
   return (
-    <Text 
+    <Text
       style={[
         { color: defaultColor },
-        typeStyle,
+        scaledStyle,
         style
-      ]} 
-      {...props} 
+      ]}
+      {...props}
     />
   );
 }

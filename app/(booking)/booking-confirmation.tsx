@@ -14,6 +14,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -169,10 +170,9 @@ export default function BookingConfirmationScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
+        {/* Header (Simplified) */}
         <View style={styles.header}>
-          <Text style={styles.providerName}>{providerName}</Text>
-          <Text style={styles.stepText}>Paso 3 de 3</Text>
+          {/* Content removed for cleaner look */}
         </View>
 
         {/* Resumen de la reserva */}
@@ -292,93 +292,71 @@ export default function BookingConfirmationScreen() {
           </Card>
         </View>
 
-        {/* Información del proveedor */}
+        {/* Ubicación (Compacto) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Proveedor</Text>
-          <Card variant="elevated" padding="medium">
+          <Text style={styles.sectionTitle}>Ubicación</Text>
+          <Card variant="outlined" padding="medium">
             <View style={styles.providerInfo}>
-              <View style={styles.providerDetails}>
+              <IconSymbol name="mappin.and.ellipse" size={20} color={Colors.light.primary} />
+              <View style={styles.summaryContent}>
                 <Text style={styles.providerNameDetails}>{providerName}</Text>
-                <Text style={styles.providerCategory}>Peluquería</Text>
                 <Text style={styles.providerAddress}>Av. Francisco de Miranda, Caracas</Text>
-                <Text style={styles.providerPhone}>+58 212 555-0123</Text>
               </View>
             </View>
-            <Button
-              title="Ayuda / Soporte"
-              onPress={() => {
-                const message = `Hola, necesito ayuda con mi reserva del ${formatDate(selectedDate as string)} a las ${selectedTime}.`;
-                const url = `whatsapp://send?text=${encodeURIComponent(message)}&phone=584121234567`; // Replace with real provider phone
-                Linking.openURL(url).catch(() => {
-                  alert('No se pudo abrir WhatsApp');
-                });
-              }}
-              variant="outline"
-              size="small"
-              style={{ marginTop: 12 }}
-              icon={<IconSymbol name="questionmark.circle" size={16} color={Colors.light.primary} />}
-            />
-            <Button
-              title="Compartir Comprobante"
-              onPress={async () => {
-                try {
-                  const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con AgendaVE ✨`;
-                  await Share.share({
-                    message,
-                  });
-                } catch (error) {
-                  alert('No se pudo compartir');
-                }
-              }}
-              variant="ghost"
-              size="small"
-              style={{ marginTop: 8 }}
-              icon={<IconSymbol name="square.and.arrow.up" size={16} color={Colors.light.primary} />}
-            />
+            <View style={styles.actionButtonsRow}>
+              <Button
+                title="Ayuda"
+                onPress={() => {
+                  const message = `Hola, necesito ayuda con mi reserva...`;
+                  Linking.openURL(`whatsapp://send?text=${encodeURIComponent(message)}&phone=584121234567`);
+                }}
+                variant="ghost"
+                size="small"
+                icon={<IconSymbol name="questionmark.circle" size={16} color={Colors.light.primary} />}
+              />
+              <Button
+                title="Compartir"
+                onPress={async () => {
+                  try {
+                    const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con AgendaVE ✨`;
+                    await Share.share({ message });
+                  } catch (error) {
+                    // ignore
+                  }
+                }}
+                variant="ghost"
+                size="small"
+                icon={<IconSymbol name="square.and.arrow.up" size={16} color={Colors.light.primary} />}
+              />
+            </View>
           </Card>
         </View>
 
-        {/* Términos y condiciones */}
-        <View style={[styles.section, styles.termsSection]}>
+        {/* Información Importante (Términos + Política) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Información Importante</Text>
           <Card variant="elevated" padding="medium">
             <View style={styles.termsContainer}>
               <View style={styles.termsContent}>
-                <Text style={styles.termsTitle}>Términos y Condiciones</Text>
-
                 <View style={styles.termItem}>
                   <IconSymbol name="clock.arrow.circlepath" size={16} color={Colors.light.textSecondary} />
                   <Text style={styles.termText}>Cancelación gratuita hasta 2 horas antes</Text>
                 </View>
-
                 <View style={styles.termItem}>
                   <IconSymbol name="figure.walk" size={16} color={Colors.light.textSecondary} />
                   <Text style={styles.termText}>Llega 10 minutos antes de tu cita</Text>
                 </View>
-
-                <View style={styles.termItem}>
-                  <IconSymbol name="exclamationmark.circle" size={16} color={Colors.light.textSecondary} />
-                  <Text style={styles.termText}>Retrasos pueden causar reprogramación</Text>
-                </View>
-
                 <View style={styles.termItem}>
                   <IconSymbol name="creditcard" size={16} color={Colors.light.textSecondary} />
                   <Text style={styles.termText}>Pago al finalizar el servicio</Text>
                 </View>
-              </View>
-            </View>
-          </Card>
-        </View>
 
-        {/* Política de cancelación */}
-        <View style={[styles.section, styles.policySection]}>
-          <Card variant="elevated" padding="medium" style={styles.policyCard}>
-            <View style={styles.policyContainer}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={Colors.light.warning} />
-              <View style={styles.policyContent}>
-                <Text style={styles.policyTitle}>Política de Cancelación</Text>
-                <Text style={styles.policyText}>
-                  Si cancelas con menos de 2 horas de anticipación, se aplicará una tarifa del 50% del valor del servicio.
-                </Text>
+                <View style={[styles.termItem, { marginTop: 8 }]}>
+                  <IconSymbol name="exclamationmark.triangle.fill" size={16} color={Colors.light.warning} />
+                  <Text style={[styles.termText, { color: Colors.light.warning }]}>
+                    Cancelación tardía: 50% de recargo
+                  </Text>
+                </View>
               </View>
             </View>
           </Card>
@@ -427,39 +405,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: DesignTokens.spacing.xl,
+    paddingHorizontal: DesignTokens.spacing.xl,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: DesignTokens.spacing.sm, // Reduced
     backgroundColor: Colors.light.background,
   },
-  providerName: {
-    fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: '600',
-    color: Colors.light.text,
-  },
-  stepText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-  },
+  // Removed providerName and stepText styles
   section: {
     paddingHorizontal: DesignTokens.spacing.xl,
-    marginBottom: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.md, // Reduced from xl
   },
   termsSection: {
-    marginBottom: DesignTokens.spacing.md,
+    marginBottom: DesignTokens.spacing.sm,
   },
   policySection: {
-    marginBottom: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing.xl,
   },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.lg,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.sm, // Reduced from lg
   },
   summaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.md, // Reduced from lg
   },
   summaryContent: {
     marginLeft: DesignTokens.spacing.md,
@@ -599,5 +570,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.warning + '10',
     borderColor: Colors.light.warning + '30',
     borderWidth: 1,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 8,
   },
 });

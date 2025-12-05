@@ -18,12 +18,7 @@ import {
   View,
 } from 'react-native';
 
-type NextSlotSuggestion = {
-  date: string;
-  time: string;
-  label: string;
-  subtitle: string;
-};
+
 
 export default function TimeSelectionScreen() {
   const {
@@ -47,7 +42,6 @@ export default function TimeSelectionScreen() {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [bookedDates] = useState<string[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
-  const [nextAvailableSlots, setNextAvailableSlots] = useState<NextSlotSuggestion[]>([]);
 
   // Generar horarios mock cuando Supabase falla
   const generateMockTimes = (date: string) => {
@@ -111,7 +105,7 @@ export default function TimeSelectionScreen() {
   // Auto-scroll to time slots when they become available
   useEffect(() => {
     if (availableTimes.length > 0 && selectedDate) {
-      // Small delay to ensure layout is calculated
+      // Delay to ensure layout is calculated and UI is ready
       setTimeout(() => {
         if (scrollRef.current && timeSlotsYRef.current > 0) {
           scrollRef.current.scrollTo({
@@ -119,7 +113,7 @@ export default function TimeSelectionScreen() {
             animated: true
           });
         }
-      }, 100);
+      }, 200); // Faster autoscroll as requested
     }
   }, [availableTimes.length, selectedDate]);
 
@@ -138,45 +132,7 @@ export default function TimeSelectionScreen() {
     }
   }, [selectedDate, selectedTime, availableTimes]);
 
-  const prefetchNextSlots = useCallback(async (dates: string[]) => {
-    if (!dates.length || !providerId || !serviceId) {
-      setNextAvailableSlots([]);
-      return;
-    }
 
-    const suggestions: NextSlotSuggestion[] = [];
-    for (const date of dates) {
-      let slots: string[] = [];
-      try {
-        if (employeeId && employeeId !== '' && employeeId !== 'any') {
-          slots = await BookingService.getEmployeeAvailableSlots(employeeId as string, providerId as string, date, serviceId as string);
-        } else {
-          slots = await BookingService.getAvailableSlots(providerId as string, date, serviceId as string);
-        }
-      } catch (error) {
-        console.warn('🔴 [TIME SELECTION] Prefetch slots failed:', error);
-      }
-
-      if (slots.length > 0) {
-        const formatted = new Date(date).toLocaleDateString('es-ES', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-        });
-        suggestions.push({
-          date,
-          time: slots[0],
-          label: formatted,
-          subtitle: `${slots[0]} • ${serviceName}`,
-        });
-      }
-      if (suggestions.length >= 3) {
-        break;
-      }
-    }
-
-    setNextAvailableSlots(suggestions);
-  }, [employeeId, providerId, serviceId, serviceName]);
 
   const selectedDateRef = useRef<string | null>(selectedDate);
 
@@ -255,10 +211,6 @@ export default function TimeSelectionScreen() {
       });
 
       setAvailableDates(validDates);
-      if (!selectedDateRef.current && validDates.length > 0) {
-        setSelectedDate(validDates[0]);
-      }
-      prefetchNextSlots(validDates.slice(0, 5));
 
     } catch (error) {
       console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
@@ -275,7 +227,7 @@ export default function TimeSelectionScreen() {
       loadingDatesRef.current = false;
       setLoadingDates(false);
     }
-  }, [employeeId, providerId, serviceId, prefetchNextSlots]);
+  }, [employeeId, providerId, serviceId]);
 
   useEffect(() => {
     if (providerId && serviceId) {
@@ -311,15 +263,7 @@ export default function TimeSelectionScreen() {
     handleDateSelect(availableDates[nextIndex]);
   }, [availableDates, selectedDate, handleDateSelect]);
 
-  const handleQuickSlotSelect = useCallback(async (slot: NextSlotSuggestion) => {
-    handleDateSelect(slot.date);
-    const times = await loadAvailableTimes(slot.date);
-    if (times?.includes(slot.time)) {
-      setSelectedTime(slot.time);
-    } else if (times && times.length > 0) {
-      setSelectedTime(times[0]);
-    }
-  }, [handleDateSelect, loadAvailableTimes]);
+
 
   const handleContinue = () => {
     if (!selectedDate || !selectedTime) {
@@ -362,12 +306,8 @@ export default function TimeSelectionScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header Premium */}
+        {/* Header Premium (Simplified) */}
         <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.providerName}>{providerName}</Text>
-            <Text style={styles.providerSubtitle}>Selecciona tu horario</Text>
-          </View>
           <View style={styles.stepIndicator}>
             <Text style={styles.stepText}>Paso 2 de 3 • Fecha y Hora</Text>
             <View style={styles.progressBar}>
@@ -381,19 +321,61 @@ export default function TimeSelectionScreen() {
           </View>
         </View>
 
-        {/* Resumen del servicio */}
-        <View style={styles.serviceSummary}>
-          <Card variant="elevated" padding="medium">
-            <View style={styles.summaryHeader}>
-              <IconSymbol name="scissors" size={20} color={Colors.light.primary} />
-              <Text style={styles.summaryTitle}>Servicio Seleccionado</Text>
-            </View>
-            <Text style={styles.serviceName}>{serviceName}</Text>
-            <View style={styles.summaryDetails}>
-              <Text style={styles.summaryText}>Duración: {serviceDuration} min</Text>
-              <Text style={styles.summaryPrice}>${servicePrice}</Text>
-            </View>
-          </Card>
+
+
+        {/* Quick Date Selection (Para Viejitos) */}
+        <View style={styles.quickDateSection}>
+          <Text style={styles.sectionTitle}>Selección Rápida</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickDateScroll}>
+            {(() => {
+              const today = new Date();
+              const tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+
+              const nextFriday = new Date(today);
+              const daysUntilFriday = (5 - today.getDay() + 7) % 7;
+              nextFriday.setDate(today.getDate() + (daysUntilFriday === 0 ? 7 : daysUntilFriday));
+
+              const quickDates = [
+                { label: 'Hoy', date: today.toISOString().split('T')[0] },
+                { label: 'Mañana', date: tomorrow.toISOString().split('T')[0] },
+                { label: 'Este Viernes', date: nextFriday.toISOString().split('T')[0] }
+              ];
+
+              return quickDates.map((qd) => {
+                const isAvailable = availableDates.includes(qd.date);
+                const isSelected = selectedDate === qd.date;
+
+                return (
+                  <TouchableOpacity
+                    key={qd.label}
+                    style={[
+                      styles.quickDateButton,
+                      isSelected && styles.quickDateButtonSelected,
+                      !isAvailable && styles.quickDateButtonDisabled
+                    ]}
+                    onPress={() => isAvailable && handleDateSelect(qd.date)}
+                    disabled={!isAvailable}
+                  >
+                    <Text style={[
+                      styles.quickDateLabel,
+                      isSelected && styles.quickDateLabelSelected,
+                      !isAvailable && styles.quickDateLabelDisabled
+                    ]}>
+                      {qd.label}
+                    </Text>
+                    <Text style={[
+                      styles.quickDateSubLabel,
+                      isSelected && styles.quickDateSubLabelSelected,
+                      !isAvailable && styles.quickDateSubLabelDisabled
+                    ]}>
+                      {new Date(qd.date).getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              });
+            })()}
+          </ScrollView>
         </View>
 
         {/* Calendario */}
@@ -429,30 +411,7 @@ export default function TimeSelectionScreen() {
               availableDates={availableDates}
               bookedDates={bookedDates}
             />
-            {nextAvailableSlots.length > 0 && (
-              <View style={styles.quickSlotContainer}>
-                <Text style={styles.sectionTitle}>Sugerencias rápidas</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickSlotScroll}
-                >
-                  {nextAvailableSlots.map((slot) => (
-                    <TouchableOpacity
-                      key={`${slot.date}-${slot.time}`}
-                      style={styles.quickSlotPill}
-                      onPress={() => handleQuickSlotSelect(slot)}
-                    >
-                      <IconSymbol name="calendar.badge.clock" size={18} color={Colors.light.primary} />
-                      <View style={styles.quickSlotText}>
-                        <Text style={styles.quickSlotLabel}>{slot.label}</Text>
-                        <Text style={styles.quickSlotSubLabel}>{slot.subtitle}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+
           </>
         )}
 
@@ -464,7 +423,6 @@ export default function TimeSelectionScreen() {
               timeSlotsYRef.current = e.nativeEvent.layout.y;
             }}
           >
-            <Text style={styles.sectionTitle}>Horarios disponibles</Text>
             {loadingTimes ? (
               <TimeSlotsSkeleton />
             ) : availableTimes.length === 0 ? (
@@ -495,6 +453,7 @@ export default function TimeSelectionScreen() {
                 selectedTime={selectedTime}
                 onTimeSelect={handleTimeSelect}
                 slotDuration={parseInt(serviceDuration as string)}
+                variant="horizontal"
               />
             )}
           </View>
@@ -536,10 +495,20 @@ export default function TimeSelectionScreen() {
         )}
       </ScrollView>
 
-      {/* Botón de continuar premium */}
+      {/* Botón de continuar premium + Resumen */}
       <View style={styles.bottomSection}>
+        {/* Resumen del servicio en el footer */}
+        <View style={styles.footerSummary}>
+          <Text style={styles.footerServiceName}>{serviceName}</Text>
+          <View style={styles.footerServiceDetails}>
+            <Text style={styles.footerServiceText}>{serviceDuration} min</Text>
+            <Text style={styles.footerServiceDot}>•</Text>
+            <Text style={styles.footerServicePrice}>${servicePrice}</Text>
+          </View>
+        </View>
+
         <Button
-          title="Continuar a Confirmación"
+          title="Continuar"
           onPress={handleContinue}
           variant="wellness"
           size="large"
@@ -571,35 +540,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: DesignTokens.spacing.lg,
+    paddingHorizontal: DesignTokens.spacing.lg,
     paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: DesignTokens.spacing.sm, // Reduced bottom padding
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.borderLight,
   },
-  headerContent: {
-    marginBottom: DesignTokens.spacing.md,
-  },
-  providerName: {
-    fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: '700',
-    color: Colors.light.text,
-    letterSpacing: -0.5,
-  },
-  providerSubtitle: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    marginTop: 2,
-  },
+  // Removed headerContent, providerName, providerSubtitle styles
+
   stepIndicator: {
-    alignItems: 'flex-end',
+    alignItems: 'center', // Center the progress bar
+    width: '100%',
   },
   stepText: {
     fontSize: DesignTokens.typography.fontSizes.sm,
     fontWeight: '600',
     color: Colors.light.textSecondary,
-    marginBottom: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.xs, // Reduced margin
     letterSpacing: 0.5,
+  },
+  // ... (progressBar styles remain)
+
+  quickDateSection: {
+    paddingHorizontal: DesignTokens.spacing.lg,
+    marginTop: DesignTokens.spacing.sm, // Reduced top margin
+    marginBottom: DesignTokens.spacing.sm, // Reduced bottom margin
   },
   progressBar: {
     width: 120,
@@ -638,9 +604,15 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   serviceSummary: {
-    padding: DesignTokens.spacing.lg,
-    paddingTop: DesignTokens.spacing.md,
-    paddingBottom: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    paddingVertical: DesignTokens.spacing.sm,
+    marginBottom: DesignTokens.spacing.sm,
+  },
+  compactSummaryText: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    color: Colors.light.textSecondary,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -787,44 +759,87 @@ const styles = StyleSheet.create({
   emptyStateButton: {
     alignSelf: 'stretch',
   },
-  quickSlotContainer: {
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingBottom: DesignTokens.spacing.sm,
-  },
-  quickSlotScroll: {
-    paddingVertical: DesignTokens.spacing.sm,
-  },
-  quickSlotPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.md,
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.radius.xl,
-    backgroundColor: Colors.light.surface,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    marginRight: DesignTokens.spacing.md,
-  },
-  quickSlotText: {
-    flexDirection: 'column',
-    gap: 2,
-  },
-  quickSlotLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: '600',
-    color: Colors.light.text,
-    textTransform: 'capitalize',
-  },
-  quickSlotSubLabel: {
-    fontSize: 12,
-    color: Colors.light.textSecondary,
-  },
+
   requirementText: {
     fontSize: 14,
     color: Colors.light.textSecondary,
     textAlign: 'center',
     marginTop: 12,
     opacity: 0.8,
+  },
+
+  quickDateScroll: {
+    gap: DesignTokens.spacing.sm,
+  },
+  quickDateButton: {
+    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.lg,
+    borderRadius: DesignTokens.radius.md,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    alignItems: 'center',
+    minWidth: 100,
+    ...DesignTokens.elevation.sm,
+  },
+  quickDateButtonSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  quickDateButtonDisabled: {
+    backgroundColor: Colors.light.background,
+    borderColor: Colors.light.borderLight,
+    opacity: 0.5,
+  },
+  quickDateLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  quickDateLabelSelected: {
+    color: Colors.light.textOnPrimary,
+  },
+  quickDateLabelDisabled: {
+    color: Colors.light.textSecondary,
+  },
+  quickDateSubLabel: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+  },
+  quickDateSubLabelSelected: {
+    color: Colors.light.textOnPrimary,
+  },
+  quickDateSubLabelDisabled: {
+    color: Colors.light.textSecondary,
+  },
+  footerSummary: {
+    marginBottom: DesignTokens.spacing.md,
+    alignItems: 'center',
+  },
+  footerServiceName: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 2,
+  },
+  footerServiceDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerServiceText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  footerServiceDot: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    marginHorizontal: 6,
+  },
+  footerServicePrice: {
+    fontSize: DesignTokens.typography.fontSizes.md,
+    fontWeight: '700',
+    color: Colors.light.primary,
   },
 });

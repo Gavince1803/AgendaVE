@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { TextScaleProvider } from '@/contexts/TextScaleContext';
 import { useNotificationRouting } from '@/hooks/useNotificationRouting';
 import { DesignSystemProvider } from '@/theme';
 
@@ -32,18 +33,20 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <DesignSystemProvider>
-          <NavigationThemeProvider value={DefaultTheme}>
-            {/** Deep link handling for notification taps */}
-            {loaded && <NotificationRouter />}
-            <Stack>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(booking)" options={{ headerShown: false }} />
-              <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación' }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="light" />
-          </NavigationThemeProvider>
+          <TextScaleProvider>
+            <NavigationThemeProvider value={DefaultTheme}>
+              {/** Deep link handling for notification taps */}
+              {loaded && <NotificationRouter />}
+              <Stack>
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(booking)" options={{ headerShown: false }} />
+                <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación' }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+              <StatusBar style="light" />
+            </NavigationThemeProvider>
+          </TextScaleProvider>
         </DesignSystemProvider>
       </AuthProvider>
     </SafeAreaProvider>

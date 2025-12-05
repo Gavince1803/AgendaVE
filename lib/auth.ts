@@ -12,13 +12,38 @@ export interface AuthUser {
 }
 
 export class AuthService {
-  static async signUp(email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string, businessInfo?: { businessName?: string, businessType?: string, address?: string }) {
+
+
+  static async signInWithCedula(cedula: string, password: string) {
+    if (!supabase) {
+      throw new Error('Supabase no está configurado');
+    }
+
+    // 1. Buscar email asociado a la cédula
+    const { data: email, error } = await supabase.rpc('get_email_by_cedula', {
+      cedula_input: cedula
+    });
+
+    if (error) {
+      console.error('Error looking up cedula:', error);
+      throw new Error('Error verificando cédula');
+    }
+
+    if (!email) {
+      throw new Error('Cédula no encontrada');
+    }
+
+    // 2. Iniciar sesión con el email encontrado
+    return this.signIn(email, password);
+  }
+
+  static async signUp(email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string, businessInfo?: { businessName?: string, businessType?: string, address?: string }, cedula?: string) {
     if (!supabase) {
       throw new Error('Supabase no está configurado. Por favor configura las credenciales en el archivo .env');
     }
 
     console.log('🔴 [AUTH SERVICE] Iniciando signUp para:', email);
-    console.log('🔴 [AUTH SERVICE] Datos del registro:', { email, fullName, role, phone });
+    console.log('🔴 [AUTH SERVICE] Datos del registro:', { email, fullName, role, phone, cedula });
 
     // Intentar signup simple sin confirmación de email
     const { data, error } = await supabase.auth.signUp({
@@ -47,6 +72,22 @@ export class AuthService {
       console.log('🔴 [AUTH SERVICE] Creando perfil para usuario:', data.user.id);
 
       try {
+        // Insertar en user_identifiers si hay cédula
+        if (cedula) {
+          const { error: idError } = await supabase
+            .from('user_identifiers' as any)
+            .insert({
+              user_id: data.user.id,
+              cedula: cedula,
+              phone: phone || null,
+              email: email // Cache email for easier lookup
+            });
+
+          if (idError) {
+            console.error('🔴 [AUTH SERVICE] ❌ Error guardando cédula:', idError);
+          }
+        }
+
         const { data: insertData, error: profileError } = await supabase
           .from('profiles')
           .insert({

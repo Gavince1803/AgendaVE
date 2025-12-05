@@ -14,13 +14,15 @@ interface AuthContextType {
   employeeProfile: Employee | null;
   refreshUser: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithCedula: (cedula: string, password: string) => Promise<void>;
   signUp: (
     email: string,
     password: string,
     fullName: string,
     role: 'client' | 'provider',
     phone?: string,
-    businessInfo?: { businessName?: string; businessType?: string; address?: string }
+    businessInfo?: { businessName?: string; businessType?: string; address?: string },
+    cedula?: string
   ) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: any) => Promise<void>;
@@ -142,10 +144,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string, businessInfo?: { businessName?: string, businessType?: string, address?: string }) => {
+  const signInWithCedula = async (cedula: string, password: string) => {
     setLoading(true);
     try {
-      await AuthService.signUp(email, password, fullName, role, phone, businessInfo);
+      console.log('🔍 [AUTH CONTEXT] Iniciando signInWithCedula para:', cedula);
+      await AuthService.signInWithCedula(cedula, password);
+
+      // Post-login logic is same as signIn
+      const currentUser = await AuthService.getCurrentUser();
+      setUser(currentUser);
+      const employee = currentUser ? await BookingService.getEmployeeProfile(currentUser.id) : null;
+      setEmployeeProfile(employee);
+      const derivedRole = deriveActiveRole(currentUser, employee);
+      await persistActiveRole(derivedRole);
+
+      if (currentUser) {
+        try {
+          await NotificationService.registerToken(currentUser.id);
+        } catch (error) {
+          console.error('Error registering notification token after sign in:', error);
+        }
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUp = async (email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string, businessInfo?: { businessName?: string, businessType?: string, address?: string }, cedula?: string) => {
+    setLoading(true);
+    try {
+      await AuthService.signUp(email, password, fullName, role, phone, businessInfo, cedula);
       const currentUser = await AuthService.getCurrentUser();
       setUser(currentUser);
       const employee = currentUser ? await BookingService.getEmployeeProfile(currentUser.id) : null;
@@ -199,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     employeeProfile,
     refreshUser: checkUser,
     signIn,
+    signInWithCedula,
     signUp,
     signOut,
     updateProfile,

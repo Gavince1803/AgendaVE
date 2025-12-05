@@ -9,13 +9,15 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Toast } from '@/components/ui/Toast';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTextScale } from '@/contexts/TextScaleContext';
 import { BookingService, type Provider } from '@/lib/booking-service';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, signOut, activeRole, setActiveRole, employeeProfile, refreshUser } = useAuth();
+  const { isLargeText, toggleLargeText } = useTextScale();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
@@ -451,6 +453,24 @@ export default function ProfileScreen() {
           )}
         </Card>
 
+        {/* Accessibility Toggle */}
+        <Card variant="elevated" style={styles.accessibilityCard}>
+          <View style={styles.accessibilityRow}>
+            <View style={styles.accessibilityInfo}>
+              <IconSymbol name="textformat.size" size={24} color={Colors.light.primary} />
+              <View style={styles.accessibilityTextContainer}>
+                <ThemedText style={styles.accessibilityTitle}>Modo Lectura Fácil</ThemedText>
+                <ThemedText style={styles.accessibilityDescription}>Aumenta el tamaño del texto</ThemedText>
+              </View>
+            </View>
+            <Switch
+              value={isLargeText}
+              onValueChange={toggleLargeText}
+              trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+            />
+          </View>
+        </Card>
+
         {isEmployee && providerInfo && (
           <Card variant="elevated" style={styles.businessCard}>
             <ThemedText style={styles.businessTitle}>Mi negocio</ThemedText>
@@ -739,5 +759,34 @@ const styles = StyleSheet.create({
   signOutButton: {
     borderColor: Colors.light.error,
     borderWidth: 2,
+  },
+  accessibilityCard: {
+    marginHorizontal: DesignTokens.spacing['2xl'],
+    marginBottom: DesignTokens.spacing['2xl'],
+    paddingVertical: DesignTokens.spacing.md,
+  },
+  accessibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: DesignTokens.spacing.md,
+  },
+  accessibilityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+    flex: 1,
+  },
+  accessibilityTextContainer: {
+    flex: 1,
+  },
+  accessibilityTitle: {
+    fontSize: DesignTokens.typography.fontSizes.base,
+    fontWeight: '600',
+    color: Colors.light.text,
+  },
+  accessibilityDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
   },
 });

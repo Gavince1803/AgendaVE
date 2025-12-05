@@ -17,20 +17,34 @@ import {
 } from 'react-native';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signInWithCedula } = useAuth();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    if (!identifier || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     setLoading(true);
     try {
-      await signIn(email, password);
+      // Determinar si es email o cédula
+      const isEmail = identifier.includes('@');
+
+      if (isEmail) {
+        await signIn(identifier, password);
+      } else {
+        // Asumir que es cédula
+        // Limpiar input de posibles espacios o guiones si es necesario
+        const cleanCedula = identifier.replace(/\D/g, '');
+        if (cleanCedula.length < 5) {
+          throw new Error('La cédula parece inválida');
+        }
+        await signInWithCedula(cleanCedula, password);
+      }
+
       router.replace('/(tabs)');
     } catch (error: unknown) {
       // Mejorar el mensaje de error para casos específicos
@@ -38,9 +52,11 @@ export default function LoginScreen() {
       let errorMessage = err.message || 'Error al iniciar sesión';
 
       if (err.message?.includes('Invalid login credentials')) {
-        errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.\n\nSi acabas de registrarte, asegúrate de confirmar tu email haciendo clic en el enlace que te enviamos.';
+        errorMessage = 'Credenciales inválidas. Verifica tus datos y contraseña.';
       } else if (err.message?.includes('Email not confirmed')) {
-        errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada y haz clic en el enlace de confirmación.';
+        errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada.';
+      } else if (err.message?.includes('Cédula no encontrada')) {
+        errorMessage = 'No encontramos una cuenta asociada a esta cédula.';
       }
 
       Alert.alert('Error al iniciar sesión', errorMessage);
@@ -78,10 +94,10 @@ export default function LoginScreen() {
             </ThemedText>
 
             <SimpleInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@email.com"
+              label="Email o Cédula"
+              value={identifier}
+              onChangeText={setIdentifier}
+              placeholder="tu@email.com o 12345678"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}

@@ -225,7 +225,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
     borderRadius: 16,
     padding: 16,
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8, // Reduced from margin: 16 to tighten space below
   },
   header: {
     flexDirection: 'row',
@@ -340,9 +342,10 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
+    justifyContent: 'center', // Center items
+    gap: 16, // Use gap instead of space-around for tighter packing
+    marginTop: 8, // Reduced from 16
+    paddingTop: 8, // Reduced from 16
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
   },

@@ -1255,16 +1255,16 @@ export class BookingService {
       let currentMinute = dayStartMinutes;
 
       // 🧠 Smart Interval Logic:
-      // - If service is short (< 15 mins), use exact duration (e.g. 10, 12 mins).
-      // - If service is a multiple of 30 mins (30, 60, 90), use 30 min intervals for a cleaner grid.
-      // - Otherwise (e.g. 45 mins), use 15 min intervals to maximize flexibility.
-      let slotIncrement = 15;
+      // - If service is short (< 15 mins), use exact duration.
+      // - If service is < 30 mins, use 15 min intervals.
+      // - If service is >= 30 mins (e.g. 45, 60), use 30 min intervals to avoid clutter.
+      let slotIncrement = 30;
       if (serviceDuration < 15) {
         slotIncrement = serviceDuration;
-      } else if (serviceDuration % 30 === 0) {
-        slotIncrement = 30;
-      } else {
+      } else if (serviceDuration < 30) {
         slotIncrement = 15;
+      } else {
+        slotIncrement = 30;
       }
 
       while (currentMinute + serviceDuration <= dayEndMinutes) {
@@ -1386,16 +1386,16 @@ export class BookingService {
       let currentMinute = dayStartMinutes;
 
       // 🧠 Smart Interval Logic:
-      // - If service is short (< 15 mins), use exact duration (e.g. 10, 12 mins).
-      // - If service is a multiple of 30 mins (30, 60, 90), use 30 min intervals for a cleaner grid.
-      // - Otherwise (e.g. 45 mins), use 15 min intervals to maximize flexibility.
-      let slotIncrement = 15;
+      // - If service is short (< 15 mins), use exact duration.
+      // - If service is < 30 mins, use 15 min intervals.
+      // - If service is >= 30 mins (e.g. 45, 60), use 30 min intervals to avoid clutter.
+      let slotIncrement = 30;
       if (serviceDuration < 15) {
         slotIncrement = serviceDuration;
-      } else if (serviceDuration % 30 === 0) {
-        slotIncrement = 30;
-      } else {
+      } else if (serviceDuration < 30) {
         slotIncrement = 15;
+      } else {
+        slotIncrement = 30;
       }
 
       while (currentMinute + serviceDuration <= dayEndMinutes) {

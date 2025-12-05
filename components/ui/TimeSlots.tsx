@@ -1,10 +1,10 @@
 import { Colors } from '@/constants/Colors';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface TimeSlot {
@@ -15,13 +15,14 @@ interface TimeSlot {
   duration?: number; // en minutos
 }
 
-interface TimeSlotsProps {
+export interface TimeSlotsProps {
   slots: TimeSlot[];
   selectedTime?: string;
   onTimeSelect: (time: string) => void;
   slotDuration?: number; // duración por defecto en minutos
   startTime?: string; // hora de inicio (ej: "09:00")
   endTime?: string; // hora de fin (ej: "18:00")
+  variant?: 'grid' | 'horizontal';
 }
 
 export function TimeSlots({
@@ -31,12 +32,13 @@ export function TimeSlots({
   slotDuration = 30,
   startTime = "09:00",
   endTime = "18:00",
+  variant = 'grid',
 }: TimeSlotsProps) {
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const minute = parseInt(minutes);
-    
+
     if (hour === 0) return `12:${minutes} AM`;
     if (hour < 12) return `${hour}:${minutes} AM`;
     if (hour === 12) return `12:${minutes} PM`;
@@ -52,22 +54,23 @@ export function TimeSlots({
 
   const getSlotStyle = (slot: TimeSlot) => {
     const status = getSlotStatus(slot);
-    
+    const baseStyle = variant === 'horizontal' ? styles.timeSlotHorizontal : styles.timeSlot;
+
     switch (status) {
       case 'selected':
-        return [styles.timeSlot, styles.timeSlotSelected];
+        return [baseStyle, styles.timeSlotSelected];
       case 'booked':
-        return [styles.timeSlot, styles.timeSlotBooked];
+        return [baseStyle, styles.timeSlotBooked];
       case 'available':
-        return [styles.timeSlot, styles.timeSlotAvailable];
+        return [baseStyle, styles.timeSlotAvailable];
       default:
-        return [styles.timeSlot, styles.timeSlotUnavailable];
+        return [baseStyle, styles.timeSlotUnavailable];
     }
   };
 
   const getSlotTextStyle = (slot: TimeSlot) => {
     const status = getSlotStatus(slot);
-    
+
     switch (status) {
       case 'selected':
         return [styles.timeSlotText, styles.timeSlotTextSelected];
@@ -82,18 +85,24 @@ export function TimeSlots({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Horarios Disponibles</Text>
-        <Text style={styles.subtitle}>
-          Selecciona una franja de {slotDuration} minutos
-        </Text>
-      </View>
+      {variant === 'grid' && (
+        <View style={styles.header}>
+          <Text style={styles.title}>Horarios Disponibles</Text>
+          <Text style={styles.subtitle}>
+            Selecciona una franja de {slotDuration} minutos
+          </Text>
+        </View>
+      )}
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
+        horizontal={variant === 'horizontal'}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={true} // Show indicator as requested
+        persistentScrollbar={true} // Android only, keeps scrollbar visible
+        contentContainerStyle={variant === 'horizontal' ? styles.slotsHorizontal : undefined}
       >
-        <View style={styles.slotsGrid}>
+        <View style={variant === 'horizontal' ? styles.slotsHorizontal : styles.slotsGrid}>
           {slots.map((slot, index) => (
             <TouchableOpacity
               key={`${slot.time}-${index}`}
@@ -160,6 +169,12 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  slotsHorizontal: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 12,
+  },
   timeSlot: {
     width: '30%',
     height: 48,
@@ -169,6 +184,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     position: 'relative',
     marginVertical: 4,
+  },
+  timeSlotHorizontal: {
+    width: 100,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    position: 'relative',
   },
   timeSlotAvailable: {
     backgroundColor: Colors.light.surface,
