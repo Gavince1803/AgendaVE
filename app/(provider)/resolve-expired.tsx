@@ -32,7 +32,16 @@ export default function ResolveExpiredScreen() {
     const loadExpiredAppointments = async () => {
         try {
             setLoading(true);
-            const providerId = employeeProfile?.provider_id;
+            let providerId = employeeProfile?.provider_id;
+
+            // If no employee profile, check if the user is the provider (owner)
+            if (!providerId && user) {
+                const provider = await BookingService.getProviderById(user.id);
+                if (provider) {
+                    providerId = provider.id;
+                }
+            }
+
             if (!providerId) return;
 
             const data = await BookingService.getExpiredPendingAppointments(providerId);
@@ -47,7 +56,12 @@ export default function ResolveExpiredScreen() {
     const handleResolve = async (appointment: Appointment, status: 'done' | 'cancelled' | 'no_show') => {
         try {
             setProcessingId(appointment.id);
-            await BookingService.updateAppointmentStatus(appointment.id, status);
+
+            if (status === 'done') {
+                await BookingService.markExpiredAsDone(appointment.id);
+            } else {
+                await BookingService.updateAppointmentStatus(appointment.id, status);
+            }
 
             // Remove from list
             setAppointments(prev => prev.filter(a => a.id !== appointment.id));
@@ -61,17 +75,41 @@ export default function ResolveExpiredScreen() {
         }
     };
 
-    const handleMarkAsPaid = async (appointment: Appointment) => {
+    const handleMarkAsPaid = (appointment: Appointment) => {
+        Alert.alert(
+            'Registrar Pago',
+            'Selecciona el método de pago:',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: '💵 Efectivo',
+                    onPress: () => processPayment(appointment, 'cash')
+                },
+                {
+                    text: '📱 Pago Móvil',
+                    onPress: () => processPayment(appointment, 'pago_movil')
+                },
+                {
+                    text: '🇺🇸 Zelle',
+                    onPress: () => processPayment(appointment, 'zelle')
+                },
+                {
+                    text: '💳 Tarjeta / Otro',
+                    onPress: () => processPayment(appointment, 'card')
+                }
+            ]
+        );
+    };
+
+    const processPayment = async (appointment: Appointment, method: 'cash' | 'zelle' | 'pago_movil' | 'card' | 'other') => {
         try {
             setProcessingId(appointment.id);
-            await BookingService.updateAppointmentPayment(appointment.id, 'paid');
+            await BookingService.markExpiredAsPaid(appointment.id, method);
 
-            // Update local state
-            setAppointments(prev => prev.map(a =>
-                a.id === appointment.id ? { ...a, payment_status: 'paid' } : a
-            ));
+            // Remove from list (since it's now done and paid, it's no longer "expired pending")
+            setAppointments(prev => prev.filter(a => a.id !== appointment.id));
 
-            Alert.alert('Éxito', 'Pago registrado correctamente');
+            Alert.alert('Éxito', 'Pago registrado y cita completada');
         } catch (error) {
             log.error(LogCategory.SERVICE, 'Error updating payment', error);
             Alert.alert('Error', 'No se pudo registrar el pago');
@@ -139,7 +177,7 @@ export default function ResolveExpiredScreen() {
 
                                 <View style={styles.clientInfo}>
                                     <IconSymbol name="person" size={16} color={Colors.light.textSecondary} />
-                                    <ThemedText style={styles.clientName}>{apt.profiles?.full_name || apt.client?.display_name || 'Cliente'}</ThemedText>
+                                    <ThemedText style={styles.clientName}>{apt.profiles?.full_name || apt.profiles?.display_name || apt.client?.display_name || 'Cliente'}</ThemedText>
                                 </View>
 
                                 <View style={styles.actions}>
@@ -154,15 +192,7 @@ export default function ResolveExpiredScreen() {
                                             style={styles.actionButton}
                                         />
                                     )}
-                                    <Button
-                                        title="Realizada"
-                                        variant="primary"
-                                        size="small"
-                                        onPress={() => handleResolve(apt, 'done')}
-                                        loading={processingId === apt.id}
-                                        disabled={!!processingId}
-                                        style={styles.doneButton}
-                                    />
+                                    {/* Realizada button removed as requested */}
                                     <Button
                                         title="No Show"
                                         variant="outline"
@@ -268,17 +298,21 @@ const styles = StyleSheet.create({
     },
     actions: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: DesignTokens.spacing.sm,
     },
     actionButton: {
-        flex: 1,
+        flexGrow: 1,
+        minWidth: '45%',
     },
     doneButton: {
-        flex: 1,
+        flexGrow: 1,
+        minWidth: '45%',
         backgroundColor: Colors.light.success,
     },
     noShowButton: {
-        flex: 1,
+        flexGrow: 1,
+        minWidth: '45%',
         borderColor: Colors.light.error,
     },
     headerRow: {

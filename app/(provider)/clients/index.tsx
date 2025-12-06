@@ -50,7 +50,16 @@ export default function ClientListScreen() {
     const loadClients = async () => {
         try {
             setLoading(true);
-            const providerId = employeeProfile?.provider_id;
+            let providerId = employeeProfile?.provider_id;
+
+            // If no employee profile, check if the user is the provider (owner)
+            if (!providerId && user) {
+                const provider = await BookingService.getProviderById(user.id);
+                if (provider) {
+                    providerId = provider.id;
+                }
+            }
+
             if (!providerId) return;
 
             const data = await BookingService.getProviderClients(providerId);

@@ -101,7 +101,7 @@ export default function RegisterScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
-                <ThemedText style={styles.logoText}>A</ThemedText>
+                <ThemedText style={styles.logoText}>M</ThemedText>
               </View>
             </View>
             <ThemedText type="title" style={styles.title}>

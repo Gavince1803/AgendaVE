@@ -85,7 +85,7 @@ export default function AvailabilityScreen() {
       const confirmed = window.confirm(
         `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`
       );
-      
+
       if (confirmed) {
         saveAvailability(enabledDays);
       }
@@ -111,7 +111,7 @@ export default function AvailabilityScreen() {
   const saveAvailability = async (enabledDays: any[]) => {
     try {
       setSaving(true);
-      log.userAction('Save availability', { 
+      log.userAction('Save availability', {
         providerId: user!.id,
         enabledDays: enabledDays.length
       });
@@ -125,7 +125,7 @@ export default function AvailabilityScreen() {
         router.push('/(provider)/my-business');
       } else {
         Alert.alert(
-          'Éxito', 
+          'Éxito',
           'Horarios actualizados exitosamente',
           [
             {
@@ -137,7 +137,7 @@ export default function AvailabilityScreen() {
       }
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving availability', { error: error instanceof Error ? error.message : String(error) });
-      
+
       let errorMessage = 'No se pudieron guardar los horarios';
       if (error instanceof Error) {
         if (error.message.includes('row-level security')) {
@@ -148,7 +148,7 @@ export default function AvailabilityScreen() {
           errorMessage = `Error: ${error.message}`;
         }
       }
-      
+
       Platform.OS === 'web' ? window.alert(`Error al Guardar Horarios: ${errorMessage}`) : Alert.alert('Error al Guardar Horarios', errorMessage);
     } finally {
       setSaving(false);
@@ -157,10 +157,10 @@ export default function AvailabilityScreen() {
 
   const handleQuickSetup = (type: 'weekdays' | 'weekends' | 'all') => {
     const newAvailability = { ...availability };
-    
+
     WEEKDAYS.forEach(day => {
       let shouldEnable = false;
-      
+
       switch (type) {
         case 'weekdays':
           shouldEnable = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day.key);
@@ -172,13 +172,13 @@ export default function AvailabilityScreen() {
           shouldEnable = true;
           break;
       }
-      
+
       newAvailability[day.key] = {
         ...newAvailability[day.key],
         enabled: shouldEnable,
       };
     });
-    
+
     setAvailability(newAvailability);
   };
 
@@ -187,7 +187,7 @@ export default function AvailabilityScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <ThemedView style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.push('/(provider)/my-business')}
           >
@@ -204,8 +204,12 @@ export default function AvailabilityScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Configuración Rápida
           </ThemedText>
-          
-          <View style={styles.quickSetup}>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickSetup}
+          >
             <Button
               title="Días Laborales"
               variant="outline"
@@ -227,7 +231,7 @@ export default function AvailabilityScreen() {
               onPress={() => handleQuickSetup('all')}
               style={styles.quickButton}
             />
-          </View>
+          </ScrollView>
         </Card>
 
         {/* Configuración por día */}
@@ -235,7 +239,7 @@ export default function AvailabilityScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Configuración Detallada
           </ThemedText>
-          
+
           <View style={styles.daysList}>
             {WEEKDAYS.map((day) => (
               <View key={day.key} style={styles.dayItem}>
@@ -261,7 +265,7 @@ export default function AvailabilityScreen() {
                     thumbColor={Colors.light.surface}
                   />
                 </View>
-                
+
                 {availability[day.key].enabled && (
                   <View style={styles.timeRow}>
                     <TimePicker
@@ -357,9 +361,11 @@ const styles = StyleSheet.create({
   quickSetup: {
     flexDirection: 'row',
     gap: DesignTokens.spacing.sm,
+    paddingRight: DesignTokens.spacing.lg, // Add padding for scroll end
   },
   quickButton: {
-    flex: 1,
+    // Removed flex: 1 to allow content to determine width
+    minWidth: 120,
   },
   daysList: {
     gap: DesignTokens.spacing.lg,

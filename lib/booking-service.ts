@@ -133,6 +133,7 @@ export interface Appointment {
   };
   profiles?: {
     display_name?: string;
+    full_name?: string;
     phone?: string;
   };
 }
@@ -2448,6 +2449,54 @@ export class BookingService {
     if (error) throw error;
   }
 
+  // Helper to mark expired appointment as paid AND done (handling state transitions)
+  static async markExpiredAsPaid(
+    appointmentId: string,
+    paymentMethod: 'cash' | 'zelle' | 'pago_movil' | 'card' | 'other'
+  ): Promise<void> {
+    // Try to update to paid and done directly
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        payment_status: 'paid',
+        payment_method: paymentMethod,
+        status: 'done',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', appointmentId);
+
+    // If it fails with the specific constraint (likely pending -> done not allowed directly), try confirming first
+    if (error && error.message.includes('appointments_status_check')) {
+      console.log('⚠️ [BOOKING SERVICE] Direct update to paid/done failed, trying pending -> confirmed -> done');
+
+      // 1. Update to confirmed (keep payment pending for now to be safe, or set it here? Set it here)
+      const { error: confirmError } = await supabase
+        .from('appointments')
+        .update({
+          status: 'confirmed',
+          payment_status: 'paid', // Set payment here too
+          payment_method: paymentMethod,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (confirmError) throw confirmError;
+
+      // 2. Update to done
+      const { error: doneError } = await supabase
+        .from('appointments')
+        .update({
+          status: 'done',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (doneError) throw doneError;
+    } else if (error) {
+      throw error;
+    }
+  }
+
   // 📍 Confirmar cita (método específico)
   static async confirmAppointment(appointmentId: string): Promise<Appointment> {
     return this.updateAppointmentStatus(appointmentId, 'confirmed');
@@ -2461,6 +2510,47 @@ export class BookingService {
   // 📍 Marcar cita como no-show
   static async markAppointmentNoShow(appointmentId: string): Promise<Appointment> {
     return this.updateAppointmentStatus(appointmentId, 'no_show');
+  }
+
+  // Helper to mark expired appointment as done (handling state transitions)
+  static async markExpiredAsDone(appointmentId: string): Promise<void> {
+    // First try to update directly to done
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        status: 'done',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', appointmentId);
+
+    // If it fails with the specific constraint, try confirming first
+    if (error && error.message.includes('appointments_status_check')) {
+      console.log('⚠️ [BOOKING SERVICE] Direct update to done failed, trying pending -> confirmed -> done');
+
+      // 1. Update to confirmed
+      const { error: confirmError } = await supabase
+        .from('appointments')
+        .update({
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (confirmError) throw confirmError;
+
+      // 2. Update to done
+      const { error: doneError } = await supabase
+        .from('appointments')
+        .update({
+          status: 'done',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (doneError) throw doneError;
+    } else if (error) {
+      throw error;
+    }
   }
 
   // 📍 Actualizar cita (para reprogramación)
@@ -3752,7 +3842,7 @@ export class BookingService {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('appointments')
-        .select('*, services(name, price_amount, price_currency, duration_minutes), profiles(full_name, phone)')
+        .select('*, services(name, price_amount, price_currency, duration_minutes), profiles(full_name, display_name, phone)')
         .eq('provider_id', providerId)
         .eq('status', 'pending')
         .lt('appointment_date', today)

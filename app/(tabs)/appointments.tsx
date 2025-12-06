@@ -203,7 +203,7 @@ export default function AppointmentsScreen() {
             {(appointment as any).profiles?.display_name || 'Cliente'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
-            {appointment.service?.name || 'Servicio'}
+            {appointment.service?.name || appointment.services?.name || 'Servicio'}
           </ThemedText>
           <ThemedText style={styles.appointmentDate}>
             {new Date(appointment.appointment_date).toLocaleDateString('es-VE')}
@@ -233,13 +233,13 @@ export default function AppointmentsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="timer" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.service?.duration_minutes ? `${appointment.service.duration_minutes} min` : 'N/A'}
+            {(appointment.service?.duration_minutes || appointment.services?.duration_minutes) ? `${appointment.service?.duration_minutes || appointment.services?.duration_minutes} min` : 'N/A'}
           </ThemedText>
         </View>
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {appointment.service?.price_amount ? `$${appointment.service.price_amount} ${appointment.service.price_currency}` : 'N/A'}
+            {(appointment.service?.price_amount || appointment.services?.price_amount) ? `$${appointment.service?.price_amount || appointment.services?.price_amount} ${appointment.service?.price_currency || appointment.services?.price_currency}` : 'N/A'}
           </ThemedText>
         </View>
       </View>

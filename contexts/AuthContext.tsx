@@ -15,6 +15,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithCedula: (cedula: string, password: string) => Promise<void>;
+  signInWithIdentifier: (identifier: string, password: string) => Promise<void>;
   signUp: (
     email: string,
     password: string,
@@ -145,10 +146,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithCedula = async (cedula: string, password: string) => {
+    return signInWithIdentifier(cedula, password);
+  };
+
+  const signInWithIdentifier = async (identifier: string, password: string) => {
     setLoading(true);
     try {
-      console.log('🔍 [AUTH CONTEXT] Iniciando signInWithCedula para:', cedula);
-      await AuthService.signInWithCedula(cedula, password);
+      console.log('🔍 [AUTH CONTEXT] Iniciando signInWithIdentifier para:', identifier);
+      await AuthService.signInWithIdentifier(identifier, password);
 
       // Post-login logic is same as signIn
       const currentUser = await AuthService.getCurrentUser();
@@ -230,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser: checkUser,
     signIn,
     signInWithCedula,
+    signInWithIdentifier,
     signUp,
     signOut,
     updateProfile,

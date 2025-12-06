@@ -318,7 +318,7 @@ export default function BookingConfirmationScreen() {
                 title="Compartir"
                 onPress={async () => {
                   try {
-                    const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con AgendaVE ✨`;
+                    const message = `📅 *Cita Confirmada*\n\n📍 *Lugar:* ${providerName}\n✂️ *Servicio:* ${serviceName}\n🗓 *Fecha:* ${formatDate(selectedDate as string)}\n⏰ *Hora:* ${selectedTime}\n\nReservado con MiCita ✨`;
                     await Share.share({ message });
                   } catch (error) {
                     // ignore

@@ -9,14 +9,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
-    Platform,
-    StyleSheet,
-    View,
+  Alert,
+  Platform,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 type OwnerField =
   | 'fullName'
+  | 'cedula'
   | 'email'
   | 'phone'
   | 'businessName'
@@ -29,6 +30,7 @@ type OwnerErrors = Partial<Record<OwnerField, string>>;
 
 export default function RegisterOwnerScreen() {
   const [fullName, setFullName] = useState('');
+  const [cedula, setCedula] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -45,6 +47,11 @@ export default function RegisterOwnerScreen() {
 
     if (!fullName.trim()) {
       nextErrors.fullName = 'Ingresa el nombre del propietario.';
+    }
+    if (!cedula.trim()) {
+      nextErrors.cedula = 'Ingresa tu cédula.';
+    } else if (cedula.length < 5) {
+      nextErrors.cedula = 'Cédula inválida.';
     }
     if (!email.trim() || !email.includes('@')) {
       nextErrors.email = 'Ingresa un correo válido.';
@@ -81,8 +88,8 @@ export default function RegisterOwnerScreen() {
         businessName: businessName,
         businessType: businessType,
         address: address
-      });
-      
+      }, cedula);
+
       // Mostrar mensaje de éxito con información sobre confirmación de email
       Alert.alert(
         '¡Negocio registrado exitosamente! 🎉',
@@ -107,7 +114,7 @@ export default function RegisterOwnerScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollableInputView 
+      <ScrollableInputView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
       >
@@ -116,7 +123,7 @@ export default function RegisterOwnerScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
-                <ThemedText style={styles.logoText}>A</ThemedText>
+                <ThemedText style={styles.logoText}>M</ThemedText>
               </View>
             </View>
             <ThemedText type="title" style={styles.title}>
@@ -132,7 +139,7 @@ export default function RegisterOwnerScreen() {
             <ThemedText style={styles.formTitle}>
               Información del Negocio
             </ThemedText>
-            
+
             <View style={styles.ownerBadge}>
               <ThemedText style={styles.ownerBadgeText}>
                 🏪 Cuenta de Propietario
@@ -142,7 +149,7 @@ export default function RegisterOwnerScreen() {
             {/* Información personal */}
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Información Personal</ThemedText>
-              
+
               <SimpleInput
                 label="Nombre Completo *"
                 value={fullName}
@@ -153,6 +160,19 @@ export default function RegisterOwnerScreen() {
                 placeholder="Tu nombre completo"
                 autoCapitalize="words"
                 error={errors.fullName}
+              />
+
+              <SimpleInput
+                label="Cédula de Identidad *"
+                value={cedula}
+                onChangeText={(text) => {
+                  setCedula(text.replace(/\D/g, ''));
+                  setErrors((prev) => ({ ...prev, cedula: undefined }));
+                }}
+                placeholder="Ej: 12345678"
+                keyboardType="numeric"
+                autoCapitalize="none"
+                error={errors.cedula}
               />
 
               <SimpleInput
@@ -187,7 +207,7 @@ export default function RegisterOwnerScreen() {
             {/* Información del negocio */}
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Información del Negocio</ThemedText>
-              
+
               <SimpleInput
                 label="Nombre del Negocio *"
                 value={businessName}
@@ -225,7 +245,7 @@ export default function RegisterOwnerScreen() {
             {/* Contraseña */}
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Seguridad</ThemedText>
-              
+
               <SimpleInput
                 label="Contraseña *"
                 value={password}

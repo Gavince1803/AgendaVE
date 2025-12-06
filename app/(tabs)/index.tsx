@@ -400,12 +400,24 @@ function ProviderHomeScreen() {
       setMetricsLoading(true);
       log.info(LogCategory.DATABASE, 'Loading provider dashboard data', { screen: 'ProviderHome' });
 
-      const providerId = employeeProfile?.provider_id;
-      if (!providerId) return;
+      let providerId = employeeProfile?.provider_id;
+
+      // If no employee profile, check if the user is the provider (owner)
+      if (!providerId && user) {
+        const provider = await BookingService.getProviderById(user.id);
+        if (provider) {
+          providerId = provider.id;
+        }
+      }
+
+      if (!providerId) {
+        log.warn(LogCategory.SERVICE, 'No provider ID found for dashboard', { userId: user?.id });
+        return;
+      }
 
       const [appointmentsData, metricsData, expiredData, providerData, servicesData] = await Promise.all([
-        BookingService.getProviderAppointments(),
-        BookingService.getProviderDashboardMetrics(),
+        BookingService.getProviderAppointments(user?.id), // Pass user ID to ensure RLS works
+        BookingService.getProviderDashboardMetrics(user?.id),
         BookingService.getExpiredPendingAppointments(providerId),
         BookingService.getProviderDetails(providerId),
         BookingService.getProviderServices(providerId)
@@ -443,7 +455,17 @@ function ProviderHomeScreen() {
   const today = new Date().toISOString().split('T')[0];
   const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
   const pendingAppointments = metrics?.pendingAppointments ?? appointments.filter(apt => apt.status === 'pending').length;
-  const confirmedAppointments = metrics?.confirmedAppointments ?? appointments.filter(apt => apt.status === 'confirmed').length;
+  const confirmedAppointments = appointments.filter(apt => {
+    if (apt.status !== 'confirmed') return false;
+    // Create date object from appointment date and time
+    const aptDate = new Date(`${apt.appointment_date}T${apt.appointment_time}`);
+    // Check if it's in the future (or today)
+    const now = new Date();
+    // Reset seconds/milliseconds for fair comparison
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+    return aptDate >= now;
+  }).length;
 
   const performanceCards = [
     {

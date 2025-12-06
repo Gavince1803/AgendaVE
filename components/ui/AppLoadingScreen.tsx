@@ -1,5 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 export function AppLoadingScreen() {
   return (
@@ -7,19 +7,19 @@ export function AppLoadingScreen() {
       <View style={styles.content}>
         {/* App Logo */}
         <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>A</Text>
+          <Text style={styles.logoText}>M</Text>
         </View>
-        
+
         {/* Loading Spinner */}
-        <ActivityIndicator 
-          size="large" 
-          color={Colors.light.primary} 
+        <ActivityIndicator
+          size="large"
+          color={Colors.light.primary}
           style={styles.spinner}
         />
-        
+
         {/* Loading Text */}
         <Text style={styles.loadingText}>
-          Cargando AgendaVE...
+          Cargando MiCita...
         </Text>
       </View>
     </View>

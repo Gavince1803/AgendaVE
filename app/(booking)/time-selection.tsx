@@ -5,6 +5,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { CalendarSkeleton, TimeSlotsSkeleton } from '@/components/ui/LoadingStates';
 import { TimeSlots } from '@/components/ui/TimeSlots';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +22,7 @@ import {
 
 
 export default function TimeSelectionScreen() {
+  const { user } = useAuth();
   const {
     providerId,
     providerName,
@@ -266,7 +268,17 @@ export default function TimeSelectionScreen() {
 
 
   const handleContinue = () => {
-    if (!selectedDate || !selectedTime) {
+    if (!selectedDate || !selectedTime) return;
+
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login with returnUrl
+      const returnUrl = `/(booking)/booking-confirmation?providerId=${providerId}&providerName=${providerName}&serviceId=${serviceId}&serviceName=${serviceName}&servicePrice=${servicePrice}&serviceDuration=${serviceDuration}&employeeId=${employeeId || 'any'}&employeeName=${employeeName || ''}&selectedDate=${selectedDate}&selectedTime=${selectedTime}`;
+
+      router.push({
+        pathname: '/(auth)/login',
+        params: { returnUrl }
+      });
       return;
     }
 
@@ -279,11 +291,11 @@ export default function TimeSelectionScreen() {
         serviceName,
         servicePrice,
         serviceDuration,
-        employeeId,
-        employeeName,
+        employeeId: employeeId || 'any',
+        employeeName: employeeName || '',
         selectedDate,
         selectedTime,
-      },
+      }
     });
   };
 

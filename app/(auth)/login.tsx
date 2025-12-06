@@ -1,26 +1,25 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Href, Link, router } from 'expo-router';
+import { Href, Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
   Platform,
   StyleSheet,
-  View,
-  type TextStyle,
+  View
 } from 'react-native';
 
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithCedula } = useAuth();
+  const { returnUrl } = useLocalSearchParams();
+  const { signInWithIdentifier } = useAuth();
 
   const handleLogin = async () => {
     if (!identifier || !password) {
@@ -30,24 +29,17 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Determinar si es email o cédula
-      const isEmail = identifier.includes('@');
+      // Usar el nuevo método unificado que soporta Email, Cédula y Teléfono
+      await signInWithIdentifier(identifier, password);
 
-      if (isEmail) {
-        await signIn(identifier, password);
+      // Check for returnUrl
+      // Check for returnUrl
+      if (returnUrl) {
+        router.replace(returnUrl as Href);
       } else {
-        // Asumir que es cédula
-        // Limpiar input de posibles espacios o guiones si es necesario
-        const cleanCedula = identifier.replace(/\D/g, '');
-        if (cleanCedula.length < 5) {
-          throw new Error('La cédula parece inválida');
-        }
-        await signInWithCedula(cleanCedula, password);
+        router.replace('/(tabs)');
       }
-
-      router.replace('/(tabs)');
     } catch (error: unknown) {
-      // Mejorar el mensaje de error para casos específicos
       const err = error instanceof Error ? error : new Error('Error al iniciar sesión');
       let errorMessage = err.message || 'Error al iniciar sesión';
 
@@ -55,8 +47,8 @@ export default function LoginScreen() {
         errorMessage = 'Credenciales inválidas. Verifica tus datos y contraseña.';
       } else if (err.message?.includes('Email not confirmed')) {
         errorMessage = 'Tu email no ha sido confirmado. Por favor revisa tu bandeja de entrada.';
-      } else if (err.message?.includes('Cédula no encontrada')) {
-        errorMessage = 'No encontramos una cuenta asociada a esta cédula.';
+      } else if (err.message?.includes('Usuario no encontrado')) {
+        errorMessage = 'No encontramos una cuenta con esos datos. Verifica tu Cédula, Teléfono o Email.';
       }
 
       Alert.alert('Error al iniciar sesión', errorMessage);
@@ -76,103 +68,75 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
-                <ThemedText style={styles.logoText}>A</ThemedText>
+                <ThemedText style={styles.logoText}>M</ThemedText>
               </View>
             </View>
             <ThemedText type="title" style={styles.title}>
-              AgendaVE
+              Bienvenido
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Reserva tus servicios favoritos en Venezuela
+              Ingresa para continuar con tu reserva
             </ThemedText>
           </View>
 
-          {/* Formulario en card */}
-          <Card variant="elevated" style={styles.formCard}>
-            <ThemedText style={styles.formTitle}>
-              Iniciar Sesión
-            </ThemedText>
-
+          {/* Formulario Limpio */}
+          <View style={styles.formContainer}>
             <SimpleInput
-              label="Email o Cédula"
+              label="Usuario"
               value={identifier}
               onChangeText={setIdentifier}
-              placeholder="tu@email.com o 12345678"
-              keyboardType="email-address"
+              placeholder="Cédula, Teléfono o Email"
+              keyboardType="default"
               autoCapitalize="none"
               autoCorrect={false}
+              containerStyle={{ marginBottom: 20 }}
             />
 
             <SimpleInput
               label="Contraseña"
               value={password}
               onChangeText={setPassword}
-              placeholder="Tu contraseña"
+              placeholder="••••••••"
               secureTextEntry
               autoCapitalize="none"
+              containerStyle={{ marginBottom: 12 }}
             />
 
             <Button
-              title={loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              title={loading ? 'Iniciando...' : 'Entrar'}
               onPress={handleLogin}
               loading={loading}
               disabled={loading}
               fullWidth
               size="large"
               style={styles.loginButton}
+              variant="primary"
             />
-
-            {/* Nota sobre confirmación de email */}
-            <View style={styles.emailNote}>
-              <ThemedText style={styles.emailNoteText}>
-                💡 Si acabas de registrarte, revisa tu email para confirmar tu cuenta antes de iniciar sesión.
-              </ThemedText>
-            </View>
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <ThemedText style={styles.dividerText}>o</ThemedText>
-              <View style={styles.dividerLine} />
-            </View>
 
             <View style={styles.footer}>
               <ThemedText style={styles.footerText}>
-                ¿No tienes cuenta?{' '}
+                ¿Primera vez aquí?{' '}
               </ThemedText>
               <Link href="/(auth)/register" asChild>
                 <Button
-                  title="Regístrate"
+                  title="Crear cuenta"
                   variant="ghost"
                   size="small"
                 />
               </Link>
             </View>
 
-            <View style={styles.ownerSection}>
-              <ThemedText style={styles.ownerText}>
-                ¿Eres propietario de un negocio?
-              </ThemedText>
+            {/* Secondary Actions (Hidden/Subtle) */}
+            <View style={styles.secondaryActions}>
               <Link href="/(auth)/register-owner" asChild>
                 <Button
-                  title="Registra tu negocio"
-                  variant="outline"
-                  size="medium"
-                  style={styles.ownerButton}
-                />
-              </Link>
-            </View>
-
-            <View style={styles.inviteSection}>
-              <ThemedText style={styles.inviteText}>¿Te invitaron como empleado?</ThemedText>
-              <Link href={'/accept-invite' as Href} asChild>
-                <Button
-                  title="Ingresar código"
+                  title="Soy un negocio"
                   variant="ghost"
                   size="small"
                 />
               </Link>
             </View>
-          </Card>
+          </View>
         </ThemedView>
       </ScrollableInputView>
     </ThemedView>
@@ -182,7 +146,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: Colors.light.background, // Clean background
   },
   scrollContainer: {
     flex: 1,
@@ -190,133 +154,90 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: DesignTokens.spacing.xl,
+    justifyContent: 'center', // Center content vertically
   },
   content: {
     flex: 1,
-    paddingHorizontal: DesignTokens.spacing.xl,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: DesignTokens.spacing['2xl'], // More horizontal breathing room
+    paddingTop: Platform.OS === 'ios' ? 0 : 20,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
     marginBottom: DesignTokens.spacing['3xl'],
-    paddingTop: DesignTokens.spacing.xl,
   },
   logoContainer: {
     marginBottom: DesignTokens.spacing.lg,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   logo: {
-    width: 96,
-    height: 96,
-    borderRadius: DesignTokens.radius['3xl'],
+    width: 80, // Slightly smaller
+    height: 80,
+    borderRadius: 24, // Soft square
     backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.light.primary,
-    ...DesignTokens.elevation.lg,
   },
   logoText: {
-    fontSize: DesignTokens.typography.fontSizes['4xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
+    fontSize: 40,
+    fontWeight: 'bold',
     color: Colors.light.textOnPrimary,
-    letterSpacing: -1,
   },
   title: {
-    fontSize: DesignTokens.typography.fontSizes['3xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
-    color: Colors.light.primary,
-    marginBottom: DesignTokens.spacing.sm,
+    fontSize: 28,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginBottom: 8,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: 16,
     color: Colors.light.textSecondary,
     textAlign: 'center',
-    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
-    paddingHorizontal: DesignTokens.spacing.xl,
+    opacity: 0.8,
   },
-  formCard: {
-    marginBottom: DesignTokens.spacing.xl,
-  },
-  formTitle: {
-    fontSize: DesignTokens.typography.fontSizes['2xl'],
-    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing['2xl'],
-    textAlign: 'center',
-    letterSpacing: -0.3,
+  // Form styles - No Card
+  formContainer: {
+    width: '100%',
   },
   loginButton: {
-    marginTop: DesignTokens.spacing.sm,
-    marginBottom: DesignTokens.spacing.md,
-  },
-  emailNote: {
-    backgroundColor: Colors.light.primary + '10',
-    paddingHorizontal: DesignTokens.spacing.md,
-    paddingVertical: DesignTokens.spacing.sm,
-    borderRadius: DesignTokens.radius.md,
-    marginBottom: DesignTokens.spacing.lg,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.light.primary,
-  },
-  emailNoteText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.sm,
+    marginTop: DesignTokens.spacing.lg,
+    marginBottom: DesignTokens.spacing.xl,
+    height: 56, // Taller, easier to tap
+    borderRadius: 16,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: DesignTokens.spacing.xl,
+    marginBottom: DesignTokens.spacing.xl,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.light.border,
+    backgroundColor: Colors.light.borderLight,
   },
   dividerText: {
-    marginHorizontal: DesignTokens.spacing.lg,
-    color: Colors.light.textSecondary,
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+    marginHorizontal: DesignTokens.spacing.md,
+    color: Colors.light.textTertiary,
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
   footerText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
+    fontSize: 15,
     color: Colors.light.textSecondary,
-    marginRight: DesignTokens.spacing.xs,
   },
-  ownerSection: {
-    marginTop: DesignTokens.spacing['2xl'],
-    paddingTop: DesignTokens.spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.borderLight,
+  secondaryActions: {
+    marginTop: 40,
     alignItems: 'center',
-  },
-  ownerText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.textSecondary,
-    marginBottom: DesignTokens.spacing.md,
-    textAlign: 'center',
-    lineHeight: DesignTokens.typography.lineHeights.relaxed * DesignTokens.typography.fontSizes.base,
-  },
-  ownerButton: {
-    borderColor: Colors.light.primary,
-    borderWidth: 2,
-  },
-  inviteSection: {
-    marginTop: DesignTokens.spacing.lg,
-    alignItems: 'center',
-    gap: DesignTokens.spacing.xs,
-  },
-  inviteText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
+    gap: 16,
   },
 });

@@ -14,27 +14,39 @@ export interface AuthUser {
 export class AuthService {
 
 
-  static async signInWithCedula(cedula: string, password: string) {
+  static async signInWithIdentifier(identifier: string, password: string) {
     if (!supabase) {
       throw new Error('Supabase no está configurado');
     }
 
-    // 1. Buscar email asociado a la cédula
-    const { data: email, error } = await supabase.rpc('get_email_by_cedula', {
-      cedula_input: cedula
+    // 1. Determinar si parece un email
+    if (identifier.includes('@')) {
+      return this.signIn(identifier, password);
+    }
+
+    // 2. Si no es email, buscar email asociado al identificador (Cédula o Teléfono)
+    const { data: email, error } = await supabase.rpc('get_email_by_identifier', {
+      identifier_input: identifier
     });
 
     if (error) {
-      console.error('Error looking up cedula:', error);
-      throw new Error('Error verificando cédula');
+      console.error('Error looking up identifier:', error);
+      // Si falla el RPC, intentar login directo por si acaso (aunque fallará si no es email)
+      // O lanzar error específico
+      throw new Error('Error verificando credenciales');
     }
 
     if (!email) {
-      throw new Error('Cédula no encontrada');
+      // Si no se encuentra email, lanzar error amigable
+      throw new Error('Usuario no encontrado con esa Cédula o Teléfono');
     }
 
-    // 2. Iniciar sesión con el email encontrado
+    // 3. Iniciar sesión con el email encontrado
     return this.signIn(email, password);
+  }
+
+  static async signInWithCedula(cedula: string, password: string) {
+    return this.signInWithIdentifier(cedula, password);
   }
 
   static async signUp(email: string, password: string, fullName: string, role: 'client' | 'provider', phone?: string, businessInfo?: { businessName?: string, businessType?: string, address?: string }, cedula?: string) {
