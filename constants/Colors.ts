@@ -194,9 +194,9 @@ export const Colors = {
     accentBg: accent[50],
 
     // Modern surface system
-    background: '#f8f9fc', // Soft neutral backdrop
+    background: '#ffffff', // Clean white backdrop
     surface: '#ffffff', // Cards pop over tinted canvas
-    surfaceVariant: '#f3f5f9', // Secondary cards / inputs
+    surfaceVariant: '#f8f9fc', // Secondary cards / inputs - LIGHTER GREY
     surfaceContainer: '#e7ebf3', // Elevated containers and highlights
 
     // Sophisticated text hierarchy

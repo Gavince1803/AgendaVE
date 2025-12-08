@@ -46,15 +46,12 @@ export function EmployeeSelector({
         Elige quién te atenderá durante tu cita
       </Text>
 
-      {/* Service info if available */}
+      {/* Service info if available - Simplified */}
       {selectedService && (
-        <View style={styles.serviceInfoCard}>
-          <View style={styles.serviceInfoRow}>
-            <IconSymbol name="scissors" size={16} color={Colors.light.primary} />
-            <Text style={styles.serviceInfoText}>
-              {selectedService.name} • {selectedService.duration} min • ${selectedService.price}
-            </Text>
-          </View>
+        <View style={styles.serviceInfoMinimal}>
+          <Text style={styles.serviceInfoTextMinimal}>
+            {selectedService.name} • {selectedService.duration} min • ${selectedService.price}
+          </Text>
         </View>
       )}
 
@@ -156,19 +153,7 @@ export function EmployeeSelector({
         ))}
       </ScrollView>
 
-      {selectedEmployee && (
-        <View style={styles.selectionSummary}>
-          <Card variant="elevated" style={styles.summaryCard}>
-            <View style={styles.summaryContent}>
-              <IconSymbol name="checkmark.circle" size={16} color={Colors.light.success} />
-              <Text style={styles.summaryText}>
-                Serás atendido por <Text style={styles.summaryName}>{selectedEmployee.name}</Text>
-                {selectedEmployee.position && ` (${selectedEmployee.position})`}
-              </Text>
-            </View>
-          </Card>
-        </View>
-      )}
+
     </View>
   );
 }
@@ -224,10 +209,15 @@ const styles = StyleSheet.create({
     minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.light.surface,
+    borderRadius: DesignTokens.radius.xl,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   selectedEmployeeCard: {
     borderColor: Colors.light.primary,
     borderWidth: 2,
+    backgroundColor: Colors.light.surface, // Keep white bg
   },
   employeeContent: {
     position: 'relative',
@@ -305,47 +295,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 2,
   },
-  selectionSummary: {
-    marginTop: DesignTokens.spacing.lg,
-    paddingHorizontal: DesignTokens.spacing['2xl'],
-  },
-  summaryCard: {
-    backgroundColor: Colors.light.success + '10',
-    borderColor: Colors.light.success + '30',
-    borderWidth: 1,
-  },
-  summaryContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.md,
-  },
-  summaryText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    marginLeft: DesignTokens.spacing.sm,
-    flex: 1,
-  },
-  summaryName: {
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    color: Colors.light.success,
-  },
-  serviceInfoCard: {
-    backgroundColor: Colors.light.primary + '10',
-    borderRadius: DesignTokens.radius.md,
-    padding: DesignTokens.spacing.md,
+
+  serviceInfoMinimal: {
     marginHorizontal: DesignTokens.spacing['2xl'],
     marginBottom: DesignTokens.spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.light.primary,
   },
-  serviceInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceInfoText: {
+  serviceInfoTextMinimal: {
     fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
     color: Colors.light.primary,
-    marginLeft: DesignTokens.spacing.sm,
+    fontWeight: '600',
   },
 });

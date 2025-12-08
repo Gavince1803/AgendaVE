@@ -1,6 +1,5 @@
 // 📱 Layout para pantallas de reservas
 import { Stack } from 'expo-router';
-import React from 'react';
 
 export default function BookingLayout() {
   return (
@@ -27,6 +26,13 @@ export default function BookingLayout() {
         name="book-service"
         options={{
           title: 'Reservar Servicio',
+          headerBackTitle: 'Atrás',
+        }}
+      />
+      <Stack.Screen
+        name="service-selection"
+        options={{
+          title: 'Seleccionar Profesional',
           headerBackTitle: 'Atrás',
         }}
       />

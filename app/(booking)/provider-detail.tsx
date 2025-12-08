@@ -272,7 +272,7 @@ export default function ProviderDetailScreen() {
     {
       id: 'share',
       label: 'Compartir',
-      icon: 'share',
+      icon: 'square.and.arrow.up',
       onPress: handleShareProvider,
       disabled: false,
     },
@@ -505,41 +505,41 @@ export default function ProviderDetailScreen() {
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Servicios ({services.length})</ThemedText>
           {services.length > 0 ? (
-            services.map((service, index) => (
-              <MotionFadeIn key={service.id} delay={index * 60}>
-                <Card variant="default" style={styles.serviceCard}>
-                  <View style={styles.serviceContent}>
-                    <View style={styles.serviceInfo}>
-                      <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
-                      {service.description && (
-                        <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
-                      )}
-                      <View style={styles.serviceDetails}>
-                        <View style={styles.serviceMetaChip}>
-                          <IconSymbol name="clock" size={12} color={Colors.light.primary} />
-                          <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+            <View style={styles.sectionCard}>
+              {services.map((service, index) => (
+                <MotionFadeIn key={service.id} delay={index * 60}>
+                  <View style={[styles.serviceRow, index !== services.length - 1 && styles.serviceRowDivider]}>
+                    <View style={styles.serviceContent}>
+                      <View style={styles.serviceInfo}>
+                        <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+                        {service.description && (
+                          <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+                        )}
+                        <View style={styles.serviceDetails}>
+                          <View style={styles.serviceMetaChip}>
+                            <IconSymbol name="clock" size={12} color={Colors.light.primary} />
+                            <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                          </View>
+                          <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
                         </View>
-                        <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
                       </View>
+                      <Button
+                        title="Reservar"
+                        onPress={() => handleBookService(service)}
+                        style={styles.bookButton}
+                        size="small"
+                      />
                     </View>
-                    <Button
-                      title="Reservar"
-                      onPress={() => handleBookService(service)}
-                      style={styles.bookButton}
-                      size="small"
-                    />
                   </View>
-                </Card>
-              </MotionFadeIn>
-            ))
+                </MotionFadeIn>
+              ))}
+            </View>
           ) : (
-            <Card variant="outlined" style={styles.emptyServicesCard}>
-              <View style={styles.emptyServicesContent}>
-                <IconSymbol name="wrench.and.screwdriver" size={48} color={Colors.light.textSecondary} />
-                <ThemedText style={styles.emptyServicesText}>Este proveedor aún no ha configurado servicios</ThemedText>
-                <ThemedText style={styles.emptyServicesSubtext}>Contacta directamente para obtener más información</ThemedText>
-              </View>
-            </Card>
+            <View style={styles.emptyServicesContainer}>
+              <IconSymbol name="wrench.and.screwdriver" size={48} color={Colors.light.textSecondary} />
+              <ThemedText style={styles.emptyServicesText}>Este proveedor aún no ha configurado servicios</ThemedText>
+              <ThemedText style={styles.emptyServicesSubtext}>Contacta directamente para obtener más información</ThemedText>
+            </View>
           )}
         </ThemedView>
 
@@ -609,7 +609,7 @@ export default function ProviderDetailScreen() {
           </MotionFadeIn>
         )}
 
-        {(provider.loyalty_enabled ?? true) && (
+        {/* {(provider.loyalty_enabled ?? true) && (
           <MotionFadeIn delay={140}>
             <ThemedView style={styles.section}>
               <Card variant="elevated" style={styles.loyaltyCard}>
@@ -700,13 +700,13 @@ export default function ProviderDetailScreen() {
               </Card>
             </ThemedView>
           </MotionFadeIn>
-        )}
+        )} */}
 
         {/* Horarios */}
         <ThemedView style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Horarios de Atención</ThemedText>
           <MotionFadeIn delay={120} offset={24}>
-            <Card variant="elevated" style={styles.availabilityCard}>
+            <View style={[styles.sectionCard, { gap: DesignTokens.spacing.lg }]}>
               <View style={styles.availabilityHeader}>
                 <View style={styles.availabilityIcon}>
                   <IconSymbol name="clock" size={18} color={Colors.light.primary} />
@@ -745,7 +745,7 @@ export default function ProviderDetailScreen() {
                   </ThemedText>
                 </View>
               )}
-            </Card>
+            </View>
           </MotionFadeIn>
         </ThemedView>
 
@@ -776,44 +776,50 @@ export default function ProviderDetailScreen() {
                 />
               )}
             </ThemedView>
-            {reviews.slice(0, 3).map((review) => (
-              <Card key={review.id} variant="outlined" style={styles.reviewCard}>
-                <ThemedView style={styles.reviewHeader}>
-                  <View style={styles.reviewTitleRow}>
-                    <ThemedText style={styles.reviewerName}>
-                      {review.client?.display_name || 'Cliente'}
+            <View style={styles.sectionCard}>
+              {reviews.slice(0, 3).map((review, index) => (
+                <View key={review.id} style={[styles.reviewRow, index !== reviews.slice(0, 3).length - 1 && styles.reviewRowDivider]}>
+                  <ThemedView style={styles.reviewHeader}>
+                    <View style={styles.reviewTitleRow}>
+                      <ThemedText style={styles.reviewerName}>
+                        {review.client?.display_name || 'Cliente'}
+                      </ThemedText>
+                      {review.is_verified && (
+                        <View style={styles.verifiedBadge}>
+                          <IconSymbol name="checkmark.seal" size={12} color={Colors.light.success} />
+                          <ThemedText style={styles.verifiedText}>Verificado</ThemedText>
+                        </View>
+                      )}
+                    </View>
+                    <ThemedText style={styles.reviewDate}>
+                      {new Date(review.created_at).toLocaleDateString('es-VE')}
                     </ThemedText>
-                    {review.is_verified && (
-                      <View style={styles.verifiedBadge}>
-                        <IconSymbol name="checkmark.seal" size={12} color={Colors.light.success} />
-                        <ThemedText style={styles.verifiedText}>Reserva verificada</ThemedText>
-                      </View>
-                    )}
-                  </View>
-                  <ThemedView style={styles.reviewStars}>
-                    {renderStars(review.rating)}
                   </ThemedView>
-                </ThemedView>
-                {review.highlight && (
-                  <ThemedText style={styles.reviewHighlight}>{review.highlight}</ThemedText>
-                )}
-                {review.comment && (
-                  <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
-                )}
-                {review.tags && review.tags.length > 0 && (
-                  <View style={styles.reviewTagRow}>
-                    {review.tags.slice(0, 4).map((tag, index) => (
-                      <View key={`${review.id}-tag-${index}`} style={styles.reviewTag}>
-                        <ThemedText style={styles.reviewTagText}>{tag}</ThemedText>
-                      </View>
-                    ))}
+
+                  <View style={styles.reviewRatingRow}>
+                    <ThemedView style={styles.reviewStars}>
+                      {renderStars(review.rating)}
+                    </ThemedView>
                   </View>
-                )}
-                <ThemedText style={styles.reviewDate}>
-                  {new Date(review.created_at).toLocaleDateString('es-VE')}
-                </ThemedText>
-              </Card>
-            ))}
+
+                  {review.highlight && (
+                    <ThemedText style={styles.reviewHighlight}>{review.highlight}</ThemedText>
+                  )}
+                  {review.comment && (
+                    <ThemedText style={styles.reviewComment}>{review.comment}</ThemedText>
+                  )}
+                  {review.tags && review.tags.length > 0 && (
+                    <View style={styles.reviewTagRow}>
+                      {review.tags.slice(0, 4).map((tag, index) => (
+                        <View key={`${review.id}-tag-${index}`} style={styles.reviewTag}>
+                          <ThemedText style={styles.reviewTagText}>{tag}</ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
             {reviews.length > 3 && (
               <ThemedView style={styles.viewAllContainer}>
                 <Button
@@ -952,35 +958,7 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.sm,
     marginTop: DesignTokens.spacing.md,
   },
-  quickActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: DesignTokens.spacing.lg,
-  },
-  quickActionButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: Colors.light.borderLight,
-    borderRadius: DesignTokens.radius.xl,
-    paddingVertical: DesignTokens.spacing.sm,
-    paddingHorizontal: DesignTokens.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: DesignTokens.spacing.sm,
-    marginRight: DesignTokens.spacing.sm,
-  },
-  quickActionDisabled: {
-    opacity: 0.4,
-  },
-  quickActionLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
-  },
-  quickActionLabelDisabled: {
-    color: Colors.light.textSecondary,
-  },
+
   specialtyChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -989,6 +967,8 @@ const styles = StyleSheet.create({
     paddingVertical: DesignTokens.spacing.xs,
     borderRadius: DesignTokens.radius.full,
     backgroundColor: Colors.light.surfaceVariant,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
   },
   specialtyText: {
     fontSize: DesignTokens.typography.fontSizes.xs,
@@ -1215,6 +1195,42 @@ const styles = StyleSheet.create({
   loyaltyPointsRedeemed: {
     color: Colors.light.warning,
   },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.lg,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'column', // Changed to column to stack icon and text
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4, // Reduced gap for vertical layout
+    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.xs, // Reduced horizontal padding
+    borderRadius: DesignTokens.radius.lg,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    ...DesignTokens.elevation.sm,
+  },
+  quickActionDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.light.background,
+    borderColor: Colors.light.borderLight,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  quickActionLabel: {
+    fontSize: DesignTokens.typography.fontSizes.sm, // Keep small or change to xs if needed
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+    color: Colors.light.text,
+    textAlign: 'center', // Center the text
+    lineHeight: 16,
+  },
+  quickActionLabelDisabled: {
+    color: Colors.light.textSecondary,
+  },
   sectionTitle: {
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
@@ -1225,64 +1241,15 @@ const styles = StyleSheet.create({
     marginTop: DesignTokens.spacing.md,
     alignItems: 'center',
   },
-  serviceCard: {
-    marginBottom: DesignTokens.spacing.md,
-    padding: DesignTokens.spacing['2xl'],
-    borderRadius: DesignTokens.radius['2xl'],
+  sectionCard: {
     backgroundColor: Colors.light.surface,
+    borderRadius: DesignTokens.radius['2xl'],
+    padding: DesignTokens.spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.light.border,
-    ...DesignTokens.elevation.sm,
+    borderColor: Colors.light.border, // Light dark border as requested
   },
-  serviceContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: DesignTokens.spacing.lg,
-  },
-  serviceInfo: {
-    flex: 1,
-    gap: DesignTokens.spacing.sm,
-  },
-  serviceName: {
-    fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  serviceDescription: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    lineHeight: 18,
-  },
-  serviceDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: DesignTokens.spacing.md,
-  },
-  serviceMetaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.xs,
-    backgroundColor: Colors.light.surfaceVariant,
-    paddingHorizontal: DesignTokens.spacing.md,
-    paddingVertical: DesignTokens.spacing.xs,
-    borderRadius: DesignTokens.radius.full,
-  },
-  serviceMetaText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.primaryDark,
-    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
-  },
-  servicePrice: {
-    fontSize: DesignTokens.typography.fontSizes.lg,
-    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
-    color: Colors.light.primary,
-  },
-  bookButton: {
-    minWidth: 80,
-  },
+
+
   availabilityCard: {
     padding: DesignTokens.spacing['2xl'],
     borderRadius: DesignTokens.radius['3xl'],
@@ -1340,6 +1307,8 @@ const styles = StyleSheet.create({
     borderRadius: DesignTokens.radius.full,
     paddingHorizontal: DesignTokens.spacing.md,
     paddingVertical: DesignTokens.spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
   },
   availabilitySlot: {
     fontSize: DesignTokens.typography.fontSizes.sm,
@@ -1357,15 +1326,20 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     textAlign: 'center',
   },
-  reviewCard: {
-    marginBottom: DesignTokens.spacing.md,
-    padding: DesignTokens.spacing.lg,
-    gap: DesignTokens.spacing.sm,
+  reviewRow: {
+    paddingVertical: DesignTokens.spacing.lg,
+  },
+  reviewRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
   },
   reviewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  reviewRatingRow: {
     marginBottom: DesignTokens.spacing.sm,
   },
   reviewTitleRow: {
@@ -1428,12 +1402,75 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xs,
     color: Colors.light.text,
   },
-  emptyServicesCard: {
-    padding: DesignTokens.spacing.xl,
+  servicesList: {
+    backgroundColor: Colors.light.surface,
   },
-  emptyServicesContent: {
-    alignItems: 'center',
+  serviceRow: {
     paddingVertical: DesignTokens.spacing.lg,
+  },
+  serviceRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  serviceContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.lg,
+  },
+  serviceInfo: {
+    flex: 1,
+    gap: DesignTokens.spacing.xs,
+  },
+  serviceName: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  serviceDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: DesignTokens.spacing.xs,
+  },
+  serviceDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
+    marginTop: DesignTokens.spacing.xs,
+  },
+  serviceMetaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.xs,
+    backgroundColor: Colors.light.surfaceVariant,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: 4,
+    borderRadius: DesignTokens.radius.md,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  serviceMetaText: {
+    fontSize: DesignTokens.typography.fontSizes.xs,
+    color: Colors.light.textSecondary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as TextStyle['fontWeight'],
+  },
+  servicePrice: {
+    fontSize: DesignTokens.typography.fontSizes.lg,
+    fontWeight: DesignTokens.typography.fontWeights.bold as TextStyle['fontWeight'],
+    color: Colors.light.text,
+  },
+  bookButton: {
+    minWidth: 80,
+  },
+
+
+  emptyServicesContainer: {
+    alignItems: 'center',
+    paddingVertical: DesignTokens.spacing.xl,
+    backgroundColor: Colors.light.surfaceVariant, // Keep light grey for empty state area
+    borderRadius: DesignTokens.radius.lg,
+    padding: DesignTokens.spacing.xl,
   },
   emptyServicesText: {
     fontSize: DesignTokens.typography.fontSizes.base,

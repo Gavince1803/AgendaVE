@@ -43,52 +43,7 @@ export default function ServiceSelectionScreen() {
       setServices(providerServices as ExtendedService[]);
     } catch (error) {
       console.error('Error loading services:', error);
-      const now = new Date().toISOString();
-      const mockProviderId = (providerId as string) || 'mock-provider';
-      setServices([
-        {
-          id: 'mock-1',
-          provider_id: mockProviderId,
-          name: 'Corte de Cabello',
-          description: 'Corte profesional para damas y caballeros con lavado incluido',
-          price_amount: 15,
-          price_currency: 'USD',
-          duration_minutes: 30,
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-          category_label: 'Peluquería',
-          isPopular: true,
-        },
-        {
-          id: 'mock-2',
-          provider_id: mockProviderId,
-          name: 'Peinado',
-          description: 'Peinado para ocasiones especiales con productos profesionales',
-          price_amount: 25,
-          price_currency: 'USD',
-          duration_minutes: 45,
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-          category_label: 'Peluquería',
-          isPopular: false,
-        },
-        {
-          id: 'mock-3',
-          provider_id: mockProviderId,
-          name: 'Tinte',
-          description: 'Tinte profesional con productos de alta calidad y cuidado capilar',
-          price_amount: 35,
-          price_currency: 'USD',
-          duration_minutes: 60,
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-          category_label: 'Coloración',
-          isPopular: true,
-        },
-      ]);
+      setServices([]);
     } finally {
       setLoading(false);
     }
@@ -220,17 +175,6 @@ export default function ServiceSelectionScreen() {
           <View style={styles.headerContent}>
             <Text style={styles.providerName}>{providerName}</Text>
             <Text style={styles.providerSubtitle}>Servicios Profesionales</Text>
-          </View>
-          <View style={styles.stepIndicator}>
-            <Text style={styles.stepText}>{preselectedServiceId ? 'Paso 2 de 3 • Empleado' : 'Paso 1 de 3 • Selección'}</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, preselectedServiceId ? styles.progressTwoThirds : styles.progressOneThird]} />
-            </View>
-            <View style={styles.progressSteps}>
-              <View style={[styles.progressDot, styles.progressDotActive]} />
-              <View style={[styles.progressDot, preselectedServiceId && styles.progressDotActive]} />
-              <View style={styles.progressDot} />
-            </View>
           </View>
         </View>
 

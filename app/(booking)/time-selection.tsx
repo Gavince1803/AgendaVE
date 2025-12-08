@@ -46,27 +46,7 @@ export default function TimeSelectionScreen() {
   const [loadingDates, setLoadingDates] = useState(false);
 
   // Generar horarios mock cuando Supabase falla
-  const generateMockTimes = (date: string) => {
-    const times = [];
-    const startHour = 9;
-    const endHour = 18;
-    const interval = 30; // 30 minutos
 
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minutes = 0; minutes < 60; minutes += interval) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        const isAvailable = Math.random() > 0.3; // Simular disponibilidad
-
-        times.push({
-          time: timeString,
-          displayTime: `${hour}:${minutes.toString().padStart(2, '0')}`,
-          isAvailable,
-        });
-      }
-    }
-
-    return times.filter(t => t.isAvailable);
-  };
 
   // Cargar fechas disponibles al inicio y cuando cambian los parámetros clave
   const loadAvailableTimes = useCallback(async (date: string) => {

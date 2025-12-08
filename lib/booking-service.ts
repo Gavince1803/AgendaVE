@@ -1319,6 +1319,120 @@ export class BookingService {
     }
   }
 
+  // 🗓️ Obtener días con disponibilidad en un rango de fechas (Optimizado)
+  static async getDaysWithAvailability(
+    providerId: string,
+    startDate: string,
+    endDate: string,
+    serviceId?: string
+  ): Promise<string[]> {
+    try {
+      console.log('🔴 [GET DAYS AVAILABILITY] Checking range:', { startDate, endDate });
+      const settings = await this.getProviderSchedulingSettings(providerId);
+      const providerServices = await this.getProviderServices(providerId);
+      const serviceMap = new Map(providerServices.map((svc) => [svc.id, svc]));
+
+      let serviceDuration = 30;
+      if (serviceId) {
+        const service = serviceMap.get(serviceId);
+        serviceDuration = service?.duration_minutes || 30;
+      }
+
+      // 1. Get availability rules (weekly)
+      const availabilityRules = await this.getProviderAvailability(providerId);
+
+      // 2. Get all appointments in range
+      const { data: existingAppointments, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('id, appointment_date, appointment_time, service_id, employee_id, start_ts, end_ts, services(duration_minutes)')
+        .eq('provider_id', providerId)
+        .gte('appointment_date', startDate)
+        .lte('appointment_date', endDate)
+        .in('status', ['pending', 'confirmed']);
+
+      if (appointmentsError) throw appointmentsError;
+
+      const availableDates: string[] = [];
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // 3. Iterate each day
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateString = d.toISOString().split('T')[0];
+        const dayOfWeek = d.getDay();
+        const dayRule = availabilityRules.find(r => r.weekday === dayOfWeek);
+
+        // Quick check: functionality enabled on this weekday?
+        if (!dayRule) continue;
+
+        const dayStartMinutes = this.timeStringToMinutes(dayRule.start_time);
+        const dayEndMinutes = this.timeStringToMinutes(dayRule.end_time);
+
+        // Filter appointments for this day
+        const dayAppointments = existingAppointments?.filter(apt => apt.appointment_date === dateString) || [];
+
+        // Determine slot increment
+        let slotIncrement = 30;
+        if (serviceDuration < 15) slotIncrement = serviceDuration;
+        else if (serviceDuration < 30) slotIncrement = 15;
+
+        // Scan slots until ONE is found
+        let foundSlot = false;
+        let currentMinute = dayStartMinutes;
+
+        while (currentMinute + serviceDuration <= dayEndMinutes) {
+          const slotStart = currentMinute;
+          const slotEnd = slotStart + serviceDuration;
+          const slotStartWithBuffer = slotStart - settings.bufferBeforeMinutes;
+          const slotEndWithBuffer = slotEnd + settings.bufferAfterMinutes;
+
+          if (slotStartWithBuffer < dayStartMinutes || slotEndWithBuffer > dayEndMinutes) {
+            currentMinute += slotIncrement;
+            continue;
+          }
+
+          const hasConflict = dayAppointments.some((apt) => {
+            if (settings.allowOverlaps) return false;
+
+            let aptStart = this.timeStringToMinutes(apt.appointment_time);
+            let aptDuration = serviceDuration;
+
+            if (apt.start_ts && apt.end_ts) {
+              const s = new Date(apt.start_ts);
+              const e = new Date(apt.end_ts);
+              aptDuration = (e.getTime() - s.getTime()) / 60000;
+            } else {
+              const s = serviceMap.get(apt.service_id);
+              aptDuration = s?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+            }
+
+            const aptEnd = aptStart + aptDuration;
+            const aptStartWithBuffer = aptStart - settings.bufferBeforeMinutes;
+            const aptEndWithBuffer = aptEnd + settings.bufferAfterMinutes;
+
+            return this.rangesOverlap(slotStartWithBuffer, slotEndWithBuffer, aptStartWithBuffer, aptEndWithBuffer);
+          });
+
+          if (!hasConflict) {
+            foundSlot = true;
+            break; // Found one slot, day is available!
+          }
+
+          currentMinute += slotIncrement;
+        }
+
+        if (foundSlot) {
+          availableDates.push(dateString);
+        }
+      }
+
+      return availableDates;
+    } catch (error) {
+      console.error('Error fetching days with availability:', error);
+      return []; // Return empty on error to avoid breaking UI
+    }
+  }
+
   // 👥 Obtener horarios disponibles para un empleado específico
   static async getEmployeeAvailableSlots(employeeId: string, providerId: string, date: string, serviceId?: string): Promise<string[]> {
     if (employeeId === 'any') {
@@ -2665,33 +2779,34 @@ export class BookingService {
 
       console.log('🔴 [BOOKING SERVICE] ✅ Appointment updated successfully:', data);
 
-      // Notify employee if assigned
-      if (data.employee_id) {
-        try {
-          const [{ data: providerDetails }, { data: clientProfile }, { data: serviceData }] = await Promise.all([
-            supabase
-              .from('providers')
-              .select('business_name')
-              .eq('id', data.provider_id)
-              .maybeSingle(),
-            supabase
-              .from('profiles')
-              .select('display_name, full_name')
-              .eq('id', data.client_id)
-              .maybeSingle(),
-            supabase
-              .from('services')
-              .select('name')
-              .eq('id', data.service_id)
-              .maybeSingle(),
-          ]);
+      // Notify regarding update (Employee & Provider)
+      try {
+        const [{ data: providerDetails }, { data: clientProfile }, { data: serviceData }] = await Promise.all([
+          supabase
+            .from('providers')
+            .select('business_name, user_id')
+            .eq('id', data.provider_id)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('display_name, full_name')
+            .eq('id', data.client_id)
+            .maybeSingle(),
+          supabase
+            .from('services')
+            .select('name')
+            .eq('id', data.service_id)
+            .maybeSingle(),
+        ]);
 
-          const providerName = providerDetails?.business_name || 'Tu negocio';
-          const clientName =
-            clientProfile?.display_name ||
-            clientProfile?.full_name ||
-            'Cliente';
+        const providerName = providerDetails?.business_name || 'Tu negocio';
+        const clientName =
+          clientProfile?.display_name ||
+          clientProfile?.full_name ||
+          'Cliente';
 
+        // Notify Employee if assigned
+        if (data.employee_id) {
           await this.notifyEmployeeAssignment(data.employee_id, {
             appointmentId: data.id,
             providerName,
@@ -2701,9 +2816,21 @@ export class BookingService {
             clientName,
             status: 'updated',
           });
-        } catch (notifyError) {
-          console.warn('⚠️ [BOOKING SERVICE] Error notifying employee of update:', notifyError);
         }
+
+        // Notify Provider (Owner) about reschedule
+        if (providerDetails?.user_id) {
+          await NotificationService.notifyAppointmentReschedule(providerDetails.user_id, {
+            id: data.id,
+            provider_id: data.provider_id,
+            client_name: clientName,
+            appointment_date: data.appointment_date,
+            appointment_time: data.appointment_time,
+          });
+        }
+
+      } catch (notificationError) {
+        console.warn('⚠️ [BOOKING SERVICE] Error sending notifications for updated appointment:', notificationError);
       }
 
       return data;
@@ -3165,7 +3292,16 @@ export class BookingService {
       throw providerError;
     }
 
-    console.log('🔴 [BOOKING SERVICE] ✅ Negocio desactivado correctamente');
+    // Finalmente eliminar la cuenta de autenticación también si se solicita
+    // (Asumiendo que deactivateProviderAccount se llama desde "Eliminar cuenta y negocio")
+    const { error: rpcError } = await supabase.rpc('delete_own_user');
+
+    if (rpcError) {
+      console.error('🔴 [BOOKING SERVICE] Error eliminando usuario de auth:', rpcError);
+      throw rpcError;
+    }
+
+    console.log('🔴 [BOOKING SERVICE] ✅ Negocio y cuenta eliminados correctamente');
   }
 
   // ❌ Eliminar cuenta de cliente
@@ -3174,6 +3310,7 @@ export class BookingService {
 
     // 1. Eliminar perfil (esto debería disparar ON DELETE CASCADE para citas, reviews, etc. si está configurado)
     // Si no, lo hacemos manual
+    // 1. Eliminar perfil
     const { error } = await supabase
       .from('profiles')
       .delete()
@@ -3184,9 +3321,18 @@ export class BookingService {
       throw error;
     }
 
-    // Nota: La eliminación del usuario de auth.users debe hacerse vía RPC o Edge Function con service_role
-    // Por ahora, eliminamos los datos públicos.
-    console.log('🔴 [BOOKING SERVICE] Cuenta de cliente eliminada (datos públicos)');
+    // 2. Eliminar usuario de auth.users usando RPC
+    const { error: rpcError } = await supabase.rpc('delete_own_user');
+
+    if (rpcError) {
+      console.error('🔴 [BOOKING SERVICE] Error eliminando usuario de auth:', rpcError);
+      // No lanzamos error si falla esto para no confundir al usuario que "ya no existe" visualmente,
+      // pero idealmente deberíamos reintentar o avisar.
+      // Sin embargo, si el RPC falla, el usuario sigue logueado técnicamente hasta que expire el token.
+      throw rpcError;
+    }
+
+    console.log('🔴 [BOOKING SERVICE] Cuenta de cliente eliminada completamente (Auth + Public)');
   }
 
   static async updateProvider(

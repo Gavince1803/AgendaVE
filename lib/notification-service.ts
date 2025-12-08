@@ -283,6 +283,27 @@ export class NotificationService {
     }
   }
 
+  static async notifyAppointmentReschedule(
+    userId: string,
+    appointmentData: any
+  ): Promise<void> {
+    try {
+      const notification: NotificationData = {
+        title: 'Cita Reprogramada 🔄',
+        body: `La cita con ${appointmentData.client_name} ha sido reprogramada para el ${appointmentData.appointment_date} a las ${appointmentData.appointment_time}`,
+        data: {
+          type: 'appointment_reschedule',
+          appointment_id: appointmentData.id,
+          provider_id: appointmentData.provider_id,
+        },
+      };
+
+      await this.sendPushNotification(userId, notification);
+    } catch (error) {
+      console.error('Error notifying appointment reschedule:', error);
+    }
+  }
+
   /**
    * Notificar confirmación de cita al cliente
    */

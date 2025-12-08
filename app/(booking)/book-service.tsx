@@ -1,22 +1,21 @@
 // 📱 Pantalla de Reserva de Servicio
 // Permite al cliente seleccionar fecha y hora para reservar un servicio
 
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  type TextStyle,
+  type TextStyle
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
+import { Calendar } from '@/components/ui/Calendar';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
@@ -44,10 +43,11 @@ export default function BookServiceScreen() {
   const [slotValidation, setSlotValidation] = useState<AppointmentValidationResult | null>(null);
   const [slotValidationStatus, setSlotValidationStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableDates, setAvailableDates] = useState<string[]>([]); // New state for calendar dots
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  // Removed showDatePicker state as custom Calendar is always visible
   const log = useLogger();
   const defaultValidationSettings = useMemo(
     () => ({
@@ -129,9 +129,31 @@ export default function BookServiceScreen() {
     }
   }, [providerId, selectedDate, serviceId, log]);
 
+  // Load monthly availability for calendar dots
+  const loadMonthAvailability = useCallback(async () => {
+    if (!providerId || !serviceId) return;
+
+    // Calculate range: from today to +30 days (or generic month range if needed)
+    // For now, let's just checking next 60 days to cover current and next month view
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + 60);
+
+    const startDateStr = start.toISOString().split('T')[0];
+    const endDateStr = end.toISOString().split('T')[0];
+
+    try {
+      const dates = await BookingService.getDaysWithAvailability(providerId, startDateStr, endDateStr, serviceId);
+      setAvailableDates(dates);
+    } catch (e) {
+      console.error('Error loading month availability', e);
+    }
+  }, [providerId, serviceId]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadMonthAvailability(); // Fetch dots on mount
+  }, [loadData, loadMonthAvailability]);
 
   useEffect(() => {
     loadAvailableSlots();
@@ -140,35 +162,31 @@ export default function BookServiceScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    await loadData();
+    await loadMonthAvailability();
     await loadAvailableSlots();
     setRefreshing(false);
   };
 
-  const handleDateChange = (_event: DateTimePickerEvent, nextDate?: Date) => {
-    setShowDatePicker(false);
-    if (nextDate) {
-      setSelectedDate(nextDate);
-      setSelectedTime(''); // Reset selected time when date changes
-      // Smooth scroll to time slots section shortly after selecting the date
-      setTimeout(() => {
-        if (scrollRef.current && timeSectionYRef.current > 0) {
-          scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
-        }
-      }, 120);
-    }
-  };
+  const handleCalendarSelect = (dateString: string) => {
+    // Calendar returns YYYY-MM-DD string
+    // Create date object at noon to avoid timezone shift issues when displaying
+    const dateParts = dateString.split('-').map(Number);
+    const newDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 12, 0, 0);
 
-  const handleWebDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDate = new Date(event.target.value);
-    setSelectedDate(selectedDate);
-    setSelectedTime(''); // Reset selected time when date changes
-    // Smooth scroll to time slots on web as well
+    setSelectedDate(newDate);
+    setSelectedTime('');
+
+    // Smooth scroll
     setTimeout(() => {
       if (scrollRef.current && timeSectionYRef.current > 0) {
         scrollRef.current.scrollTo({ y: timeSectionYRef.current - 12, animated: true });
       }
     }, 120);
   };
+  // Removed handleDateChange and handleWebDateChange as they are replaced by handleCalendarSelect
+
+
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
@@ -393,25 +411,27 @@ export default function BookServiceScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        {/* Header del Servicio */}
-        <Card variant="elevated" style={styles.headerCard}>
-          <ThemedView style={styles.headerContent}>
-            <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
-            <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
+        {/* Header del Servicio - Redesigned */}
+        <ThemedView style={styles.section}>
+          <ThemedView style={styles.sectionCard}>
+            <ThemedView style={styles.headerContent}>
+              <ThemedText style={styles.providerName}>{provider.business_name}</ThemedText>
+              <ThemedText style={styles.serviceName}>{service.name}</ThemedText>
 
-            <ThemedView style={styles.serviceDetails}>
-              <ThemedView style={styles.durationBadge}>
-                <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
-                <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
+              <ThemedView style={styles.serviceDetails}>
+                <ThemedView style={styles.durationBadge}>
+                  <IconSymbol name="clock" size={12} color={Colors.light.textSecondary} />
+                  <ThemedText style={styles.durationText}>{formatDuration(service.duration_minutes)}</ThemedText>
+                </ThemedView>
+                <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
               </ThemedView>
-              <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
-            </ThemedView>
 
-            {service.description && (
-              <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
-            )}
+              {service.description && (
+                <ThemedText style={styles.serviceDescription}>{service.description}</ThemedText>
+              )}
+            </ThemedView>
           </ThemedView>
-        </Card>
+        </ThemedView>
 
         {/* Selección de Fecha */}
         <ThemedView
@@ -421,28 +441,12 @@ export default function BookServiceScreen() {
           }}
         >
           <ThemedText style={styles.sectionTitle}>Selecciona la Fecha</ThemedText>
-          {Platform.OS === 'web' ? (
-            // Web date input
-            <input
-              type="date"
-              value={selectedDate.toISOString().split('T')[0]}
-              min={new Date().toISOString().split('T')[0]}
-              onChange={handleWebDateChange}
-              style={styles.webDateInput}
-            />
-          ) : (
-            // Native date selector
-            <TouchableOpacity
-              style={styles.dateSelector}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <IconSymbol name="calendar" size={20} color={Colors.light.primary} />
-              <ThemedText style={styles.dateText}>
-                {formatDate(selectedDate)}
-              </ThemedText>
-              <IconSymbol name="chevron.right" size={16} color={Colors.light.textSecondary} />
-            </TouchableOpacity>
-          )}
+          <Calendar
+            selectedDate={selectedDate.toISOString().split('T')[0]}
+            onDateSelect={handleCalendarSelect}
+            availableDates={availableDates}
+            minDate={new Date()}
+          />
         </ThemedView>
 
         {/* Selección de Hora */}
@@ -510,28 +514,7 @@ export default function BookServiceScreen() {
         </ThemedView>
       </ScrollView>
 
-      {/* Date Picker - Native Only */}
-      {Platform.OS !== 'web' && showDatePicker && (
-        Platform.OS === 'ios' ? (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="spinner"
-            minimumDate={new Date()}
-            onChange={handleDateChange}
-            style={styles.datePicker}
-            textColor={Colors.light.text}
-          />
-        ) : (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            minimumDate={new Date()}
-            onChange={handleDateChange}
-          />
-        )
-      )}
+
     </TabSafeAreaView>
   );
 }
@@ -571,9 +554,12 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: DesignTokens.spacing.md,
   },
-  headerCard: {
-    margin: DesignTokens.spacing.lg,
-    padding: DesignTokens.spacing.xl,
+  sectionCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: DesignTokens.radius['2xl'],
+    padding: DesignTokens.spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   headerContent: {
     gap: DesignTokens.spacing.sm,
@@ -628,21 +614,8 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginBottom: DesignTokens.spacing.md,
   },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.lg,
-    backgroundColor: Colors.light.surface,
-    borderRadius: DesignTokens.radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    gap: DesignTokens.spacing.md,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.text,
-  },
+
+
   timeSlotsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -711,17 +684,5 @@ const styles = StyleSheet.create({
   bookButton: {
     marginTop: DesignTokens.spacing.lg,
   },
-  webDateInput: {
-    width: '100%',
-    padding: DesignTokens.spacing.lg,
-    fontSize: DesignTokens.typography.fontSizes.base,
-    borderRadius: DesignTokens.radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.surface,
-    color: Colors.light.text,
-  },
-  datePicker: {
-    backgroundColor: Colors.light.surface,
-  },
+
 });
