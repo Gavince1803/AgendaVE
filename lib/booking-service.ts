@@ -1319,13 +1319,13 @@ export class BookingService {
     }
   }
 
-  // 🗓️ Obtener días con disponibilidad en un rango de fechas (Optimizado)
+  // 🗓️ Obtener días con disponibilidad y conteo de slots
   static async getDaysWithAvailability(
     providerId: string,
     startDate: string,
     endDate: string,
     serviceId?: string
-  ): Promise<string[]> {
+  ): Promise<{ date: string; slots: number }[]> {
     try {
       console.log('🔴 [GET DAYS AVAILABILITY] Checking range:', { startDate, endDate });
       const settings = await this.getProviderSchedulingSettings(providerId);
@@ -1342,7 +1342,11 @@ export class BookingService {
       const availabilityRules = await this.getProviderAvailability(providerId);
 
       // 2. Get all appointments in range
-      const { data: existingAppointments, error: appointmentsError } = await supabase
+      // 2. Get all appointments in range with fallback
+      let appointmentsError;
+      let existingAppointments: any[] = [];
+
+      const appointmentsQuery = await supabase
         .from('appointments')
         .select('id, appointment_date, appointment_time, service_id, employee_id, start_ts, end_ts, services(duration_minutes)')
         .eq('provider_id', providerId)
@@ -1350,9 +1354,27 @@ export class BookingService {
         .lte('appointment_date', endDate)
         .in('status', ['pending', 'confirmed']);
 
+      appointmentsError = appointmentsQuery.error;
+      existingAppointments = appointmentsQuery.data || [];
+
+      // Fallback if start_ts/end_ts columns cause issues
+      if (appointmentsError && (appointmentsError.message?.includes('start_ts') || appointmentsError.message?.includes('end_ts') || appointmentsError.code === 'PGRST100')) {
+        console.warn('⚠️ [GET DAYS AVAILABILITY] Retrying without start_ts/end_ts...');
+        const fallback = await supabase
+          .from('appointments')
+          .select('id, appointment_date, appointment_time, service_id, employee_id, services(duration_minutes)')
+          .eq('provider_id', providerId)
+          .gte('appointment_date', startDate)
+          .lte('appointment_date', endDate)
+          .in('status', ['pending', 'confirmed']);
+
+        appointmentsError = fallback.error;
+        existingAppointments = fallback.data || [];
+      }
+
       if (appointmentsError) throw appointmentsError;
 
-      const availableDates: string[] = [];
+      const availableDates: { date: string; slots: number }[] = [];
       const start = new Date(startDate);
       const end = new Date(endDate);
 
@@ -1370,14 +1392,20 @@ export class BookingService {
 
         // Filter appointments for this day
         const dayAppointments = existingAppointments?.filter(apt => apt.appointment_date === dateString) || [];
+        if (dateString === '2025-12-08') {
+          console.log(`🔴 [DEBUG DEC 8] Found ${dayAppointments.length} appointments for today.`);
+          if (dayAppointments.length > 0) {
+            console.log('🔴 [DEBUG DEC 8] First Apt:', JSON.stringify(dayAppointments[0]));
+          }
+        }
 
         // Determine slot increment
         let slotIncrement = 30;
         if (serviceDuration < 15) slotIncrement = serviceDuration;
         else if (serviceDuration < 30) slotIncrement = 15;
 
-        // Scan slots until ONE is found
-        let foundSlot = false;
+        // Count available slots
+        let slotsCount = 0;
         let currentMinute = dayStartMinutes;
 
         while (currentMinute + serviceDuration <= dayEndMinutes) {
@@ -1403,7 +1431,11 @@ export class BookingService {
               aptDuration = (e.getTime() - s.getTime()) / 60000;
             } else {
               const s = serviceMap.get(apt.service_id);
-              aptDuration = s?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || serviceDuration;
+              // PESSIMISTIC FALLBACK: If we can't find the service duration for an existing appointment,
+              // we must assume it blocks a significant chunk of time (e.g. 60 mins) rather than conflicting
+              // it with the (potentially short) service being booked.
+              // This prevents showing false availability for 12min services when the blocking apt is actually 60min.
+              aptDuration = s?.duration_minutes || (Array.isArray(apt.services) ? apt.services[0]?.duration_minutes : (apt as any)?.services?.duration_minutes) || 60;
             }
 
             const aptEnd = aptStart + aptDuration;
@@ -1414,15 +1446,17 @@ export class BookingService {
           });
 
           if (!hasConflict) {
-            foundSlot = true;
-            break; // Found one slot, day is available!
+            slotsCount++;
           }
 
           currentMinute += slotIncrement;
         }
 
-        if (foundSlot) {
-          availableDates.push(dateString);
+        if (slotsCount > 0) {
+          console.log(`✅ [Daily Slots] ${dateString}: ${slotsCount} slots`);
+          availableDates.push({ date: dateString, slots: slotsCount });
+        } else {
+          console.log(`❌ [Daily Slots] ${dateString}: 0 slots`);
         }
       }
 

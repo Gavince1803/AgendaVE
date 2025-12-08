@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +41,7 @@ export default function BookingConfirmationScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -113,24 +115,7 @@ export default function BookingConfirmationScreen() {
         console.warn('Push notifications failed or unavailable:', notifyErr);
       }
 
-      Alert.alert(
-        '¡Reserva Confirmada!',
-        'Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email.',
-        [
-          {
-            text: 'Ver Mis Citas',
-            onPress: () => {
-              router.push('/(tabs)/bookings');
-            },
-          },
-          {
-            text: 'Volver al Inicio',
-            onPress: () => {
-              router.push('/(tabs)');
-            },
-          },
-        ]
-      );
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error creating booking:', error);
       const errorMessage = error instanceof Error ? error.message : 'No se pudo confirmar la reserva. Por favor, inténtalo de nuevo.';
@@ -389,7 +374,24 @@ export default function BookingConfirmationScreen() {
           Al confirmar, aceptas nuestros términos y condiciones
         </Text>
       </View>
-    </KeyboardAvoidingView>
+
+
+      <ConfirmationModal
+        visible={showSuccessModal}
+        title="¡Reserva Confirmada!"
+        message="Tu cita ha sido reservada exitosamente. Recibirás una confirmación por email."
+        confirmText="Ver Mis Citas"
+        cancelText="Volver al Inicio"
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          router.push('/(tabs)/bookings');
+        }}
+        onCancel={() => {
+          setShowSuccessModal(false);
+          router.push('/(tabs)');
+        }}
+      />
+    </KeyboardAvoidingView >
   );
 }
 

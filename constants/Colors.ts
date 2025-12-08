@@ -12,19 +12,18 @@
 
 // ===== PREMIUM BRAND COLORS =====
 // Sophisticated deep blue - trust, professionalism (Apple-inspired)
-// Sophisticated Cherry Red - passion, energy, premium (User requested)
 const primary = {
-  50: '#fff0f3',
-  100: '#ffe3e8',
-  200: '#ffcbd6',
-  300: '#ff97ae',
-  400: '#ff5c7e',
-  500: '#d2042d', // Cherry Red - vibrant and premium
-  600: '#b00222',
-  700: '#8c021b',
-  800: '#750519',
-  900: '#630818',
-  950: '#38020a',
+  50: '#f0f8ff',
+  100: '#e0f0fe',
+  200: '#b8e2fd',
+  300: '#7cc8fb',
+  400: '#36aaf7',
+  500: '#0c8ce8', // Premium brand blue - trustworthy yet approachable
+  600: '#0070d6',
+  700: '#005bb5',
+  800: '#004a96',
+  900: '#003d7a',
+  950: '#002851',
 };
 
 // Warm coral - energy, beauty, femininity (Booksy-inspired)
@@ -179,7 +178,7 @@ const semantic = {
 export const Colors = {
   light: {
     // Premium brand colors
-    primary: primary[500], // #d2042d - Cherry Red
+    primary: primary[500], // #0c8ce8 - Premium trustworthy blue
     primaryLight: primary[400],
     primaryDark: primary[600],
     primaryBg: primary[50],
@@ -235,7 +234,7 @@ export const Colors = {
     infoBg: semantic.info[50],
 
     // Premium component colors
-    tint: primary[500], // #d2042d
+    tint: primary[500], // #0c8ce8
     icon: gray[500], // #6b7280 - Perfect icon color
     iconSecondary: gray[400], // #9ca3af - Subtle icons
     tabIconDefault: gray[400], // Inactive tabs
@@ -556,7 +555,7 @@ export const ComponentColors = {
 // Inspired by Apple, Spotify, and premium design systems
 export const Gradients = {
   // Premium brand gradients
-  primary: [primary[500], primary[600]], // #d2042d to #b00222 - Passion & Energy
+  primary: [primary[500], primary[600]], // #0c8ce8 to #0070d6 - Trust & reliability
   secondary: [secondary[400], secondary[600]], // Warm coral gradient
   accent: [accent[400], accent[600]], // Sophisticated purple gradient
 

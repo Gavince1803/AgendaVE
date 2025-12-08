@@ -41,7 +41,7 @@ export default function TimeSelectionScreen() {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingTimes, setLoadingTimes] = useState(false);
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [availableDates, setAvailableDates] = useState<({ date: string; slots: number } | string)[]>([]);
   const [bookedDates] = useState<string[]>([]);
   const [loadingDates, setLoadingDates] = useState(false);
 
@@ -125,86 +125,38 @@ export default function TimeSelectionScreen() {
   const loadingDatesRef = useRef(false);
 
   const loadAvailableDates = useCallback(async () => {
-    if (loadingDatesRef.current) {
-      console.log('🔴 [TIME SELECTION] Already loading dates, skipping...');
-      return;
-    }
+    if (loadingDatesRef.current) return;
 
     loadingDatesRef.current = true;
     setLoadingDates(true);
     try {
-      console.log('🔴 [TIME SELECTION] Loading available dates for employee/provider:', { employeeId, providerId });
+      console.log('🔴 [TIME SELECTION] Loading available dates with counts:', { employeeId, providerId });
+
       const today = new Date();
+      // Ensure we fetch from 'today' correctly regardless of UTC shift, by buffering -1 day
+      const start = new Date(today);
+      start.setDate(today.getDate() - 1);
 
-      // Optimized: Check availability for fewer days initially (next 14 days)
-      // and only check more if needed
-      const daysToCheck = 14;
-      const datePromises = [];
+      const end = new Date(today);
+      end.setDate(today.getDate() + 30); // Check next 30 days
 
-      for (let i = 0; i < daysToCheck; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        const dateString = date.toISOString().split('T')[0];
+      const startDateStr = start.toISOString().split('T')[0];
+      const endDateStr = end.toISOString().split('T')[0];
 
-        // Create promise for each date check
-        const datePromise = (async () => {
-          try {
-            let hasAvailability = false;
+      // Use the optimized bulk fetch method that returns slot counts
+      const datesWithSlots = await BookingService.getDaysWithAvailability(
+        providerId as string,
+        startDateStr,
+        endDateStr,
+        serviceId as string
+      );
 
-            // Check if employee or provider has availability for this date
-            if (employeeId && employeeId !== '' && employeeId !== 'any') {
-              // Check employee-specific availability
-              const employeeSlots = await BookingService.getEmployeeAvailableSlots(
-                employeeId as string,
-                providerId as string,
-                dateString,
-                serviceId as string
-              );
-              hasAvailability = employeeSlots.length > 0;
-            } else {
-              // Check provider availability
-              const providerSlots = await BookingService.getAvailableSlots(
-                providerId as string,
-                dateString,
-                serviceId as string
-              );
-              hasAvailability = providerSlots.length > 0;
-            }
-
-            return hasAvailability ? dateString : null;
-          } catch (dateError) {
-            // If there's an error checking this specific date, log it but continue
-            console.warn('🔴 [TIME SELECTION] Error checking date availability:', dateString, dateError);
-            return null;
-          }
-        })();
-
-        datePromises.push(datePromise);
-      }
-
-      // Wait for all date checks to complete (parallel execution)
-      const dateResults = await Promise.all(datePromises);
-      const validDates = dateResults.filter(date => date !== null) as string[];
-
-      console.log('🔴 [TIME SELECTION] Available dates found:', {
-        totalDatesChecked: daysToCheck,
-        availableDates: validDates.length,
-        dates: validDates
-      });
-
-      setAvailableDates(validDates);
+      console.log('🔴 [TIME SELECTION] Bulk availability loaded:', datesWithSlots.length, 'days');
+      setAvailableDates(datesWithSlots);
 
     } catch (error) {
       console.error('🔴 [TIME SELECTION] Error loading available dates:', error);
-      // Fallback: show next 7 days if there's an error
-      const fallbackDates = [];
-      const today = new Date();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        fallbackDates.push(date.toISOString().split('T')[0]);
-      }
-      setAvailableDates(fallbackDates);
+      setAvailableDates([]);
     } finally {
       loadingDatesRef.current = false;
       setLoadingDates(false);
@@ -240,9 +192,12 @@ export default function TimeSelectionScreen() {
     if (!availableDates.length) {
       return;
     }
-    const currentIndex = selectedDate ? availableDates.findIndex((date) => date === selectedDate) : -1;
+    const getDateStr = (d: string | { date: string; slots: number }) => typeof d === 'string' ? d : d.date;
+
+    const currentIndex = selectedDate ? availableDates.findIndex((d) => getDateStr(d) === selectedDate) : -1;
     const nextIndex = currentIndex >= 0 && currentIndex < availableDates.length - 1 ? currentIndex + 1 : 0;
-    handleDateSelect(availableDates[nextIndex]);
+    const nextDate = availableDates[nextIndex];
+    handleDateSelect(getDateStr(nextDate));
   }, [availableDates, selectedDate, handleDateSelect]);
 
 
@@ -335,7 +290,10 @@ export default function TimeSelectionScreen() {
               ];
 
               return quickDates.map((qd) => {
-                const isAvailable = availableDates.includes(qd.date);
+                const isAvailable = availableDates.some(d => {
+                  const dStr = typeof d === 'string' ? d : d.date;
+                  return dStr === qd.date;
+                });
                 const isSelected = selectedDate === qd.date;
 
                 return (

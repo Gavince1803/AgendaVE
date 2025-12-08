@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/Colors';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import {
 interface CalendarProps {
   selectedDate?: string;
   onDateSelect: (date: string) => void;
-  availableDates?: string[];
+  availableDates?: ({ date: string; slots: number } | string)[];
   bookedDates?: string[];
   minDate?: Date;
   maxDate?: Date;
@@ -54,6 +54,7 @@ export function Calendar({
         isToday: false,
         isSelected: false,
         isAvailable: false,
+        slots: 0,
         isBooked: false,
         fullDate: formatDateLocal(d),
       });
@@ -68,7 +69,12 @@ export function Calendar({
       const fullDate = formatDateLocal(d);
       const isToday = fullDate === today;
       const isSelected = fullDate === selectedDate;
-      const isAvailable = availableDates.includes(fullDate);
+      const availabilityInfo = availableDates.find(a => {
+        if (typeof a === 'string') return a === fullDate;
+        return a.date === fullDate;
+      });
+      const isAvailable = !!availabilityInfo;
+      const slots = typeof availabilityInfo === 'object' ? availabilityInfo.slots : (availabilityInfo ? 1 : 0);
       const isBooked = bookedDates.includes(fullDate);
 
       // Compare dates without time components
@@ -82,6 +88,7 @@ export function Calendar({
         isToday,
         isSelected,
         isAvailable,
+        slots,
         isBooked,
         isPast,
         fullDate,
@@ -98,6 +105,7 @@ export function Calendar({
         isToday: false,
         isSelected: false,
         isAvailable: false,
+        slots: 0,
         isBooked: false,
         fullDate: formatDateLocal(d),
       });
@@ -125,6 +133,30 @@ export function Calendar({
 
   const days = getDaysInMonth(currentMonth);
   const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  // Helper to determine indicator color
+  const getIndicatorColor = (slots: number) => {
+    if (slots > 10) return Colors.light.success; // Green
+    if (slots >= 6) return '#F59E0B'; // Yellow/Amber
+    if (slots >= 1) return '#EA580C'; // Darker Orange for better contrast
+    return 'transparent';
+  };
+
+  // DEBUG: Check dates mismatch
+  useEffect(() => {
+    if (availableDates.length > 0) {
+      console.log('🔴 [CALENDAR DEBUG] Available Dates Prop:', JSON.stringify(availableDates.slice(0, 3)));
+      const sampleDay = days.find(d => d.isCurrentMonth && !d.isPast);
+      if (sampleDay) {
+        console.log('🔴 [CALENDAR DEBUG] Sample Calendar Day:', sampleDay.fullDate, 'Is Available:', sampleDay.isAvailable);
+        const match = availableDates.find(a => {
+          if (typeof a === 'string') return a === sampleDay.fullDate;
+          return a.date === sampleDay.fullDate;
+        });
+        console.log('🔴 [CALENDAR DEBUG] Match found?:', match);
+      }
+    }
+  }, [availableDates, currentMonth]);
 
   return (
     <View style={styles.container}>
@@ -160,60 +192,68 @@ export function Calendar({
 
       {/* Días del calendario */}
       <View style={styles.daysContainer}>
-        {days.map((day, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.dayButton,
-              !day.isCurrentMonth && styles.dayButtonInactive,
-              day.isPast && styles.dayButtonPast,
-              day.isAvailable && day.isCurrentMonth && !day.isPast && styles.dayButtonAvailable,
-              day.isBooked && styles.dayButtonBooked,
-              day.isToday && styles.dayButtonToday,
-              day.isSelected && styles.dayButtonSelected,
-            ]}
-            onPress={() => {
-              if (day.isCurrentMonth && !day.isPast && (day.isAvailable || availableDates.length === 0)) {
-                onDateSelect(day.fullDate);
-              }
-            }}
-            disabled={!day.isCurrentMonth || day.isPast || (availableDates.length > 0 && !day.isAvailable)}
-          >
-            <Text
+        {days.map((day, index) => {
+          const indicatorColor = getIndicatorColor(day.slots);
+
+          return (
+            <TouchableOpacity
+              key={index}
               style={[
-                styles.dayText,
-                !day.isCurrentMonth && styles.dayTextInactive,
-                day.isPast && styles.dayTextPast,
-                day.isAvailable && day.isCurrentMonth && !day.isPast && styles.dayTextAvailable,
-                day.isBooked && styles.dayTextBooked,
-                day.isToday && styles.dayTextToday,
-                day.isSelected && styles.dayTextSelected,
+                styles.dayButton,
+                !day.isCurrentMonth && styles.dayButtonInactive,
+                day.isPast && styles.dayButtonPast,
+                // Unavailable days (greyed out)
+                day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayButtonUnavailable,
+                day.isSelected && styles.dayButtonSelected,
+                // Circular border if today but not selected
+                day.isToday && !day.isSelected && styles.dayButtonTodayBorder,
               ]}
+              onPress={() => {
+                if (day.isCurrentMonth && !day.isPast && (day.isAvailable || availableDates.length === 0)) {
+                  onDateSelect(day.fullDate);
+                }
+              }}
+              disabled={!day.isCurrentMonth || day.isPast || (availableDates.length > 0 && !day.isAvailable)}
             >
-              {day.date}
-            </Text>
-            {day.isBooked && <View style={styles.bookedIndicator} />}
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.dayText,
+                  !day.isCurrentMonth && styles.dayTextInactive,
+                  day.isPast && styles.dayTextPast,
+                  // Unavailable text (greyed out)
+                  day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayTextUnavailable,
+                  day.isToday && styles.dayTextToday,
+                  day.isSelected && styles.dayTextSelected,
+                ]}
+              >
+                {day.date}
+              </Text>
+
+              {/* Availability Indicator (Small Bar) */}
+              {day.isCurrentMonth && !day.isPast && day.slots > 0 && (
+                <View style={[styles.availabilityIndicator, { backgroundColor: indicatorColor }]} />
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Leyenda */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendToday]} />
-          <Text style={styles.legendText}>Hoy</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendAvailable]} />
-          <Text style={styles.legendText}>Disponible</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendBooked]} />
-          <Text style={styles.legendText}>Ocupado</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, styles.legendSelected]} />
-          <Text style={styles.legendText}>Seleccionado</Text>
+      <View style={styles.legendContainer}>
+        <Text style={styles.legendLabel}>Disponibilidad:</Text>
+        <View style={styles.legendItems}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBar, { backgroundColor: Colors.light.success }]} />
+            <Text style={styles.legendText}>+10</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBar, { backgroundColor: '#F59E0B' }]} />
+            <Text style={styles.legendText}>6-10</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBar, { backgroundColor: '#EA580C' }]} />
+            <Text style={styles.legendText}>1-5</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -227,7 +267,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 8, // Reduced from margin: 16 to tighten space below
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
@@ -272,44 +312,48 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     width: '14.28%',
-    height: 40,
+    height: 48, // Increased height for indicator
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
     marginVertical: 2,
+    borderRadius: 24, // Circular touch target
+  },
+  dayButtonUnavailable: {
+    opacity: 0.3,
+    backgroundColor: Colors.light.surfaceVariant,
   },
   dayButtonInactive: {
     opacity: 0.3,
   },
-  dayButtonToday: {
-    backgroundColor: Colors.light.primary + '20',
-    borderRadius: 6,
-    margin: 2,
+  dayButtonPast: {
+    opacity: 0.3,
   },
   dayButtonSelected: {
-    backgroundColor: Colors.light.primary,
-    borderRadius: 6,
-    margin: 2,
+    backgroundColor: Colors.light.primary + '15', // Light background for selection
+    borderWidth: 2,
+    borderColor: Colors.light.primary,
+    borderRadius: 24, // Circle
+    opacity: 1, // Encode opacity to override unavailable style
   },
-  dayButtonAvailable: {
-    backgroundColor: Colors.light.success + '20',
-    borderRadius: 6,
-    margin: 2,
-  },
-  dayButtonBooked: {
-    backgroundColor: Colors.light.error + '20',
-    borderRadius: 6,
-    margin: 2,
-  },
-  dayButtonPast: {
-    opacity: 0.5,
+  dayButtonTodayBorder: {
+    borderWidth: 1,
+    borderColor: Colors.light.primary,
+    borderRadius: 24,
+    opacity: 1,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '400',
     color: Colors.light.text,
   },
+  dayTextUnavailable: {
+    color: Colors.light.textTertiary,
+  },
   dayTextInactive: {
+    color: Colors.light.textTertiary,
+  },
+  dayTextPast: {
     color: Colors.light.textTertiary,
   },
   dayTextToday: {
@@ -317,62 +361,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   dayTextSelected: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  dayTextAvailable: {
-    color: Colors.light.success,
+    color: Colors.light.text,
     fontWeight: '600',
   },
-  dayTextBooked: {
-    color: Colors.light.error,
-    fontWeight: '600',
-  },
-  dayTextPast: {
-    color: Colors.light.textTertiary,
-  },
-  bookedIndicator: {
+  availabilityIndicator: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.light.error,
+    bottom: 6,
+    width: 12, // Small bar width
+    height: 3, // Bar height
+    borderRadius: 1.5,
   },
-  legend: {
+  legendContainer: {
     flexDirection: 'row',
-    justifyContent: 'center', // Center items
-    gap: 16, // Use gap instead of space-around for tighter packing
-    marginTop: 8, // Reduced from 16
-    paddingTop: 8, // Reduced from 16
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.light.borderLight,
+    gap: 12,
+  },
+  legendLabel: {
+    fontSize: 13,
+    color: Colors.light.text,
+    fontWeight: '500',
+  },
+  legendItems: {
+    flexDirection: 'row',
+    gap: 16,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  legendColor: {
+  legendBar: {
     width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
-  },
-  legendAvailable: {
-    backgroundColor: Colors.light.success,
-  },
-  legendBooked: {
-    backgroundColor: Colors.light.error,
-  },
-  legendSelected: {
-    backgroundColor: Colors.light.primary,
-  },
-  legendToday: {
-    backgroundColor: Colors.light.primary + '60',
+    height: 3,
+    borderRadius: 1.5,
   },
   legendText: {
     fontSize: 12,
     color: Colors.light.textSecondary,
+    fontWeight: '500',
   },
 });

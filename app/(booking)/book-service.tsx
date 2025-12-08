@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { Card } from '@/components/ui/Card';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -43,10 +44,12 @@ export default function BookServiceScreen() {
   const [slotValidation, setSlotValidation] = useState<AppointmentValidationResult | null>(null);
   const [slotValidationStatus, setSlotValidationStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [availableDates, setAvailableDates] = useState<string[]>([]); // New state for calendar dots
+  const [availableDates, setAvailableDates] = useState<{ date: string; slots: number }[]>([]); // New state for availability levels
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   // Removed showDatePicker state as custom Calendar is always visible
   const log = useLogger();
   const defaultValidationSettings = useMemo(
@@ -136,6 +139,7 @@ export default function BookServiceScreen() {
     // Calculate range: from today to +30 days (or generic month range if needed)
     // For now, let's just checking next 60 days to cover current and next month view
     const start = new Date();
+    start.setDate(start.getDate() - 1); // Buffer: Start from yesterday to cover timezone offsets
     const end = new Date();
     end.setDate(end.getDate() + 60);
 
@@ -328,24 +332,12 @@ export default function BookServiceScreen() {
       log.info(LogCategory.DATABASE, isRescheduling ? 'Appointment rescheduled successfully' : 'Appointment created successfully', { appointmentId: appointment.id });
 
       const successTitle = isRescheduling ? '¡Cita Reprogramada!' : '¡Reserva Confirmada!';
-      const successMessage = isRescheduling
+      const successMessageText = isRescheduling
         ? `Tu cita ha sido reprogramada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor confirmará el nuevo horario pronto.`
         : `Tu cita ha sido solicitada para el ${formatDate(selectedDate)} a las ${selectedTime}. El proveedor te confirmará pronto.`;
 
-      Alert.alert(
-        successTitle,
-        successMessage,
-        [
-          {
-            text: 'Ver Mis Citas',
-            onPress: () => router.push('/(tabs)/bookings')
-          },
-          {
-            text: 'Continuar',
-            onPress: () => router.back()
-          }
-        ]
-      );
+      setSuccessMessage({ title: successTitle, message: successMessageText });
+      setShowSuccessModal(true);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
 
@@ -515,7 +507,23 @@ export default function BookServiceScreen() {
       </ScrollView>
 
 
-    </TabSafeAreaView>
+
+      <ConfirmationModal
+        visible={showSuccessModal}
+        title={successMessage.title}
+        message={successMessage.message}
+        confirmText="Ver Mis Citas"
+        cancelText="Continuar"
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          router.push('/(tabs)/bookings');
+        }}
+        onCancel={() => {
+          setShowSuccessModal(false);
+          router.back();
+        }}
+      />
+    </TabSafeAreaView >
   );
 }
 
