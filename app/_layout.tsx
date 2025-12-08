@@ -37,12 +37,14 @@ export default function RootLayout() {
             <NavigationThemeProvider value={DefaultTheme}>
               {/** Deep link handling for notification taps */}
               {loaded && <NotificationRouter />}
-              <Stack>
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="(booking)" options={{ headerShown: false }} />
-                <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación' }} />
-                <Stack.Screen name="+not-found" />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(booking)" />
+                <Stack.Screen name="(onboarding)" />
+                <Stack.Screen name="(provider)" />
+                <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación', headerShown: true }} />
+                <Stack.Screen name="+not-found" options={{ title: 'Oops!', headerShown: true }} />
               </Stack>
               <StatusBar style="light" />
             </NavigationThemeProvider>
