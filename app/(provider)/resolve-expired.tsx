@@ -12,8 +12,10 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     Alert,
+    Modal,
     ScrollView,
     StyleSheet,
+    TouchableWithoutFeedback,
     View
 } from 'react-native';
 
@@ -21,6 +23,8 @@ export default function ResolveExpiredScreen() {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const { user, employeeProfile } = useAuth();
     const log = useLogger(user?.id);
     const router = useRouter();
@@ -76,29 +80,8 @@ export default function ResolveExpiredScreen() {
     };
 
     const handleMarkAsPaid = (appointment: Appointment) => {
-        Alert.alert(
-            'Registrar Pago',
-            'Selecciona el método de pago:',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: '💵 Efectivo',
-                    onPress: () => processPayment(appointment, 'cash')
-                },
-                {
-                    text: '📱 Pago Móvil',
-                    onPress: () => processPayment(appointment, 'pago_movil')
-                },
-                {
-                    text: '🇺🇸 Zelle',
-                    onPress: () => processPayment(appointment, 'zelle')
-                },
-                {
-                    text: '💳 Tarjeta / Otro',
-                    onPress: () => processPayment(appointment, 'card')
-                }
-            ]
-        );
+        setSelectedAppointment(appointment);
+        setPaymentModalVisible(true);
     };
 
     const processPayment = async (appointment: Appointment, method: 'cash' | 'zelle' | 'pago_movil' | 'card' | 'other') => {
@@ -154,7 +137,7 @@ export default function ResolveExpiredScreen() {
                 ) : (
                     <View style={styles.list}>
                         {appointments.map((apt) => (
-                            <Card key={apt.id} variant="elevated" style={styles.card}>
+                            <Card key={apt.id} variant="outlined" shadow="none" style={styles.card}>
                                 <View style={styles.cardHeader}>
                                     <View style={styles.headerRow}>
                                         <ThemedText style={styles.dateText}>
@@ -217,7 +200,75 @@ export default function ResolveExpiredScreen() {
                     </View>
                 )}
             </ScrollView>
-        </TabSafeAreaView>
+
+
+            <Modal
+                visible={paymentModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setPaymentModalVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setPaymentModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContent}>
+                                <View style={styles.modalHeader}>
+                                    <IconSymbol name="creditcard.fill" size={32} color={Colors.light.primary} />
+                                    <ThemedText type="title" style={styles.modalTitle}>Registrar Pago</ThemedText>
+                                    <ThemedText style={styles.modalSubtitle}>Selecciona el método de pago</ThemedText>
+                                </View>
+
+                                <View style={styles.modalOptions}>
+                                    <Button
+                                        title="💵 Efectivo"
+                                        variant="outline"
+                                        onPress={() => {
+                                            setPaymentModalVisible(false);
+                                            if (selectedAppointment) processPayment(selectedAppointment, 'cash');
+                                        }}
+                                        style={styles.modalOption}
+                                    />
+                                    <Button
+                                        title="📱 Pago Móvil"
+                                        variant="outline"
+                                        onPress={() => {
+                                            setPaymentModalVisible(false);
+                                            if (selectedAppointment) processPayment(selectedAppointment, 'pago_movil');
+                                        }}
+                                        style={styles.modalOption}
+                                    />
+                                    <Button
+                                        title="🇺🇸 Zelle"
+                                        variant="outline"
+                                        onPress={() => {
+                                            setPaymentModalVisible(false);
+                                            if (selectedAppointment) processPayment(selectedAppointment, 'zelle');
+                                        }}
+                                        style={styles.modalOption}
+                                    />
+                                    <Button
+                                        title="💳 Tarjeta / Punto"
+                                        variant="outline"
+                                        onPress={() => {
+                                            setPaymentModalVisible(false);
+                                            if (selectedAppointment) processPayment(selectedAppointment, 'card');
+                                        }}
+                                        style={styles.modalOption}
+                                    />
+                                </View>
+
+                                <Button
+                                    title="Cancelar"
+                                    variant="ghost"
+                                    onPress={() => setPaymentModalVisible(false)}
+                                    style={styles.modalCancel}
+                                />
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+        </TabSafeAreaView >
     );
 }
 
@@ -329,5 +380,44 @@ const styles = StyleSheet.create({
     paymentBadgeText: {
         fontSize: DesignTokens.typography.fontSizes.xs,
         fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: DesignTokens.spacing.lg,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 340,
+        backgroundColor: Colors.light.surface,
+        borderRadius: DesignTokens.radius['2xl'],
+        padding: DesignTokens.spacing.xl,
+        ...DesignTokens.elevation.lg,
+    },
+    modalHeader: {
+        alignItems: 'center',
+        marginBottom: DesignTokens.spacing.xl,
+    },
+    modalTitle: {
+        marginTop: DesignTokens.spacing.md,
+        fontSize: DesignTokens.typography.fontSizes.xl,
+        textAlign: 'center',
+    },
+    modalSubtitle: {
+        marginTop: DesignTokens.spacing.xs,
+        color: Colors.light.textSecondary,
+        textAlign: 'center',
+    },
+    modalOptions: {
+        gap: DesignTokens.spacing.md,
+        marginBottom: DesignTokens.spacing.lg,
+    },
+    modalOption: {
+        justifyContent: 'flex-start',
+    },
+    modalCancel: {
+        marginTop: DesignTokens.spacing.sm,
     },
 });

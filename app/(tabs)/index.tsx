@@ -198,7 +198,8 @@ function ClientHomeScreen() {
             {categories.map((category, index) => (
               <Card
                 key={index}
-                variant="elevated"
+                variant="outlined"
+                shadow="none"
                 style={styles.categoryCard}
                 onPress={() => {
                   log.userAction('Select category', { category: category.name, screen: 'ClientHome' });
@@ -250,7 +251,8 @@ function ClientHomeScreen() {
               featuredProviders.map((provider) => (
                 <Card
                   key={provider.id}
-                  variant="elevated"
+                  variant="outlined"
+                  shadow="none"
                   style={styles.providerCard}
                   onPress={() => {
                     log.userAction('Select provider', { providerId: provider.id, providerName: provider.business_name, screen: 'ClientHome' });
@@ -333,7 +335,8 @@ function ClientHomeScreen() {
 
           <View style={styles.quickActionsGrid}>
             <Card
-              variant="elevated"
+              variant="outlined"
+              shadow="none"
               style={styles.quickActionCard}
               onPress={() => {
                 log.userAction('Navigate to bookings', { screen: 'ClientHome' });
@@ -349,7 +352,8 @@ function ClientHomeScreen() {
             </Card>
 
             <Card
-              variant="elevated"
+              variant="outlined"
+              shadow="none"
               style={styles.quickActionCard}
               onPress={() => {
                 log.userAction('Navigate to favorites', { screen: 'ClientHome' });
@@ -561,10 +565,12 @@ function ProviderHomeScreen() {
           />
         </View>
 
+
+
         {/* Citas Vencidas Warning */}
         {expiredCount > 0 && (
           <View style={styles.warningContainer}>
-            <Card variant="elevated" style={styles.warningCard}>
+            <Card variant="outlined" shadow="none" style={styles.warningCard}>
               <View style={styles.warningHeader}>
                 <IconSymbol name="exclamationmark.triangle.fill" size={24} color={Colors.light.warning} />
                 <ThemedText style={styles.warningTitle}>
@@ -587,7 +593,7 @@ function ProviderHomeScreen() {
         {/* Tasa del Día */}
         {exchangeRate && (
           <View style={styles.exchangeRateContainer}>
-            <Card variant="elevated" style={styles.exchangeRateCard}>
+            <Card variant="outlined" shadow="none" style={styles.exchangeRateCard}>
               <View style={styles.exchangeRateIconContainer}>
                 <Text style={styles.exchangeRateFlag}>🇻🇪</Text>
               </View>
@@ -609,7 +615,7 @@ function ProviderHomeScreen() {
 
           <View style={styles.performanceGrid}>
             {performanceCards.map((card, index) => (
-              <Card key={index} variant="elevated" style={styles.performanceCard}>
+              <Card key={index} variant="outlined" shadow="none" style={styles.performanceCard}>
                 <View style={styles.performanceHeader}>
                   <View style={[styles.statIcon, { backgroundColor: card.color }]}>
                     <IconSymbol name={card.icon as any} size={20} color="white" />
@@ -635,7 +641,8 @@ function ProviderHomeScreen() {
             {operationalStats.map((stat, index) => (
               <Card
                 key={index}
-                variant="elevated"
+                variant="outlined"
+                shadow="none"
                 style={styles.statCard}
               >
                 <View style={[styles.statIcon, { backgroundColor: stat.color }]}>
@@ -852,7 +859,7 @@ function EmployeeHomeScreen() {
           </ThemedText>
           <View style={styles.statsGrid}>
             {performanceCards.map((card, index) => (
-              <Card key={index} variant="elevated" style={styles.statCard}>
+              <Card key={index} variant="outlined" shadow="none" style={styles.statCard}>
                 <View style={[styles.statIcon, { backgroundColor: card.color }]}>
                   <IconSymbol name={card.icon as any} size={20} color="white" />
                 </View>
@@ -879,7 +886,7 @@ function EmployeeHomeScreen() {
           ) : (
             <View style={styles.employeeAppointmentsList}>
               {upcomingAppointments.map((appointment) => (
-                <Card key={appointment.id} variant="elevated" style={styles.employeeAppointmentCard}>
+                <Card key={appointment.id} variant="outlined" shadow="none" style={styles.employeeAppointmentCard}>
                   <View style={styles.employeeAppointmentHeader}>
                     <View>
                       <ThemedText style={styles.employeeAppointmentTime}>{appointment.appointment_time}</ThemedText>

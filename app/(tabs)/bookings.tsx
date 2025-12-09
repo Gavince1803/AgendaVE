@@ -3,30 +3,32 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import {
   AppointmentListSkeleton,
-  EmptyState,
-  ErrorState,
   createRefreshControl,
+  EmptyState,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
-import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
+import { Colors, ComponentColors } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
+/* import from context */
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function BookingsScreen() {
+  const { user, loading: authLoading } = useAuth(); // Get auth state
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -35,21 +37,28 @@ export default function BookingsScreen() {
   const log = useLogger();
 
   useEffect(() => {
-    loadAppointments();
-  }, []);
+    // Only load if auth is done and user exists
+    if (!authLoading && user) {
+      loadAppointments();
+    } else if (!authLoading && !user) {
+      // Handle case where user is not logged in
+      setLoading(false);
+      setError('Por favor inicia sesión para ver tus citas');
+    }
+  }, [authLoading, user]);
 
   const loadAppointments = async () => {
     try {
       setLoading(true);
       setError(null);
       log.info(LogCategory.DATA, 'Loading client appointments', { screen: 'Bookings' });
-      
+
       const appointmentsData = await BookingService.getClientAppointments();
       setAppointments(appointmentsData);
-      
-      log.info(LogCategory.DATA, 'Client appointments loaded', { 
+
+      log.info(LogCategory.DATA, 'Client appointments loaded', {
         count: appointmentsData.length,
-        screen: 'Bookings' 
+        screen: 'Bookings'
       });
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error loading client appointments', error);
@@ -73,19 +82,19 @@ export default function BookingsScreen() {
 
   // Filtrar citas por estado
   const today = new Date().toISOString().split('T')[0];
-  const upcomingBookings = appointments.filter(apt => 
+  const upcomingBookings = appointments.filter(apt =>
     apt.appointment_date >= today && (apt.status === 'pending' || apt.status === 'confirmed')
   );
-  
-  const pastBookings = appointments.filter(apt => 
+
+  const pastBookings = appointments.filter(apt =>
     apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
   );
 
   const handleCancelBooking = async (appointment: Appointment) => {
     try {
-      log.userAction('Cancel booking', { 
+      log.userAction('Cancel booking', {
         appointmentId: appointment.id,
-        screen: 'Bookings' 
+        screen: 'Bookings'
       });
 
       const cancelAppointment = async () => {
@@ -93,7 +102,7 @@ export default function BookingsScreen() {
           console.log('🔴 [BOOKINGS] Cancelling appointment:', appointment.id);
           await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
           await loadAppointments();
-          
+
           Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
         } catch (error) {
           console.error('🔴 [BOOKINGS] Error cancelling appointment:', error);
@@ -126,9 +135,9 @@ export default function BookingsScreen() {
 
   const handleRescheduleBooking = async (appointment: Appointment) => {
     try {
-      log.userAction('Reschedule booking', { 
+      log.userAction('Reschedule booking', {
         appointmentId: appointment.id,
-        screen: 'Bookings' 
+        screen: 'Bookings'
       });
 
       const navigateToReschedule = () => {
@@ -149,7 +158,7 @@ export default function BookingsScreen() {
       };
 
       const message = `¿Quieres reprogramar tu cita de "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
-      
+
       Alert.alert(
         'Reprogramar Cita',
         message,
@@ -173,10 +182,10 @@ export default function BookingsScreen() {
 
   const handleBookAgain = async (appointment: Appointment) => {
     try {
-      log.userAction('Book again', { 
+      log.userAction('Book again', {
         appointmentId: appointment.id,
         providerId: appointment.provider_id,
-        screen: 'Bookings' 
+        screen: 'Bookings'
       });
 
       const navigateToBookAgain = () => {
@@ -197,7 +206,7 @@ export default function BookingsScreen() {
       };
 
       const message = `¿Quieres reservar nuevamente "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
-      
+
       if (Platform.OS === 'web') {
         const confirmed = window.confirm(message);
         if (confirmed) {
@@ -346,9 +355,9 @@ export default function BookingsScreen() {
             variant="outline"
             size="small"
             onPress={() => {
-              log.userAction('Rate service', { 
+              log.userAction('Rate service', {
                 appointmentId: booking.id,
-                screen: 'Bookings' 
+                screen: 'Bookings'
               });
               router.push({
                 pathname: '/(booking)/rate-appointment',
@@ -401,7 +410,7 @@ export default function BookingsScreen() {
       </ThemedView>
 
       {/* Bookings List */}
-      <ScrollView 
+      <ScrollView
         style={styles.bookingsSection}
         contentContainerStyle={styles.scrollContent}
         refreshControl={createRefreshControl(refreshing, handleRefresh)}
@@ -417,8 +426,8 @@ export default function BookingsScreen() {
             <EmptyState
               title={selectedTab === 'upcoming' ? 'No tienes citas próximas' : 'No tienes citas anteriores'}
               message={
-                selectedTab === 'upcoming' 
-                  ? 'Explora servicios y reserva tu próxima cita en nuestra plataforma.' 
+                selectedTab === 'upcoming'
+                  ? 'Explora servicios y reserva tu próxima cita en nuestra plataforma.'
                   : 'Tus citas completadas y canceladas aparecerán aquí para tu referencia.'
               }
               icon={selectedTab === 'upcoming' ? 'calendar.badge.plus' : 'calendar'}

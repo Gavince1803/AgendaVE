@@ -198,7 +198,6 @@ function createStyles(theme: Theme) {
       borderRadius: tokens.radius.lg,
       borderWidth: 1,
       borderColor: 'transparent',
-      ...tokens.elevation.sm,
       gap: tokens.spacing.xs,
     },
     primary: {

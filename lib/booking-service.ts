@@ -1854,6 +1854,7 @@ export class BookingService {
             clientName,
             serviceName: serviceData?.name,
           });
+
           await NotificationService.notifyNewAppointment(providerUserId, {
             id: data.id,
             provider_id: providerId,
