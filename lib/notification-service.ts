@@ -114,6 +114,57 @@ export class NotificationService {
     }
   }
 
+  static async unregisterToken(userId: string) {
+    if (!userId) return;
+
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      // If we don't have permission, we can't get the token to delete specific one,
+      // but we can try to delete all tokens for this user on this device if we had a way to identify device.
+      // For now, let's delete strictly by user_id and maybe device info.
+
+      // Best effort: Delete all tokens for this user. 
+      // In a multi-device scenario, this logs them out of notifications on ALL devices.
+      // A better approach would be to store the specific token in local storage and delete ONLY that one.
+
+      // For this MVP, let's just log it.
+      // Ideally:
+      // const token = (await Notifications.getExpoPushTokenAsync()).data;
+      // await supabase.from('device_push_tokens').delete().match({ token, user_id: userId });
+
+      // However, getting the token might fail if permissions were revoked.
+      // Let's try to get the token, if fails, just return.
+
+      let token;
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({
+          projectId: Constants.expoConfig.extra.eas.projectId,
+        })).data;
+      } catch (e) {
+        // Ignore error, maybe permissions revoked
+      }
+
+      if (token) {
+        const { error } = await supabase
+          .from('device_push_tokens')
+          .delete()
+          .eq('user_id', userId)
+          .eq('token', token);
+
+        if (error) {
+          console.error('Error unregistering token:', error);
+        } else {
+          console.log('Token unregistered successfully');
+        }
+      }
+
+    } catch (error) {
+      console.error('Error in unregisterToken:', error);
+    }
+  }
+
   /**
    * Enviar notificación local
    */

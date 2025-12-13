@@ -55,7 +55,7 @@ export class AuthService {
     }
 
     console.log('🔴 [AUTH SERVICE] Iniciando signUp para:', email);
-    console.log('🔴 [AUTH SERVICE] Datos del registro:', { email, fullName, role, phone, cedula });
+    // console.log('🔴 [AUTH SERVICE] Datos del registro:', { email, fullName, role, phone, cedula });
 
     // Intentar signup simple sin confirmación de email
     const { data, error } = await supabase.auth.signUp({

@@ -567,6 +567,8 @@ function ProviderHomeScreen() {
 
 
 
+
+
         {/* Citas Vencidas Warning */}
         {expiredCount > 0 && (
           <View style={styles.warningContainer}>

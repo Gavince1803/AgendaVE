@@ -863,6 +863,24 @@ export class BookingService {
     }
   }
 
+  // 📝 Actualizar un empleado existente
+  static async updateEmployee(employeeId: string, updates: Partial<Employee>): Promise<Employee> {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .update(updates)
+        .eq('id', employeeId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      throw error;
+    }
+  }
+
   static async inviteEmployee(params: {
     name: string;
     email: string;
@@ -1036,9 +1054,7 @@ export class BookingService {
       throw new Error('Debes iniciar sesión para aceptar la invitación.');
     }
 
-    console.log('🔴 [BOOKING SERVICE] Accepting invite for token:', cleanedToken, 'user:', user.id);
-
-    console.log('🔴 [BOOKING SERVICE] Accepting invite via RPC for token:', cleanedToken);
+    // console.log('🔴 [BOOKING SERVICE] Accepting invite via RPC for token:', cleanedToken);
 
     const { data: updatedEmployee, error: rpcError } = await supabase.rpc('accept_employee_invite', {
       token_input: cleanedToken
@@ -1324,7 +1340,8 @@ export class BookingService {
     providerId: string,
     startDate: string,
     endDate: string,
-    serviceId?: string
+    serviceId?: string,
+    employeeId?: string
   ): Promise<{ date: string; slots: number }[]> {
     try {
       console.log('🔴 [GET DAYS AVAILABILITY] Checking range:', { startDate, endDate });
@@ -1391,7 +1408,12 @@ export class BookingService {
         const dayEndMinutes = this.timeStringToMinutes(dayRule.end_time);
 
         // Filter appointments for this day
-        const dayAppointments = existingAppointments?.filter(apt => apt.appointment_date === dateString) || [];
+        let dayAppointments = existingAppointments?.filter(apt => apt.appointment_date === dateString) || [];
+
+        // If checking for a specific employee, only count their appointments conflicts
+        if (employeeId) {
+          dayAppointments = dayAppointments.filter(apt => apt.employee_id === employeeId);
+        }
         if (dateString === '2025-12-08') {
           console.log(`🔴 [DEBUG DEC 8] Found ${dayAppointments.length} appointments for today.`);
           if (dayAppointments.length > 0) {

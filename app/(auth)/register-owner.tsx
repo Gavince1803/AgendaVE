@@ -93,12 +93,12 @@ export default function RegisterOwnerScreen() {
       // Mostrar mensaje de éxito con información sobre confirmación de email
       Alert.alert(
         '¡Negocio registrado exitosamente! 🎉',
-        'Te hemos enviado un email de confirmación a ' + email + '. Por favor revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.\n\nUna vez confirmado, podrás iniciar sesión y comenzar a recibir clientes.',
+        'Tu cuenta de negocio ha sido creada correctamente. Inicia sesión para configurar tu perfil.',
         [
           {
-            text: 'Entendido',
+            text: 'Ir a Iniciar Sesión',
             onPress: () => {
-              // Redirigir al login en lugar de a las tabs
+              // Redirigir al login
               router.replace('/(auth)/login');
             }
           }

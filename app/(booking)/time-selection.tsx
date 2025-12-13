@@ -148,7 +148,9 @@ export default function TimeSelectionScreen() {
         providerId as string,
         startDateStr,
         endDateStr,
-        serviceId as string
+        serviceId as string,
+        // Only pass employeeId if it's a specific employee (not 'any')
+        employeeId && employeeId !== 'any' ? (employeeId as string) : undefined
       );
 
       console.log('🔴 [TIME SELECTION] Bulk availability loaded:', datesWithSlots.length, 'days');

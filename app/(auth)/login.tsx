@@ -3,8 +3,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
-import { Colors, DesignTokens } from '@/constants/Colors';
+import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { Image } from 'expo-image';
 import { Href, Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -68,7 +69,11 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
-                <ThemedText style={styles.logoText}>M</ThemedText>
+                <Image
+                  source={require('@/assets/images/icon-v2.png')}
+                  style={styles.logoImage}
+                  contentFit="contain"
+                />
               </View>
             </View>
             <ThemedText type="title" style={styles.title}>
@@ -86,6 +91,7 @@ export default function LoginScreen() {
               value={identifier}
               onChangeText={setIdentifier}
               placeholder="Cédula, Teléfono o Email"
+              placeholderTextColor={ComponentColors.input.placeholder}
               keyboardType="default"
               autoCapitalize="none"
               autoCorrect={false}
@@ -96,7 +102,8 @@ export default function LoginScreen() {
               label="Contraseña"
               value={password}
               onChangeText={setPassword}
-              placeholder="••••••••"
+              placeholder="Ingresa tu contraseña"
+              placeholderTextColor={ComponentColors.input.placeholder}
               secureTextEntry
               autoCapitalize="none"
               containerStyle={{ marginBottom: 12 }}
@@ -181,6 +188,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden', // Ensure image respects border radius
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   logoText: {
     fontSize: 40,

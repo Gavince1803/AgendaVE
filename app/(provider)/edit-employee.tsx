@@ -1,3 +1,4 @@
+import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -6,6 +7,8 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+
+  Switch,
   Text,
   TextInput,
   View,
@@ -42,6 +45,7 @@ export default function EditEmployeeScreen() {
     bio: '',
     email: '',
     phone: '',
+    isActive: true, // Default to true
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -54,9 +58,10 @@ export default function EditEmployeeScreen() {
       bio: '', // Will be loaded from API
       email: (initialEmail as string) || '',
       phone: (initialPhone as string) || '',
+      isActive: isActive === 'true', // Convert string to boolean
     });
     setLoading(false);
-  }, [initialName, initialEmail, initialPhone]);
+  }, [initialName, initialEmail, initialPhone, isActive]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -87,12 +92,21 @@ export default function EditEmployeeScreen() {
     try {
       setSaving(true);
 
-      // For now, we'll just show a success message
+
       // In a real implementation, you'd call BookingService.updateEmployee
       log.userAction('Edit employee', {
         employeeId,
         employeeName: formData.name,
         position: formData.position
+      });
+
+      await BookingService.updateEmployee(employeeId as string, {
+        name: formData.name,
+        position: formData.position,
+        bio: formData.bio,
+        email: formData.email,
+        phone: formData.phone,
+        is_active: formData.isActive,
       });
 
       Alert.alert(
@@ -177,7 +191,7 @@ export default function EditEmployeeScreen() {
             </View>
 
             {/* Form */}
-            <Card variant="elevated" style={styles.formCard}>
+            <Card variant="outlined" shadow="none" style={styles.formCard}>
               <View style={styles.formSection}>
                 <Text style={styles.sectionTitle}>Información Básica</Text>
 
@@ -274,12 +288,18 @@ export default function EditEmployeeScreen() {
                       <Text style={styles.ownerText}>Propietario</Text>
                     </View>
                   )}
-                  <View style={[styles.statusBadge, {
-                    backgroundColor: isActive === 'true' ? Colors.light.success : Colors.light.error
-                  }]}>
-                    <Text style={styles.statusText}>
-                      {isActive === 'true' ? 'Activo' : 'Inactivo'}
+
+                  <View style={styles.switchContainer}>
+                    <Text style={[styles.statusText, { color: formData.isActive ? Colors.light.success : Colors.light.textSecondary }]}>
+                      {formData.isActive ? 'Activo (Visible)' : 'Inactivo (Oculto)'}
                     </Text>
+                    <Switch
+                      value={formData.isActive}
+                      onValueChange={(value) => setFormData({ ...formData, isActive: value })}
+                      trackColor={{ false: Colors.light.border, true: Colors.light.success }}
+                      thumbColor="#ffffff"
+                      ios_backgroundColor={Colors.light.border}
+                    />
                   </View>
                 </View>
               </View>
@@ -287,7 +307,7 @@ export default function EditEmployeeScreen() {
 
             {/* Danger Zone */}
             {isOwner !== 'true' && (
-              <Card variant="outlined" style={styles.dangerCard}>
+              <Card variant="outlined" shadow="none" style={styles.dangerCard}>
                 <View style={styles.dangerContent}>
                   <IconSymbol name="exclamationmark.triangle" size={20} color={Colors.light.error} />
                   <View style={styles.dangerText}>
@@ -433,6 +453,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: DesignTokens.spacing.md,
     alignItems: 'center',
+    justifyContent: 'space-between', // Push switch to right
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.md,
   },
   ownerBadge: {
     flexDirection: 'row',

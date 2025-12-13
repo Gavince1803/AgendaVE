@@ -111,6 +111,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error checking user:', error);
+
+      // Auto-logout if token is invalid to prevent crash loop
+      const errorMsg = (error as any)?.message || JSON.stringify(error);
+      if (errorMsg.includes('Invalid Refresh Token') || errorMsg.includes('Refresh Token Not Found')) {
+        console.warn('⚠️ [AUTH CONTEXT] Token inválido detectado. Limpiando sesión...');
+        await persistActiveRole('client');
+        setUser(null);
+        setEmployeeProfile(null);
+        // Optional: await AuthService.signOut() but that might fail too if token is bad
+      }
     } finally {
       setLoading(false);
     }
@@ -200,6 +210,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       console.log('🔴 [AUTH CONTEXT] Llamando a AuthService.signOut()...');
+
+      // Unregister push token before signing out
+      if (user?.id) {
+        try {
+          await NotificationService.unregisterToken(user.id);
+        } catch (tokenError) {
+          console.warn('⚠️ [AUTH CONTEXT] Error unregistering token:', tokenError);
+        }
+      }
+
       await AuthService.signOut();
       console.log('🔴 [AUTH CONTEXT] ✅ AuthService.signOut() completado exitosamente');
 

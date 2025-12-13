@@ -71,12 +71,12 @@ export default function RegisterScreen() {
       // Mostrar mensaje de éxito con información sobre confirmación de email
       Alert.alert(
         '¡Cuenta creada exitosamente! 🎉',
-        'Te hemos enviado un email de confirmación a ' + email + '. Por favor revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.\n\nUna vez confirmado, podrás iniciar sesión.',
+        'Tu cuenta ha sido registrada correctamente. Ahora puedes iniciar sesión.',
         [
           {
-            text: 'Entendido',
+            text: 'Ir a Iniciar Sesión',
             onPress: () => {
-              // Redirigir al login en lugar de a las tabs
+              // Redirigir al login
               router.replace('/(auth)/login');
             }
           }
