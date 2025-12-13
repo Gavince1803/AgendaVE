@@ -12,18 +12,21 @@
 
 // ===== PREMIUM BRAND COLORS =====
 // Sophisticated deep blue - trust, professionalism (Apple-inspired)
+// Sophisticated turquoise/emerald - matching the brand logo
+// Sophisticated Blue-Green (Teal) - perfectly balanced
+// Brighter, Lighter Teal - Fresh and modern
 const primary = {
-  50: '#f0f8ff',
-  100: '#e0f0fe',
-  200: '#b8e2fd',
-  300: '#7cc8fb',
-  400: '#36aaf7',
-  500: '#0c8ce8', // Premium brand blue - trustworthy yet approachable
-  600: '#0070d6',
-  700: '#005bb5',
-  800: '#004a96',
-  900: '#003d7a',
-  950: '#002851',
+  50: '#f0fdfa',
+  100: '#ccfbf1',
+  200: '#99f6e4',
+  300: '#5eead4',
+  400: '#2dd4bf',
+  500: '#14b8a6', // Brighter Teal (Lighter)
+  600: '#0d9488',
+  700: '#0f766e',
+  800: '#115e59',
+  900: '#134e4a',
+  950: '#042f2e',
 };
 
 // Warm coral - energy, beauty, femininity (Booksy-inspired)

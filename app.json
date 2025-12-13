@@ -4,7 +4,7 @@
     "slug": "AgendaVE",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon-v2.png",
+    "icon": "./assets/images/icon-final.png",
     "scheme": "agendave",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon-v2.png",
+        "foregroundImage": "./assets/images/adaptive-icon-final.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,

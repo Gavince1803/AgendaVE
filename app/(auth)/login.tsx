@@ -70,7 +70,7 @@ export default function LoginScreen() {
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
                 <Image
-                  source={require('@/assets/images/icon-v2.png')}
+                  source={require('@/assets/images/icon-final.png')}
                   style={styles.logoImage}
                   contentFit="contain"
                 />
@@ -175,20 +175,13 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: DesignTokens.spacing.lg,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    alignItems: 'center',
   },
   logo: {
-    width: 80, // Slightly smaller
-    height: 80,
-    borderRadius: 24, // Soft square
-    backgroundColor: Colors.light.primary,
+    width: 140,
+    height: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden', // Ensure image respects border radius
   },
   logoImage: {
     width: '100%',
@@ -200,12 +193,12 @@ const styles = StyleSheet.create({
     color: Colors.light.textOnPrimary,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: Colors.light.text,
     marginBottom: 8,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   subtitle: {
     fontSize: 16,
