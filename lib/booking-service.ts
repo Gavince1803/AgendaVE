@@ -883,7 +883,7 @@ export class BookingService {
 
   static async inviteEmployee(params: {
     name: string;
-    email: string;
+    email?: string; // Made optional
     phone?: string;
     position?: string;
     bio?: string;
@@ -898,7 +898,8 @@ export class BookingService {
       role = 'staff',
     } = params;
 
-    if (!email.includes('@')) {
+    // Only validate email if provided
+    if (email && !email.includes('@')) {
       throw new Error('Email de invitación inválido');
     }
 
@@ -940,7 +941,7 @@ export class BookingService {
       position,
       bio,
       phone: phone || null,
-      inviteEmail: email.trim().toLowerCase(),
+      inviteEmail: email ? email.trim().toLowerCase() : null, // Handle optional email
       inviteStatus: 'pending',
       inviteToken,
       inviteExpiresAt: expiresAt,
@@ -953,20 +954,7 @@ export class BookingService {
     const inviteUrl = `${process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'agendave://accept-invite'}?token=${inviteToken}`;
 
     // Enviar el email de invitación
-    try {
-      const { EmailService } = await import('./email-service');
-      await EmailService.sendEmployeeInvitation(
-        email.trim().toLowerCase(),
-        name.trim(),
-        provider.business_name || 'AgendaVE',
-        inviteUrl
-      );
-      console.log('✅ [BOOKING SERVICE] Invitation email sent successfully to:', email);
-    } catch (emailError) {
-      console.error('⚠️ [BOOKING SERVICE] Failed to send invitation email:', emailError);
-      // No lanzar error para que la invitación se cree de todas formas
-      // El owner puede compartir manualmente el link
-    }
+
 
     return { employee, inviteToken, inviteUrl, expiresAt };
   }

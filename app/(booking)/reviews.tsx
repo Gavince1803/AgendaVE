@@ -4,29 +4,29 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   TouchableOpacity,
-  type TextStyle,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { ReviewListSkeleton } from '@/components/ui/LoadingStates';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, Review } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function ReviewsScreen() {
-  const { providerId, providerName } = useLocalSearchParams<{ 
-    providerId: string; 
+  const { providerId, providerName } = useLocalSearchParams<{
+    providerId: string;
     providerName: string;
   }>();
-  
+
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,14 +48,14 @@ export default function ReviewsScreen() {
 
   const loadReviews = useCallback(async () => {
     if (!providerId) return;
-    
+
     try {
       setLoading(true);
       logRef.current.info(LogCategory.DATABASE, 'Loading provider reviews', { providerId });
 
       const reviewsData = await BookingService.getProviderReviews(providerId);
       setReviews(reviewsData);
-      
+
       logRef.current.info(LogCategory.DATABASE, 'Reviews loaded successfully', {
         reviewsCount: reviewsData.length,
         providerId
@@ -105,6 +105,23 @@ export default function ReviewsScreen() {
     }
 
     return stars;
+  };
+
+  const handleReportReview = (reviewId: string) => {
+    Alert.alert(
+      'Reportar Reseña',
+      '¿Desea reportar este contenido como ofensivo o inapropiado?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reportar',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Gracias', 'Hemos recibido tu reporte. Revisaremos el contenido en breve.');
+          }
+        }
+      ]
+    );
   };
 
   const getAverageRating = () => {
@@ -196,7 +213,7 @@ export default function ReviewsScreen() {
     <TabSafeAreaView style={styles.container}>
       {/* Header */}
       <ThemedView style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -232,20 +249,20 @@ export default function ReviewsScreen() {
                     Basado en {reviews.length} reseña{reviews.length !== 1 ? 's' : ''}
                   </ThemedText>
                 </ThemedView>
-                
+
                 <ThemedView style={styles.distributionContainer}>
                   {[5, 4, 3, 2, 1].map((rating) => (
                     <ThemedView key={rating} style={styles.distributionRow}>
                       <ThemedText style={styles.distributionRating}>{rating}</ThemedText>
                       <IconSymbol name="star.fill" size={12} color={Colors.light.accent} />
                       <ThemedView style={styles.distributionBar}>
-                        <ThemedView 
+                        <ThemedView
                           style={[
                             styles.distributionFill,
-                            { 
-                              width: `${reviews.length > 0 ? (distribution[rating as keyof typeof distribution] / reviews.length) * 100 : 0}%` 
+                            {
+                              width: `${reviews.length > 0 ? (distribution[rating as keyof typeof distribution] / reviews.length) * 100 : 0}%`
                             }
-                          ]} 
+                          ]}
                         />
                       </ThemedView>
                       <ThemedText style={styles.distributionCount}>
@@ -311,7 +328,7 @@ export default function ReviewsScreen() {
               <ThemedText style={styles.reviewsTitle}>
                 Todas las Reseñas ({filteredReviews.length})
               </ThemedText>
-              
+
               {filteredReviews.length > 0 ? (
                 filteredReviews.map((review, index) => (
                   <Card key={review.id} variant="outlined" style={styles.reviewCard}>
@@ -332,32 +349,46 @@ export default function ReviewsScreen() {
                           </ThemedText>
                         </ThemedView>
                       </ThemedView>
-                      <ThemedView style={styles.reviewStars}>
-                        {renderStars(review.rating)}
-                      </ThemedView>
+                      <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                        <ThemedView style={styles.reviewStars}>
+                          {renderStars(review.rating)}
+                        </ThemedView>
+                        <TouchableOpacity
+                          onPress={() => handleReportReview(review.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <IconSymbol name="flag" size={12} color={Colors.light.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
                     </ThemedView>
-                    
-                    {review.highlight && (
-                      <ThemedView style={styles.highlightPill}>
-                        <IconSymbol name="sparkles" size={14} color={Colors.light.accent} />
-                        <ThemedText style={styles.highlightText}>{review.highlight}</ThemedText>
-                      </ThemedView>
-                    )}
-                    
-                    {review.comment && (
-                      <ThemedText style={styles.reviewComment}>
-                        {review.comment}
-                      </ThemedText>
-                    )}
-                    
-                    {review.service && (
-                      <ThemedView style={styles.serviceInfo}>
-                        <IconSymbol name="scissors" size={14} color={Colors.light.textSecondary} />
-                        <ThemedText style={styles.serviceName}>
-                          {review.service.name}
+
+                    {
+                      review.highlight && (
+                        <ThemedView style={styles.highlightPill}>
+                          <IconSymbol name="sparkles" size={14} color={Colors.light.accent} />
+                          <ThemedText style={styles.highlightText}>{review.highlight}</ThemedText>
+                        </ThemedView>
+                      )
+                    }
+
+                    {
+                      review.comment && (
+                        <ThemedText style={styles.reviewComment}>
+                          {review.comment}
                         </ThemedText>
-                      </ThemedView>
-                    )}
+                      )
+                    }
+
+                    {
+                      review.service && (
+                        <ThemedView style={styles.serviceInfo}>
+                          <IconSymbol name="scissors" size={14} color={Colors.light.textSecondary} />
+                          <ThemedText style={styles.serviceName}>
+                            {review.service.name}
+                          </ThemedText>
+                        </ThemedView>
+                      )
+                    }
                   </Card>
                 ))
               ) : (
@@ -388,7 +419,7 @@ export default function ReviewsScreen() {
           </ThemedView>
         )}
       </ScrollView>
-    </TabSafeAreaView>
+    </TabSafeAreaView >
   );
 }
 
@@ -656,3 +687,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+

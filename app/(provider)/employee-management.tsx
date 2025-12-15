@@ -1,18 +1,18 @@
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { InviteCodeModal } from '@/components/ui/InviteCodeModal';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService, Employee } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View
@@ -22,15 +22,27 @@ export default function EmployeeManagementScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Invitation Modal State
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteData, setInviteData] = useState<{
+    token: string;
+    url: string;
+    employeeName: string;
+    businessName: string;
+  } | null>(null);
+
   const { user } = useAuth();
   const log = useLogger();
   const inviteBaseUrl = process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite';
 
-  useEffect(() => {
-    if (user?.profile?.role === 'provider') {
-      loadEmployees();
-    }
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.profile?.role === 'provider') {
+        loadEmployees();
+      }
+    }, [user])
+  );
 
   const loadEmployees = async () => {
     if (!user?.id) {
@@ -42,8 +54,10 @@ export default function EmployeeManagementScreen() {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      setLoading(true);
-      console.log('🔴 [EMPLOYEE MANAGEMENT] Loading employees for user:', user.id);
+      // Only set loading to true if we don't have employees yet to avoid flash
+      if (employees.length === 0) {
+        setLoading(true);
+      }
 
       // Add timeout to prevent infinite loading
       timeoutId = setTimeout(() => {
@@ -53,15 +67,12 @@ export default function EmployeeManagementScreen() {
 
       // Get provider info first
       const provider = await BookingService.getProviderById(user.id);
-      console.log('🔴 [EMPLOYEE MANAGEMENT] Provider found:', provider);
       if (!provider) {
         throw new Error('Provider not found');
       }
 
       // Load employees
-      console.log('🔴 [EMPLOYEE MANAGEMENT] Loading employees for provider:', provider.id);
       const employeeList = await BookingService.getProviderEmployees(provider.id);
-      console.log('🔴 [EMPLOYEE MANAGEMENT] Employees loaded:', employeeList);
       setEmployees(employeeList);
 
       log.info(LogCategory.DATABASE, 'Employees loaded', {
@@ -72,14 +83,7 @@ export default function EmployeeManagementScreen() {
       console.error('🔴 [EMPLOYEE MANAGEMENT] Error loading employees:', error);
       log.error(LogCategory.SERVICE, 'Error loading employees', error);
 
-      // More user-friendly error handling
-      if (Platform.OS === 'web') {
-        console.error('🔴 [EMPLOYEE MANAGEMENT] Full error details:', error);
-      }
-
       Alert.alert('Error', 'No se pudieron cargar los empleados. Verifica tu conexión.');
-
-      // Set empty array so UI doesn't break
       setEmployees([]);
     } finally {
       if (timeoutId !== undefined) {
@@ -109,17 +113,6 @@ export default function EmployeeManagementScreen() {
         phone: employee.phone || '',
         isOwner: employee.is_owner.toString(),
         isActive: employee.is_active.toString(),
-      }
-    });
-  };
-
-  const handleManageSchedule = (employee: Employee) => {
-    router.push({
-      pathname: '/(provider)/employee-schedule',
-      params: {
-        employeeId: employee.id,
-        employeeName: employee.name,
-        customScheduleEnabled: employee.custom_schedule_enabled.toString(),
       }
     });
   };
@@ -178,25 +171,42 @@ export default function EmployeeManagementScreen() {
     return refreshed;
   };
 
-  const handleShareInvite = async (employee: Employee) => {
+  const openInviteModal = async (employee: Employee, forceResend: boolean) => {
     try {
-      const invite = await ensureInviteDetails(employee);
-      const message = `Hola ${employee.name}, \nTe invitamos a unirte al equipo en AgendaVE.\n\nEnlace: ${invite.inviteUrl} \nCódigo: ${invite.inviteToken} `;
-      await Share.share({ message });
+      const invite = await ensureInviteDetails(employee, forceResend);
+      const provider = await BookingService.getProviderById(user?.id!); // Should be cached/available
+
+      setInviteData({
+        token: invite.inviteToken,
+        url: invite.inviteUrl,
+        employeeName: employee.name,
+        businessName: provider?.business_name || provider?.name || 'MiCita',
+      });
+      setShowInviteModal(true);
     } catch (error) {
-      console.error('Error sharing invite:', error);
-      Alert.alert('Error', 'No se pudo compartir la invitación.');
+      console.error('Error preparing invite:', error);
+      Alert.alert('Error', 'No se pudo generar la invitación.');
     }
   };
 
-  const handleResendInvite = async (employee: Employee) => {
-    try {
-      const invite = await ensureInviteDetails(employee, true);
-      Alert.alert('Invitación Reenviada', `Nuevo código: ${invite.inviteToken}\nExpira: ${new Date(invite.expiresAt).toLocaleString()}`);
-    } catch (error) {
-      console.error('Error resending invite:', error);
-      Alert.alert('Error', 'No se pudo reenviar la invitación.');
-    }
+  const handleShareInvite = (employee: Employee) => {
+    // Just share existing (or refresh if expired)
+    openInviteModal(employee, false);
+  };
+
+  const handleResendInvite = (employee: Employee) => {
+    // Force regeneration of token
+    Alert.alert(
+      'Reenviar Invitación',
+      '¿Quieres generar un nuevo código de invitación? El anterior dejará de funcionar.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Generar Nuevo',
+          onPress: () => openInviteModal(employee, true)
+        }
+      ]
+    );
   };
 
   const deleteEmployee = async (employee: Employee) => {
@@ -300,7 +310,7 @@ export default function EmployeeManagementScreen() {
                       </View>
                     </View>
 
-                    {!employee.profile_id && employee.invite_token ? (
+                    {!employee.profile_id ? (
                       <View style={styles.inviteContainer}>
                         <View style={styles.inviteInfoRow}>
                           <Text style={styles.inviteText}>
@@ -349,6 +359,17 @@ export default function EmployeeManagementScreen() {
               </View>
             )}
           </ScrollView>
+
+          {inviteData && (
+            <InviteCodeModal
+              visible={showInviteModal}
+              onClose={() => setShowInviteModal(false)}
+              inviteToken={inviteData.token}
+              inviteUrl={inviteData.url}
+              employeeName={inviteData.employeeName}
+              businessName={inviteData.businessName}
+            />
+          )}
         </>
       )}
     </TabSafeAreaView>

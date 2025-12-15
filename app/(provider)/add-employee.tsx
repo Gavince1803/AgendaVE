@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -17,11 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { InviteCodeModal } from '@/components/ui/InviteCodeModal';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
-import { EmailService } from '@/lib/email-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function AddEmployeeScreen() {
@@ -29,6 +28,15 @@ export default function AddEmployeeScreen() {
   const log = useLogger();
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // Invitation Modal State
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteData, setInviteData] = useState<{
+    token: string;
+    url: string;
+    employeeName: string;
+    businessName: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -51,9 +59,8 @@ export default function AddEmployeeScreen() {
       newErrors.position = 'El puesto es requerido';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'El email es requerido';
-    } else if (!formData.email.includes('@')) {
+    // Email is now optional, but if present, must be valid
+    if (formData.email.trim() && !formData.email.includes('@')) {
       newErrors.email = 'Email inválido';
     }
 
@@ -79,7 +86,7 @@ export default function AddEmployeeScreen() {
 
       const invite = await BookingService.inviteEmployee({
         name: formData.name.trim(),
-        email: formData.email.trim(),
+        email: formData.email.trim() || undefined,
         phone: formData.phone.trim() || undefined,
         position: formData.position.trim(),
         bio: formData.bio.trim(),
@@ -92,52 +99,17 @@ export default function AddEmployeeScreen() {
         inviteToken: invite.inviteToken,
       });
 
-      // Try to send email invitation
-      let emailSent = false;
-      if (formData.email.trim()) {
-        try {
-          await EmailService.sendEmployeeInvitation(
-            formData.email.trim(),
-            formData.name.trim(),
-            provider.business_name || provider.name,
-            invite.inviteUrl
-          );
-          emailSent = true;
-          console.log('✅ Email de invitación enviado exitosamente');
-        } catch (emailError) {
-          console.warn('⚠️ No se pudo enviar el email de invitación:', emailError);
-          emailSent = false;
-        }
-      }
+      // Prepare modal data
+      setInviteData({
+        token: invite.inviteToken,
+        url: invite.inviteUrl,
+        employeeName: formData.name.trim(),
+        businessName: provider.business_name || provider.name,
+      });
 
-      const inviteMessage = `Hola ${formData.name},\nTe invito a unirte al equipo ${provider.business_name || ''} en AgendaVE.\n\nEnlace: ${invite.inviteUrl}\nCódigo: ${invite.inviteToken}\n\nDescarga la app AgendaVE, inicia sesión o crea tu cuenta y usa el código para aceptar la invitación.`;
+      // Show the modal
+      setShowInviteModal(true);
 
-      const emailStatusMessage = emailSent
-        ? `✅ Email enviado a ${formData.email}\n\n`
-        : formData.email ? `⚠️ El email no pudo ser enviado. Comparte el enlace manualmente.\n\n` : '';
-
-      Alert.alert(
-        '✅ Empleado Agregado',
-        `${emailStatusMessage}Comparte este enlace con ${formData.name}:\n\n${invite.inviteUrl}\n\nCódigo: ${invite.inviteToken}`,
-        [
-          {
-            text: 'Compartir',
-            onPress: async () => {
-              try {
-                await Share.share({ message: inviteMessage });
-                router.back();
-              } catch (shareError) {
-                console.warn('Error sharing invite:', shareError);
-              }
-            }
-          },
-          {
-            text: 'Listo',
-            style: 'default',
-            onPress: () => router.back(),
-          }
-        ]
-      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo agregar el empleado';
       log.error(LogCategory.SERVICE, 'Error creating employee', error);
@@ -145,6 +117,11 @@ export default function AddEmployeeScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowInviteModal(false);
+    router.back();
   };
 
   const handleCancel = () => {
@@ -243,7 +220,7 @@ export default function AddEmployeeScreen() {
                 <Text style={styles.sectionTitle}>Información de Contacto</Text>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Email</Text>
+                  <Text style={styles.fieldLabel}>Email (Opcional)</Text>
                   <TextInput
                     style={[styles.textInput, errors.email ? styles.inputError : undefined]}
                     value={formData.email}
@@ -260,7 +237,7 @@ export default function AddEmployeeScreen() {
                 </View>
 
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Teléfono</Text>
+                  <Text style={styles.fieldLabel}>Teléfono (Opcional)</Text>
                   <TextInput
                     style={[styles.textInput, errors.phone ? styles.inputError : undefined]}
                     value={formData.phone}
@@ -284,8 +261,8 @@ export default function AddEmployeeScreen() {
                   <Text style={styles.infoTitle}>Información Importante</Text>
                   <Text style={styles.infoDescription}>
                     • Los campos marcados con * son obligatorios{'\n'}
-                    • El empleado recibirá un enlace para crear su cuenta{'\n'}
-                    • Puedes configurar horarios personalizados más tarde
+                    • Puedes compartir el código de invitación por WhatsApp{'\n'}
+                    • El email es opcional
                   </Text>
                 </View>
               </View>
@@ -316,6 +293,18 @@ export default function AddEmployeeScreen() {
             />
           </View>
         </View>
+
+        {/* Invitation Success Modal */}
+        {inviteData && (
+          <InviteCodeModal
+            visible={showInviteModal}
+            onClose={handleCloseModal}
+            inviteToken={inviteData.token}
+            inviteUrl={inviteData.url}
+            employeeName={inviteData.employeeName}
+            businessName={inviteData.businessName}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -444,3 +433,4 @@ const styles = StyleSheet.create({
     flex: 2,
   },
 });
+

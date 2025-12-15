@@ -286,6 +286,24 @@ export default function ProviderDetailScreen() {
     Alert.alert(highlight.title, highlight.description);
   };
 
+  const handleReportReview = (reviewId: string) => {
+    Alert.alert(
+      'Reportar Reseña',
+      '¿Desea reportar este contenido como ofensivo o inapropiado?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reportar',
+          style: 'destructive',
+          onPress: () => {
+            // In a real app we would send this to backend
+            Alert.alert('Gracias', 'Hemos recibido tu reporte. Revisaremos el contenido en breve.');
+          }
+        }
+      ]
+    );
+  };
+
   const renderStars = (rating: number) => {
     const stars = [];
     const fullStars = Math.floor(rating);
