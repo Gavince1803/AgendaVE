@@ -106,7 +106,7 @@ export interface EmployeeAvailability {
 
 export interface Appointment {
   id: string;
-  client_id: string;
+  client_id: string | null;
   provider_id: string;
   service_id: string;
   employee_id?: string;
@@ -136,6 +136,9 @@ export interface Appointment {
     full_name?: string;
     phone?: string;
   };
+  // Manual Booking Fields
+  client_name?: string;
+  client_phone?: string;
 }
 
 export interface Review {
@@ -1905,6 +1908,82 @@ export class BookingService {
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
+      throw error;
+    }
+  }
+
+  // 📍 Crear una cita manual (Bloqueo de horario)
+  // Permite a los proveedores reservar slots sin un cliente registrado
+  static async createManualAppointment(
+    providerId: string,
+    serviceId: string,
+    appointmentDate: string,
+    appointmentTime: string,
+    employeeId: string | undefined,
+    clientName: string,
+    notes: string,
+    clientPhone?: string
+  ): Promise<Appointment> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      // Validamos disponibilidad igual que una cita normal
+      const validation = await this.validateAppointmentSlot({
+        providerId,
+        serviceId,
+        appointmentDate,
+        appointmentTime,
+        employeeId,
+      });
+
+      if (!validation.ok) {
+        throw new Error(validation.message || 'Este horario ya no está disponible.');
+      }
+
+      // Crear timestamp combinando fecha y hora
+      const startTimestamp = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
+
+      // Obtener duración del servicio
+      const { data: serviceData } = await supabase
+        .from('services')
+        .select('duration_minutes, name')
+        .eq('id', serviceId)
+        .single();
+
+      const durationMinutes = serviceData?.duration_minutes || 30;
+      const endTimestamp = new Date(new Date(startTimestamp).getTime() + durationMinutes * 60000).toISOString();
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert({
+          client_id: null, // Importante: Sin cliente registrado
+          provider_id: providerId,
+          service_id: serviceId,
+          employee_id: employeeId || null,
+          appointment_date: appointmentDate,
+          appointment_time: appointmentTime,
+          start_ts: startTimestamp,
+          end_ts: endTimestamp,
+          status: 'confirmed', // Las manuales nacen confirmadas
+          payment_status: 'pending',
+          notes: notes.trim(),
+          client_name: clientName,
+          client_phone: clientPhone
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ [BOOKING SERVICE] Manual appointment created:', data.id);
+
+      // Haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      return data;
+    } catch (error) {
+      console.error('Error creating manual appointment:', error);
       throw error;
     }
   }

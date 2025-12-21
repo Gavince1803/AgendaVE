@@ -36,6 +36,20 @@ export default function BookingLayout() {
           headerBackTitle: 'Atrás',
         }}
       />
+      <Stack.Screen
+        name="time-selection"
+        options={{
+          title: 'Seleccionar Hora',
+          headerBackTitle: 'Atrás',
+        }}
+      />
+      <Stack.Screen
+        name="reviews"
+        options={{
+          title: 'Reseñas',
+          headerBackTitle: 'Atrás',
+        }}
+      />
     </Stack>
   );
 }

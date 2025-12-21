@@ -7,8 +7,10 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
-  View
+  View,
+  type TextStyle,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';

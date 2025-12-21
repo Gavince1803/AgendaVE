@@ -200,13 +200,7 @@ export function Calendar({
               key={index}
               style={[
                 styles.dayButton,
-                !day.isCurrentMonth && styles.dayButtonInactive,
-                day.isPast && styles.dayButtonPast,
-                // Unavailable days (greyed out)
-                day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayButtonUnavailable,
-                day.isSelected && styles.dayButtonSelected,
-                // Circular border if today but not selected
-                day.isToday && !day.isSelected && styles.dayButtonTodayBorder,
+                // Only keep layout styles on the touchable
               ]}
               onPress={() => {
                 if (day.isCurrentMonth && !day.isPast && (day.isAvailable || availableDates.length === 0)) {
@@ -215,24 +209,39 @@ export function Calendar({
               }}
               disabled={!day.isCurrentMonth || day.isPast || (availableDates.length > 0 && !day.isAvailable)}
             >
-              <Text
-                style={[
-                  styles.dayText,
-                  !day.isCurrentMonth && styles.dayTextInactive,
-                  day.isPast && styles.dayTextPast,
-                  // Unavailable text (greyed out)
-                  day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayTextUnavailable,
-                  day.isToday && styles.dayTextToday,
-                  day.isSelected && styles.dayTextSelected,
-                ]}
-              >
-                {day.date}
-              </Text>
+              <View style={[
+                styles.dayInnerCircle,
+                !day.isCurrentMonth && styles.dayButtonInactive,
+                day.isPast && styles.dayButtonPast,
+                // Unavailable days (greyed out)
+                day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayButtonUnavailable,
+                day.isSelected && styles.dayButtonSelected,
+                // Circular border if today but not selected
+                day.isToday && !day.isSelected && styles.dayButtonTodayBorder,
+              ]}>
+                <Text
+                  style={[
+                    styles.dayText,
+                    !day.isCurrentMonth && styles.dayTextInactive,
+                    day.isPast && styles.dayTextPast,
+                    // Unavailable text (greyed out)
+                    day.isCurrentMonth && !day.isPast && availableDates.length > 0 && !day.isAvailable && styles.dayTextUnavailable,
+                    day.isToday && styles.dayTextToday,
+                    day.isSelected && styles.dayTextSelected,
+                  ]}
+                >
+                  {day.date}
+                </Text>
 
-              {/* Availability Indicator (Small Bar) */}
-              {day.isCurrentMonth && !day.isPast && day.slots > 0 && (
-                <View style={[styles.availabilityIndicator, { backgroundColor: indicatorColor }]} />
-              )}
+                {/* Availability Indicator (Small Bar) */}
+                {day.isCurrentMonth && !day.isPast && day.slots > 0 && (
+                  <View style={[
+                    styles.availabilityIndicator,
+                    { backgroundColor: indicatorColor },
+                    day.isSelected && styles.availabilityIndicatorSelected
+                  ]} />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -315,9 +324,15 @@ const styles = StyleSheet.create({
     height: 48, // Increased height for indicator
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
     marginVertical: 2,
-    borderRadius: 24, // Circular touch target
+  },
+  dayInnerCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
   dayButtonUnavailable: {
     opacity: 0.3,
@@ -333,13 +348,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary + '15', // Light background for selection
     borderWidth: 2,
     borderColor: Colors.light.primary,
-    borderRadius: 24, // Circle
+    borderRadius: 20, // Match inner circle radius
     opacity: 1, // Encode opacity to override unavailable style
   },
   dayButtonTodayBorder: {
     borderWidth: 1,
     borderColor: Colors.light.primary,
-    borderRadius: 24,
+    borderRadius: 20, // Match inner circle radius
     opacity: 1,
   },
   dayText: {
@@ -366,10 +381,13 @@ const styles = StyleSheet.create({
   },
   availabilityIndicator: {
     position: 'absolute',
-    bottom: 6,
-    width: 12, // Small bar width
-    height: 3, // Bar height
-    borderRadius: 1.5,
+    bottom: 2, // Adjusted for inner circle
+    width: 4, // Small dot
+    height: 4, // Small dot
+    borderRadius: 2, // Circular dot
+  },
+  availabilityIndicatorSelected: {
+    backgroundColor: Colors.light.primary, // Force specific color if needed
   },
   legendContainer: {
     flexDirection: 'row',

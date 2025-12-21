@@ -200,7 +200,7 @@ export default function AppointmentsScreen() {
         </View>
         <View style={styles.clientInfo}>
           <ThemedText style={styles.clientName}>
-            {(appointment as any).profiles?.display_name || 'Cliente'}
+            {(appointment as any).profiles?.display_name || appointment.client_name || 'Cliente sin nombre'}
           </ThemedText>
           <ThemedText style={styles.serviceName}>
             {appointment.service?.name || appointment.services?.name || 'Servicio'}
@@ -244,11 +244,14 @@ export default function AppointmentsScreen() {
         </View>
       </View>
 
+      {/* Contact Info (Profile or Manual) */}
       {
-        (appointment as any).profiles?.phone && (
+        ((appointment as any).profiles?.phone || appointment.client_phone) && (
           <View style={styles.contactInfo}>
             <IconSymbol name="phone" size={16} color={Colors.light.textSecondary} />
-            <ThemedText style={styles.phoneText}>{(appointment as any).profiles.phone}</ThemedText>
+            <ThemedText style={styles.phoneText}>
+              {(appointment as any).profiles?.phone || appointment.client_phone}
+            </ThemedText>
           </View>
         )
       }
@@ -284,24 +287,29 @@ export default function AppointmentsScreen() {
       }
 
       {
-        appointment.status === 'confirmed' && (
+        (appointment.status === 'confirmed' || appointment.status === 'done') && (
           <View style={styles.appointmentActions}>
-            <Button
-              title="Completar"
-              variant="primary"
-              size="small"
-              onPress={() => handleAppointmentAction(appointment, 'complete')}
-              style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-            />
+            {appointment.status === 'confirmed' && (
+              <Button
+                title="Completar"
+                variant="primary"
+                size="small"
+                onPress={() => handleAppointmentAction(appointment, 'complete')}
+                style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+              />
+            )}
+
             <Button
               title="Recordar"
               variant="outline"
               size="small"
               icon={<IconSymbol name="message" size={16} color={Colors.light.primary} />}
               onPress={() => {
-                const phone = (appointment as any).profiles?.phone;
+                const phone = (appointment as any).profiles?.phone || appointment.client_phone;
+                const name = (appointment as any).profiles?.full_name || appointment.client_name || 'Cliente';
+
                 if (phone) {
-                  const message = `Hola ${(appointment as any).profiles?.full_name || 'Cliente'}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
+                  const message = `Hola ${name}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
                   const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
                   Linking.openURL(url).catch(() => {
                     Alert.alert('Error', 'No se pudo abrir WhatsApp');

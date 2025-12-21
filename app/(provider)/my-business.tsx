@@ -256,6 +256,24 @@ export default function MyBusinessScreen() {
             </ThemedText>
           </ThemedView>
 
+          {/* Acciones Rápidas */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Acciones Rápidas
+              </ThemedText>
+            </View>
+            <Button
+              title="Bloquear Hora / Agendar Manualmente"
+              variant="primary"
+              onPress={() => {
+                log.userAction('Navigate to Manual Booking', { providerId: user?.id });
+                router.push('/(provider)/manual-booking');
+              }}
+              leftIcon={<IconSymbol name="calendar.badge.plus" size={18} color="#fff" />}
+            />
+          </Card>
+
           {/* Información del Negocio */}
           <Card variant="elevated" style={styles.section}>
             <View style={styles.sectionHeader}>
