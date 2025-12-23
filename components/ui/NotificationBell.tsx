@@ -25,13 +25,13 @@ export function NotificationBell() {
             .on(
                 'postgres_changes',
                 {
-                    event: 'INSERT', // Listen specifically for INSERTs first
+                    event: '*', // Listen for INSERT, UPDATE, DELETE
                     schema: 'public',
                     table: 'notifications',
-                    filter: `user_id=eq.${user.id}`,
+                    // filter: `user_id=eq.${user.id}`, // Filter removed for debugging
                 },
                 (payload) => {
-                    console.log('🔔 [BELL] Realtime INSERT received:', payload);
+                    console.log('🔔 [BELL] Realtime EVENT received:', payload);
                     fetchUnreadCount();
                 }
             )
