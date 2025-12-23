@@ -254,6 +254,7 @@ export default function MyBusinessScreen() {
             <ThemedText type="title" style={styles.title}>
               Mi Negocio
             </ThemedText>
+            <NotificationBell />
           </ThemedView>
 
           {/* Acciones Rápidas */}

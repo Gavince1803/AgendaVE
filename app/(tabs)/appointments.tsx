@@ -348,9 +348,12 @@ export default function AppointmentsScreen() {
     <TabSafeAreaView style={styles.container}>
       {/* Header */}
       <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Mis Citas
-        </ThemedText>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <ThemedText type="title" style={styles.title}>
+            Mis Citas
+          </ThemedText>
+          <NotificationBell />
+        </View>
         <ThemedText style={styles.subtitle}>
           Gestiona las citas de tus clientes
         </ThemedText>

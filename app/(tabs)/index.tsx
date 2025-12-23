@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -21,6 +22,7 @@ import {
   Text,
   View
 } from 'react-native';
+
 
 const formatCurrency = (amount: number, currency?: string) => {
   const safeCurrency = currency || 'USD';
@@ -154,9 +156,7 @@ function ClientHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header con saludo personalizado */}
-        <View style={styles.header}>
-
-
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           {/* Botón de búsqueda rápida */}
           <Button
             title="Buscar servicios"
@@ -170,6 +170,7 @@ function ClientHomeScreen() {
             }}
             style={styles.searchButton}
           />
+          <NotificationBell />
         </View>
 
         {/* Categorías populares */}
@@ -541,7 +542,7 @@ function ProviderHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <View style={styles.welcomeSection}>
             <ThemedText type="title" style={styles.welcomeText}>
               Dashboard 📊
@@ -551,18 +552,21 @@ function ProviderHomeScreen() {
             </ThemedText>
           </View>
 
-          {/* Botón de Mi Negocio */}
-          <Button
-            title="Mi Negocio"
-            variant="outline"
-            size="medium"
-            icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
-            onPress={() => {
-              log.userAction('Navigate to my business', { screen: 'ProviderHome' });
-              router.push('/(provider)/my-business');
-            }}
-            style={styles.searchButton}
-          />
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <NotificationBell />
+            {/* Botón de Mi Negocio */}
+            <Button
+              title="Mi Negocio"
+              variant="outline"
+              size="medium"
+              icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
+              onPress={() => {
+                log.userAction('Navigate to my business', { screen: 'ProviderHome' });
+                router.push('/(provider)/my-business');
+              }}
+              style={styles.searchButton}
+            />
+          </View>
         </View>
 
 

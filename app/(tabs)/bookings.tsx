@@ -9,6 +9,7 @@ import {
   EmptyState,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, ComponentColors } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';
@@ -384,9 +385,12 @@ export default function BookingsScreen() {
     <TabSafeAreaView style={styles.container}>
       {/* Header */}
       <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Mis Citas
-        </ThemedText>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <ThemedText type="title" style={styles.title}>
+            Mis Citas
+          </ThemedText>
+          <NotificationBell />
+        </View>
       </ThemedView>
 
       {/* Tabs */}

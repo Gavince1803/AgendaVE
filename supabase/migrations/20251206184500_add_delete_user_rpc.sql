@@ -16,3 +16,4 @@ BEGIN
   DELETE FROM auth.users WHERE id = auth.uid();
 END;
 $$;
+ 

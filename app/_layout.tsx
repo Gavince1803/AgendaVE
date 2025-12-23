@@ -12,6 +12,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
+import { GlobalAlertProvider } from '@/contexts/GlobalAlertContext';
 import { TextScaleProvider } from '@/contexts/TextScaleContext';
 import { useNotificationRouting } from '@/hooks/useNotificationRouting';
 import { DesignSystemProvider } from '@/theme';
@@ -32,24 +33,26 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <DesignSystemProvider>
-          <TextScaleProvider>
-            <NavigationThemeProvider value={DefaultTheme}>
-              {/** Deep link handling for notification taps */}
-              {loaded && <NotificationRouter />}
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="(booking)" />
-                <Stack.Screen name="(onboarding)" />
-                <Stack.Screen name="(provider)" />
-                <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación', headerShown: true }} />
-                <Stack.Screen name="+not-found" options={{ title: 'Oops!', headerShown: true }} />
-              </Stack>
-              <StatusBar style="light" />
-            </NavigationThemeProvider>
-          </TextScaleProvider>
-        </DesignSystemProvider>
+        <GlobalAlertProvider>
+          <DesignSystemProvider>
+            <TextScaleProvider>
+              <NavigationThemeProvider value={DefaultTheme}>
+                {/** Deep link handling for notification taps */}
+                {loaded && <NotificationRouter />}
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="(booking)" />
+                  <Stack.Screen name="(onboarding)" />
+                  <Stack.Screen name="(provider)" />
+                  <Stack.Screen name="accept-invite" options={{ title: 'Aceptar invitación', headerShown: true }} />
+                  <Stack.Screen name="+not-found" options={{ title: 'Oops!', headerShown: true }} />
+                </Stack>
+                <StatusBar style="light" />
+              </NavigationThemeProvider>
+            </TextScaleProvider>
+          </DesignSystemProvider>
+        </GlobalAlertProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

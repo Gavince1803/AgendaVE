@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -21,11 +20,13 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { TimeSlots } from '@/components/ui/TimeSlots';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, Service } from '@/lib/booking-service';
 import { useLogger } from '@/lib/logger';
 
 export default function ManualBookingScreen() {
     const { user } = useAuth();
+    const { showAlert } = useAlert();
     const log = useLogger();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -80,7 +81,7 @@ export default function ManualBookingScreen() {
             const provider = await BookingService.getProviderById(user.id);
 
             if (!provider) {
-                Alert.alert('Error', 'No se encontró el perfil de proveedor');
+                showAlert('Error', 'No se encontró el perfil de proveedor');
                 return;
             }
 
@@ -97,7 +98,7 @@ export default function ManualBookingScreen() {
             }
         } catch (error) {
             console.error('Error loading provider data:', error);
-            Alert.alert('Error', 'No se pudieron cargar los datos');
+            showAlert('Error', 'No se pudieron cargar los datos');
         } finally {
             setLoading(false);
         }
@@ -151,7 +152,7 @@ export default function ManualBookingScreen() {
             }
         } catch (error) {
             console.error('Error loading slots:', error);
-            Alert.alert('Error', 'No se pudieron cargar los horarios disponibles');
+            showAlert('Error', 'No se pudieron cargar los horarios disponibles');
         } finally {
             setLoadingSlots(false);
         }
@@ -159,7 +160,7 @@ export default function ManualBookingScreen() {
 
     const handleCreateBooking = async () => {
         if (!providerId || !selectedService || !selectedTime) {
-            Alert.alert('Error', 'Por favor completa todos los campos requeridos');
+            showAlert('Error', 'Por favor completa todos los campos requeridos');
             return;
         }
 
@@ -184,10 +185,10 @@ export default function ManualBookingScreen() {
             });
 
             if (Platform.OS === 'web') {
-                window.alert('Horario reservado exitosamente.');
+                showAlert('Horario reservado exitosamente.');
                 router.back();
             } else {
-                Alert.alert(
+                showAlert(
                     '✅ Horario Bloqueado',
                     'La cita manual ha sido creada y el horario reservado exitosamente.',
                     [
@@ -201,7 +202,7 @@ export default function ManualBookingScreen() {
 
         } catch (error) {
             console.error('Error creating manual booking:', error);
-            Alert.alert('Error', 'No se pudo crear la reserva manual. Intenta nuevamente.');
+            showAlert('Error', 'No se pudo crear la reserva manual. Intenta nuevamente.');
         } finally {
             setSubmitting(false);
         }

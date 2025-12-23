@@ -571,6 +571,7 @@ export default function ProfileScreen() {
             }}
             style={styles.signOutButton}
           />
+
         </View>
       </ScrollView>
 

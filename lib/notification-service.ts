@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
@@ -140,7 +141,7 @@ export class NotificationService {
       let token;
       try {
         token = (await Notifications.getExpoPushTokenAsync({
-          projectId: Constants.expoConfig.extra.eas.projectId,
+          projectId: Constants.expoConfig?.extra?.eas?.projectId,
         })).data;
       } catch (e) {
         // Ignore error, maybe permissions revoked
@@ -206,8 +207,29 @@ export class NotificationService {
     notification: NotificationData
   ): Promise<void> {
     try {
-      console.log('📤 [NOTIFICATION SERVICE] Sending push notification to user:', userId);
-      console.log('📤 [NOTIFICATION SERVICE] Notification:', notification);
+      console.log('📤 [NOTIFICATION SERVICE] Processing notification for user:', userId);
+
+      // 1. Insert into Database (In-App Notification)
+      const { error: dbError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          title: notification.title,
+          body: notification.body,
+          data: notification.data,
+          is_read: false
+        });
+
+      if (dbError) {
+        console.error('❌ [NOTIFICATION SERVICE] DB Insert Error:', dbError);
+      } else {
+        console.log('✅ [NOTIFICATION SERVICE] Saved to DB');
+      }
+
+      // 2. Send Push Notification (Mobile Only)
+      if (Platform.OS === 'web') {
+        return; // Web doesn't support Expo Push yet
+      }
 
       // Obtener tokens del usuario
       const { data: tokens, error } = await supabase
@@ -222,12 +244,9 @@ export class NotificationService {
       }
 
       if (!tokens || tokens.length === 0) {
-        console.warn('⚠️ [NOTIFICATION SERVICE] No active tokens found for user:', userId);
-        console.warn('⚠️ [NOTIFICATION SERVICE] User may need to register their device token');
+        // console.warn('⚠️ [NOTIFICATION SERVICE] No active tokens found per specific user');
         return;
       }
-
-      console.log('✅ [NOTIFICATION SERVICE] Found', tokens.length, 'active token(s) for user');
 
       // Enviar notificación a todos los tokens del usuario
       const messages = tokens.map(tokenData => ({
@@ -252,10 +271,6 @@ export class NotificationService {
       if (!response.ok) {
         throw new Error(`Push notification failed: ${response.status}`);
       }
-
-      const result = await response.json();
-      console.log('Push notifications sent:', result);
-
     } catch (error) {
       console.error('Error sending push notification:', error);
     }

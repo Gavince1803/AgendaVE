@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.gavince1803.AgendaVE",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +23,14 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gavince1803.AgendaVE",
-      "usesCleartextTraffic": false
+      "usesCleartextTraffic": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -57,6 +65,9 @@
       "eas": {
         "projectId": "69bc4e64-1cfc-420b-ad61-eb8d3df07f03"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/69bc4e64-1cfc-420b-ad61-eb8d3df07f03"
     }
   }
 }
