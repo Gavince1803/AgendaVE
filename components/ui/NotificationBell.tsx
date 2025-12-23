@@ -17,24 +17,33 @@ export function NotificationBell() {
         // Initial fetch
         fetchUnreadCount();
 
+
         // Subscribe to changes
+        console.log('🔔 [BELL] Attempting to subscribe to notifications for user:', user.id);
         const channel = supabase
             .channel('notification_count')
             .on(
                 'postgres_changes',
                 {
-                    event: '*',
+                    event: 'INSERT', // Listen specifically for INSERTs first
                     schema: 'public',
                     table: 'notifications',
                     filter: `user_id=eq.${user.id}`,
                 },
-                () => {
+                (payload) => {
+                    console.log('🔔 [BELL] Realtime INSERT received:', payload);
                     fetchUnreadCount();
                 }
             )
-            .subscribe();
+            .subscribe((status, err) => {
+                console.log(`🔔 [BELL] Subscription status: ${status}`, err ? err : '');
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ [BELL] Successfully subscribed to realtime events');
+                }
+            });
 
         return () => {
+            console.log('🔔 [BELL] Cleaning up subscription');
             supabase.removeChannel(channel);
         };
     }, [user]);

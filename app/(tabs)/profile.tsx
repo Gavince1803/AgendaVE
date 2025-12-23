@@ -15,8 +15,11 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { useAlert } from '@/contexts/GlobalAlertContext';
+
 export default function ProfileScreen() {
   const { user, signOut, activeRole, setActiveRole, employeeProfile, refreshUser } = useAuth();
+  const { showAlert } = useAlert();
   const { isLargeText, toggleLargeText } = useTextScale();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -59,8 +62,8 @@ export default function ProfileScreen() {
 
     console.log('🔴 [PROFILE] Mostrando confirmación...');
 
-    // Use React Native Alert for mobile compatibility
-    Alert.alert(
+    // Use showAlert instead of Alert.alert for web compatibility
+    showAlert(
       'Cerrar Sesión',
       '¿Estás seguro de que quieres cerrar sesión?',
       [
@@ -567,7 +570,21 @@ export default function ProfileScreen() {
             icon={!isSigningOut ? <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={Colors.light.error} /> : undefined}
             onPress={() => {
               console.log('🔴 [PROFILE] Botón Cerrar Sesión presionado');
-              handleSignOut();
+              // Use showAlert instead of Alert.alert for web compatibility
+              showAlert(
+                "Cerrar Sesión",
+                "¿Estás seguro que deseas cerrar sesión?",
+                [
+                  { text: "Cancelar", style: "cancel" },
+                  {
+                    text: "Cerrar Sesión",
+                    style: "destructive",
+                    onPress: async () => {
+                      handleSignOut();
+                    }
+                  }
+                ]
+              );
             }}
             style={styles.signOutButton}
           />

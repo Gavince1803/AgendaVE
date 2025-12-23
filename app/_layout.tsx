@@ -33,9 +33,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <GlobalAlertProvider>
-          <DesignSystemProvider>
-            <TextScaleProvider>
+        <TextScaleProvider>
+          <GlobalAlertProvider>
+            <DesignSystemProvider>
               <NavigationThemeProvider value={DefaultTheme}>
                 {/** Deep link handling for notification taps */}
                 {loaded && <NotificationRouter />}
@@ -50,9 +50,9 @@ export default function RootLayout() {
                 </Stack>
                 <StatusBar style="light" />
               </NavigationThemeProvider>
-            </TextScaleProvider>
-          </DesignSystemProvider>
-        </GlobalAlertProvider>
+            </DesignSystemProvider>
+          </GlobalAlertProvider>
+        </TextScaleProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
