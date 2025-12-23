@@ -14,37 +14,35 @@ export function NotificationBell() {
     useEffect(() => {
         if (!user) return;
 
-        // Initial fetch
-        fetchUnreadCount();
-
-
-        // Subscribe to changes
-        console.log('🔔 [BELL] Attempting to subscribe to notifications for user:', user.id);
+        // Subscribe to Realtime (Push)
         const channel = supabase
             .channel('notification_count')
             .on(
                 'postgres_changes',
                 {
-                    event: '*', // Listen for INSERT, UPDATE, DELETE
+                    event: '*',
                     schema: 'public',
                     table: 'notifications',
-                    // filter: `user_id=eq.${user.id}`, // Filter removed for debugging
                 },
-                (payload) => {
-                    console.log('🔔 [BELL] Realtime EVENT received:', payload);
+                () => {
                     fetchUnreadCount();
                 }
             )
-            .subscribe((status, err) => {
-                console.log(`🔔 [BELL] Subscription status: ${status}`, err ? err : '');
+            .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('✅ [BELL] Successfully subscribed to realtime events');
+                    console.log('✅ [BELL] Realtime connected');
                 }
             });
 
+        // 🛡️ Backup: Polling (Pull) every 15 seconds
+        // Ensures notification appears even if Realtime socket drops or is blocked
+        const intervalId = setInterval(() => {
+            fetchUnreadCount();
+        }, 15000);
+
         return () => {
-            console.log('🔔 [BELL] Cleaning up subscription');
             supabase.removeChannel(channel);
+            clearInterval(intervalId);
         };
     }, [user]);
 
