@@ -10,13 +10,13 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+
+import { useAlert } from '@/contexts/GlobalAlertContext';
 
 export default function EmployeeManagementScreen() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -33,6 +33,7 @@ export default function EmployeeManagementScreen() {
   } | null>(null);
 
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const inviteBaseUrl = process.env.EXPO_PUBLIC_EMPLOYEE_INVITE_URL ?? 'https://agendave.app/invite';
 
@@ -83,7 +84,7 @@ export default function EmployeeManagementScreen() {
       console.error('🔴 [EMPLOYEE MANAGEMENT] Error loading employees:', error);
       log.error(LogCategory.SERVICE, 'Error loading employees', error);
 
-      Alert.alert('Error', 'No se pudieron cargar los empleados. Verifica tu conexión.');
+      showAlert('Error', 'No se pudieron cargar los empleados. Verifica tu conexión.');
       setEmployees([]);
     } finally {
       if (timeoutId !== undefined) {
@@ -119,27 +120,20 @@ export default function EmployeeManagementScreen() {
 
   const handleDeleteEmployee = async (employee: Employee) => {
     if (employee.is_owner) {
-      Alert.alert('Error', 'No puedes eliminar al propietario del negocio');
+      showAlert('Error', 'No puedes eliminar al propietario del negocio');
       return;
     }
 
     const confirmMessage = `¿Estás seguro de que quieres eliminar a ${employee.name}? Esta acción no se puede deshacer.`;
 
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(confirmMessage);
-      if (confirmed) {
-        await deleteEmployee(employee);
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Eliminación',
-        confirmMessage,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: () => deleteEmployee(employee) }
-        ]
-      );
-    }
+    showAlert(
+      'Confirmar Eliminación',
+      confirmMessage,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => deleteEmployee(employee) }
+      ]
+    );
   };
 
   const ensureInviteDetails = async (employee: Employee, forceResend = false) => {
@@ -185,7 +179,7 @@ export default function EmployeeManagementScreen() {
       setShowInviteModal(true);
     } catch (error) {
       console.error('Error preparing invite:', error);
-      Alert.alert('Error', 'No se pudo generar la invitación.');
+      showAlert('Error', 'No se pudo generar la invitación.');
     }
   };
 
@@ -196,7 +190,7 @@ export default function EmployeeManagementScreen() {
 
   const handleResendInvite = (employee: Employee) => {
     // Force regeneration of token
-    Alert.alert(
+    showAlert(
       'Reenviar Invitación',
       '¿Quieres generar un nuevo código de invitación? El anterior dejará de funcionar.',
       [
@@ -220,10 +214,10 @@ export default function EmployeeManagementScreen() {
 
       setEmployees(prev => prev.filter(e => e.id !== employee.id));
 
-      Alert.alert('Éxito', `${employee.name} ha sido eliminado correctamente`);
+      showAlert('Éxito', `${employee.name} ha sido eliminado correctamente`);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error deleting employee', error);
-      Alert.alert('Error', 'No se pudo eliminar el empleado');
+      showAlert('Error', 'No se pudo eliminar el empleado');
     }
   };
 

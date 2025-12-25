@@ -13,12 +13,11 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Switch,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 interface SettingsFormState {
@@ -35,6 +34,7 @@ const REMINDER_PRESETS = [30, 60, 120, 180, 1440];
 
 export default function ProviderSettingsScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger(user?.id);
 
   const [loading, setLoading] = useState(true);
@@ -83,7 +83,7 @@ export default function ProviderSettingsScreen() {
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading scheduling settings', error);
-      Alert.alert('Error', 'No se pudieron cargar los ajustes del proveedor.');
+      showAlert('Error', 'No se pudieron cargar los ajustes del proveedor.');
     } finally {
       setLoading(false);
     }
@@ -130,11 +130,11 @@ export default function ProviderSettingsScreen() {
 
       await BookingService.saveProviderSchedulingSettings(user.id, payload);
 
-      Alert.alert('Ajustes guardados', 'Tus preferencias han sido actualizadas correctamente.');
+      showAlert('Ajustes guardados', 'Tus preferencias han sido actualizadas correctamente.');
       log.info(LogCategory.SERVICE, 'Scheduling settings saved', payload);
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving scheduling settings', error);
-      Alert.alert('Error', 'No se pudieron guardar los ajustes. Revisa tu conexión e inténtalo nuevamente.');
+      showAlert('Error', 'No se pudieron guardar los ajustes. Revisa tu conexión e inténtalo nuevamente.');
     } finally {
       setSaving(false);
     }

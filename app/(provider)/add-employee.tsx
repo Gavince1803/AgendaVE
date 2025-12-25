@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,7 +8,7 @@ import {
   Text,
   TextInput,
   View,
-  type TextStyle,
+  type TextStyle
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,11 +19,13 @@ import { InviteCodeModal } from '@/components/ui/InviteCodeModal';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function AddEmployeeScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();
@@ -71,7 +72,7 @@ export default function AddEmployeeScreen() {
   const handleSave = async () => {
     if (!validateForm()) return;
     if (!user?.id) {
-      Alert.alert('Error', 'Usuario no válido');
+      showAlert('Error', 'Usuario no válido');
       return;
     }
 
@@ -113,7 +114,7 @@ export default function AddEmployeeScreen() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo agregar el empleado';
       log.error(LogCategory.SERVICE, 'Error creating employee', error);
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setSaving(false);
     }
@@ -126,7 +127,7 @@ export default function AddEmployeeScreen() {
 
   const handleCancel = () => {
     if (formData.name || formData.position || formData.bio) {
-      Alert.alert(
+      showAlert(
         'Descartar Cambios',
         '¿Estás seguro de que quieres descartar los cambios?',
         [

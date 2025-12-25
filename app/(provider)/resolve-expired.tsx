@@ -11,7 +11,6 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
     Modal,
     ScrollView,
     StyleSheet,
@@ -26,6 +25,7 @@ export default function ResolveExpiredScreen() {
     const [paymentModalVisible, setPaymentModalVisible] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const { user, employeeProfile } = useAuth();
+    const { showAlert } = useAlert();
     const log = useLogger(user?.id);
     const router = useRouter();
 
@@ -70,10 +70,10 @@ export default function ResolveExpiredScreen() {
             // Remove from list
             setAppointments(prev => prev.filter(a => a.id !== appointment.id));
 
-            Alert.alert('Éxito', `Cita marcada como ${status === 'done' ? 'Realizada' : status === 'no_show' ? 'No Show' : 'Cancelada'}`);
+            showAlert('Éxito', `Cita marcada como ${status === 'done' ? 'Realizada' : status === 'no_show' ? 'No Show' : 'Cancelada'}`);
         } catch (error) {
             log.error(LogCategory.SERVICE, 'Error resolving appointment', error);
-            Alert.alert('Error', 'No se pudo actualizar la cita');
+            showAlert('Error', 'No se pudo actualizar la cita');
         } finally {
             setProcessingId(null);
         }
@@ -92,10 +92,10 @@ export default function ResolveExpiredScreen() {
             // Remove from list (since it's now done and paid, it's no longer "expired pending")
             setAppointments(prev => prev.filter(a => a.id !== appointment.id));
 
-            Alert.alert('Éxito', 'Pago registrado y cita completada');
+            showAlert('Éxito', 'Pago registrado y cita completada');
         } catch (error) {
             log.error(LogCategory.SERVICE, 'Error updating payment', error);
-            Alert.alert('Error', 'No se pudo registrar el pago');
+            showAlert('Error', 'No se pudo registrar el pago');
         } finally {
             setProcessingId(null);
         }

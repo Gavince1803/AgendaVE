@@ -6,13 +6,13 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { FavoritesSkeleton } from '@/components/ui/LoadingStates';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -24,6 +24,7 @@ export default function FavoritesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [favoriteProviders, setFavoriteProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showAlert } = useAlert();
   const log = useLogger();
 
   useEffect(() => {
@@ -73,15 +74,15 @@ export default function FavoritesScreen() {
             prevFavorites.filter(fav => fav.id !== provider.id)
           );
 
-          Alert.alert('Removido de Favoritos', `${provider.business_name} ha sido removido de tus favoritos`);
+          showAlert('Removido de Favoritos', `${provider.business_name} ha sido removido de tus favoritos`);
         } catch (error) {
           console.error('🔴 [FAVORITES] Error removing provider from favorites:', error);
           const errorMsg = 'No se pudo remover de favoritos';
-          Alert.alert('Error', errorMsg);
+          showAlert('Error', errorMsg);
         }
       };
 
-      Alert.alert(
+      showAlert(
         'Remover de Favoritos',
         `¿Estás seguro de que quieres remover ${provider.business_name} de tus favoritos?`,
         [
@@ -99,7 +100,7 @@ export default function FavoritesScreen() {
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error removing from favorites', error);
       const errorMsg = 'No se pudo remover de favoritos';
-      Alert.alert('Error', errorMsg);
+      showAlert('Error', errorMsg);
     }
   };
 

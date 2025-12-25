@@ -9,10 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   Platform,
   StyleSheet,
-  View,
+  View
 } from 'react-native';
 
 type OwnerField =
@@ -41,6 +40,7 @@ export default function RegisterOwnerScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<OwnerErrors>({});
   const { signUp } = useAuth();
+  const { showAlert } = useAlert();
 
   const validateFields = () => {
     const nextErrors: OwnerErrors = {};
@@ -91,7 +91,7 @@ export default function RegisterOwnerScreen() {
       }, cedula);
 
       // Mostrar mensaje de éxito con información sobre confirmación de email
-      Alert.alert(
+      showAlert(
         '¡Negocio registrado exitosamente! 🎉',
         'Tu cuenta de negocio ha sido creada correctamente. Inicia sesión para configurar tu perfil.',
         [
@@ -106,7 +106,7 @@ export default function RegisterOwnerScreen() {
       );
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error('Error al registrarse');
-      Alert.alert('Error', err.message || 'Error al registrarse');
+      showAlert('Error', err.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }

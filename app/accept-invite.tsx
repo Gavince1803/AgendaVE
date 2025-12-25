@@ -5,13 +5,15 @@ import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 
 export default function AcceptInviteScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const params = useLocalSearchParams<{ token?: string }>();
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,12 +27,12 @@ export default function AcceptInviteScreen() {
   const handleAcceptInvite = async () => {
     const trimmedToken = token.trim();
     if (!trimmedToken) {
-      Alert.alert('Código requerido', 'Ingresa el código de invitación recibido.');
+      showAlert('Código requerido', 'Ingresa el código de invitación recibido.');
       return;
     }
 
     if (!user) {
-      Alert.alert(
+      showAlert(
         'Inicia sesión primero',
         'Debes iniciar sesión o crear una cuenta antes de aceptar la invitación.',
         [
@@ -47,7 +49,7 @@ export default function AcceptInviteScreen() {
     try {
       setLoading(true);
       await BookingService.acceptEmployeeInvite(trimmedToken);
-      Alert.alert(
+      showAlert(
         '¡Listo!',
         'Tu cuenta ahora está vinculada al negocio. Vuelve al inicio para ver tus citas.',
         [
@@ -59,7 +61,7 @@ export default function AcceptInviteScreen() {
       );
     } catch (error: any) {
       const message = error?.message || 'No se pudo validar la invitación. Verifica el código.';
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setLoading(false);
     }

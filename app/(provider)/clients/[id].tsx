@@ -6,13 +6,13 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { Image as ExpoImage } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -26,6 +26,7 @@ export default function ClientProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [savingNotes, setSavingNotes] = useState(false);
     const { user, employeeProfile } = useAuth();
+    const { showAlert } = useAlert();
     const log = useLogger(user?.id);
     const router = useRouter();
 
@@ -48,7 +49,7 @@ export default function ClientProfileScreen() {
             setNotes(notesData);
         } catch (error) {
             log.error(LogCategory.SERVICE, 'Error loading client data', error);
-            Alert.alert('Error', 'No se pudo cargar la información del cliente');
+            showAlert('Error', 'No se pudo cargar la información del cliente');
         } finally {
             setLoading(false);
         }
@@ -61,10 +62,10 @@ export default function ClientProfileScreen() {
             if (!providerId || !id) return;
 
             await BookingService.saveClientNotes(providerId, id, notes);
-            Alert.alert('Éxito', 'Notas guardadas correctamente');
+            showAlert('Éxito', 'Notas guardadas correctamente');
         } catch (error) {
             log.error(LogCategory.SERVICE, 'Error saving notes', error);
-            Alert.alert('Error', 'No se pudieron guardar las notas');
+            showAlert('Error', 'No se pudieron guardar las notas');
         } finally {
             setSavingNotes(false);
         }

@@ -5,20 +5,21 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
-import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { BookingService } from '@/lib/booking-service';
-import { useLogger, LogCategory } from '@/lib/logger';
+import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function AddServiceScreen() {
   const { user } = useAuth();
   const log = useLogger();
+  const { showAlert } = useAlert();
   const [saving, setSaving] = useState(false);
 
   const [serviceData, setServiceData] = useState({
@@ -30,115 +31,77 @@ export default function AddServiceScreen() {
 
   const handleSave = async () => {
     console.log('🔴 [ADD-SERVICE] handleSave called');
-    
+
     if (!user) {
       console.log('🔴 [ADD-SERVICE] No user found');
       return;
     }
 
-    console.log('🔴 [ADD-SERVICE] Service data:', serviceData);
-
     // Validaciones
     if (!serviceData.name.trim()) {
-      console.log('🔴 [ADD-SERVICE] Name validation failed');
-      const message = 'El nombre del servicio es requerido';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'El nombre del servicio es requerido');
       return;
     }
 
     if (!serviceData.price_amount.trim()) {
-      console.log('🔴 [ADD-SERVICE] Price validation failed');
-      const message = 'El precio es requerido';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'El precio es requerido');
       return;
     }
 
     if (!serviceData.duration_minutes.trim()) {
-      console.log('🔴 [ADD-SERVICE] Duration validation failed');
-      const message = 'La duración es requerida';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'La duración es requerida');
       return;
     }
 
     const price = parseFloat(serviceData.price_amount);
     const duration = parseInt(serviceData.duration_minutes);
 
-    console.log('🔴 [ADD-SERVICE] Parsed values - price:', price, 'duration:', duration);
-
     if (isNaN(price) || price <= 0) {
-      console.log('🔴 [ADD-SERVICE] Price number validation failed');
-      const message = 'El precio debe ser un número válido mayor a 0';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'El precio debe ser un número válido mayor a 0');
       return;
     }
 
     if (isNaN(duration) || duration <= 0) {
-      console.log('🔴 [ADD-SERVICE] Duration number validation failed');
-      const message = 'La duración debe ser un número válido mayor a 0';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'La duración debe ser un número válido mayor a 0');
       return;
     }
 
-    console.log('🔴 [ADD-SERVICE] Showing confirmation dialog');
-    
-    // Web-compatible confirmation dialog
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que quieres crear el servicio "${serviceData.name.trim()}" por $${price} USD (${duration} min)?`
-      );
-      
-      if (confirmed) {
-        console.log('🔴 [ADD-SERVICE] User confirmed (web), creating service');
-        createService(price, duration);
-      } else {
-        console.log('🔴 [ADD-SERVICE] User cancelled (web)');
-      }
-    } else {
-      // Native Alert for mobile
-      Alert.alert(
-        'Confirmar Creación de Servicio',
-        `¿Estás seguro de que quieres crear el servicio "${serviceData.name.trim()}" por $${price} USD (${duration} min)?`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-            onPress: () => console.log('🔴 [ADD-SERVICE] User cancelled')
-          },
-          {
-            text: 'Crear Servicio',
-            style: 'default',
-            onPress: () => {
-              console.log('🔴 [ADD-SERVICE] User confirmed, creating service');
-              createService(price, duration);
-            }
+    // Confirmation dialog
+    showAlert(
+      'Confirmar Creación de Servicio',
+      `¿Estás seguro de que quieres crear el servicio "${serviceData.name.trim()}" por $${price} USD (${duration} min)?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => console.log('🔴 [ADD-SERVICE] User cancelled')
+        },
+        {
+          text: 'Crear Servicio',
+          style: 'default',
+          onPress: () => {
+            console.log('🔴 [ADD-SERVICE] User confirmed, creating service');
+            createService(price, duration);
           }
-        ]
-      );
-    }
+        }
+      ]
+    );
   };
 
   const createService = async (price: number, duration: number) => {
-    console.log('🔴 [ADD-SERVICE] createService called with:', { price, duration });
-    
     try {
-      if (!user) {
-        throw new Error('Usuario no autenticado');
-      }
+      if (!user) throw new Error('Usuario no autenticado');
 
       setSaving(true);
-      console.log('🔴 [ADD-SERVICE] Setting saving state to true');
-      
-      log.userAction('Add new service', { 
+
+      log.userAction('Add new service', {
         providerId: user.id,
         serviceName: serviceData.name,
         price: price,
         duration: duration
       });
 
-      console.log('🔴 [ADD-SERVICE] Calling BookingService.createService...');
-      
-      // Create the service using BookingService
-      const newService = await BookingService.createService(user.id, {
+      await BookingService.createService(user.id, {
         name: serviceData.name,
         description: serviceData.description,
         price_amount: price,
@@ -146,59 +109,34 @@ export default function AddServiceScreen() {
         duration_minutes: duration,
         is_active: true
       });
-      
-      console.log('🔴 [ADD-SERVICE] Service created successfully:', newService);
 
-      if (Platform.OS === 'web') {
-        const createAnother = window.confirm(
-          `¡Servicio Creado! ✅\n\nEl servicio "${serviceData.name}" ha sido creado exitosamente y estará disponible para tus clientes inmediatamente.\n\n¿Quieres crear otro servicio?`
-        );
-        
-        if (createAnother) {
-          // Reset form
-          setServiceData({
-            name: '',
-            description: '',
-            price_amount: '',
-            duration_minutes: '',
-          });
-        } else {
-          router.back();
-        }
-      } else {
-        Alert.alert(
-          '¡Servicio Creado! ✅', 
-          `El servicio "${serviceData.name}" ha sido creado exitosamente y estará disponible para tus clientes inmediatamente.`,
-          [
-            {
-              text: 'Crear Otro',
-              style: 'default',
-              onPress: () => {
-                // Reset form
-                setServiceData({
-                  name: '',
-                  description: '',
-                  price_amount: '',
-                  duration_minutes: '',
-                });
-              }
-            },
-            {
-              text: 'Ir a Mi Negocio',
-              style: 'default',
-              onPress: () => router.back()
+      showAlert(
+        '¡Servicio Creado! ✅',
+        `El servicio "${serviceData.name}" ha sido creado exitosamente y estará disponible para tus clientes inmediatamente.`,
+        [
+          {
+            text: 'Crear Otro',
+            style: 'default',
+            onPress: () => {
+              // Reset form
+              setServiceData({
+                name: '',
+                description: '',
+                price_amount: '',
+                duration_minutes: '',
+              });
             }
-          ]
-        );
-      }
+          },
+          {
+            text: 'Ir a Mi Negocio',
+            style: 'default',
+            onPress: () => router.back()
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error creating service', { error: error instanceof Error ? error.message : String(error) });
-      
-      if (Platform.OS === 'web') {
-        window.alert('Error: No se pudo crear el servicio');
-      } else {
-        Alert.alert('Error', 'No se pudo crear el servicio');
-      }
+      showAlert('Error', 'No se pudo crear el servicio');
     } finally {
       setSaving(false);
     }
@@ -209,7 +147,7 @@ export default function AddServiceScreen() {
       <ScrollableInputView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <ThemedView style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
@@ -226,7 +164,7 @@ export default function AddServiceScreen() {
           <SimpleInput
             label="Nombre del Servicio *"
             value={serviceData.name}
-            onChangeText={(text) => setServiceData({...serviceData, name: text})}
+            onChangeText={(text) => setServiceData({ ...serviceData, name: text })}
             placeholder="Ej: Corte de Cabello"
             autoCapitalize="words"
             returnKeyType="next"
@@ -235,7 +173,7 @@ export default function AddServiceScreen() {
           <SimpleInput
             label="Descripción"
             value={serviceData.description}
-            onChangeText={(text) => setServiceData({...serviceData, description: text})}
+            onChangeText={(text) => setServiceData({ ...serviceData, description: text })}
             placeholder="Describe el servicio..."
             multiline
             numberOfLines={4}
@@ -247,7 +185,7 @@ export default function AddServiceScreen() {
               <SimpleInput
                 label="Precio ($) *"
                 value={serviceData.price_amount}
-                onChangeText={(text) => setServiceData({...serviceData, price_amount: text})}
+                onChangeText={(text) => setServiceData({ ...serviceData, price_amount: text })}
                 placeholder="0.00"
                 keyboardType="numeric"
                 returnKeyType="next"
@@ -257,7 +195,7 @@ export default function AddServiceScreen() {
               <SimpleInput
                 label="Duración (min) *"
                 value={serviceData.duration_minutes}
-                onChangeText={(text) => setServiceData({...serviceData, duration_minutes: text})}
+                onChangeText={(text) => setServiceData({ ...serviceData, duration_minutes: text })}
                 placeholder="30"
                 keyboardType="numeric"
                 returnKeyType="done"

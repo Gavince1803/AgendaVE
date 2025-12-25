@@ -4,7 +4,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -52,6 +51,7 @@ export default function BookServiceScreen() {
   const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   // Removed showDatePicker state as custom Calendar is always visible
   const log = useLogger();
+  const { showAlert } = useAlert();
   const defaultValidationSettings = useMemo(
     () => ({
       bufferBeforeMinutes: 0,
@@ -91,7 +91,7 @@ export default function BookServiceScreen() {
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading booking data', error);
-      Alert.alert('Error', 'No se pudo cargar la información del servicio');
+      showAlert('Error', 'No se pudo cargar la información del servicio');
     } finally {
       setLoading(false);
     }
@@ -255,14 +255,14 @@ export default function BookServiceScreen() {
 
   const handleBookAppointment = async () => {
     if (!selectedTime || !service || !provider) {
-      Alert.alert('Error', 'Por favor selecciona una hora disponible');
+      showAlert('Error', 'Por favor selecciona una hora disponible');
       return;
     }
 
     // Show confirmation dialog before booking
     const bookingDetails = `Servicio: ${service.name}\nProveedor: ${provider.business_name}\nFecha: ${formatDate(selectedDate)}\nHora: ${selectedTime}\nDuración: ${formatDuration(service.duration_minutes)}\nPrecio: ${formatPrice(service.price_amount)}`;
 
-    Alert.alert(
+    showAlert(
       'Confirmar Reserva',
       `¿Estás seguro de que quieres hacer esta reserva?\n\n${bookingDetails}\n\nSe enviará una solicitud al proveedor y te notificaremos cuando sea confirmada.`,
       [
@@ -305,7 +305,7 @@ export default function BookServiceScreen() {
       if (!validation.ok) {
         setSlotValidation(validation);
         setSlotValidationStatus('error');
-        Alert.alert('Horario no disponible', validation.message || 'Este horario ya fue tomado.');
+        showAlert('Horario no disponible', validation.message || 'Este horario ya fue tomado.');
         return;
       }
 
@@ -342,7 +342,7 @@ export default function BookServiceScreen() {
       log.error(LogCategory.SERVICE, 'Error creating appointment', error);
 
       const errorMessage = error instanceof Error ? error.message : 'No se pudo crear la reserva. Inténtalo de nuevo.';
-      Alert.alert('Error', errorMessage);
+      showAlert('Error', errorMessage);
     } finally {
       setBooking(false);
     }

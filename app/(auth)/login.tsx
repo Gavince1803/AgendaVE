@@ -5,11 +5,11 @@ import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext'; // Updated import
 import { Image } from 'expo-image';
 import { Href, Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   Platform,
   StyleSheet,
   View
@@ -21,10 +21,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { returnUrl } = useLocalSearchParams();
   const { signInWithIdentifier } = useAuth();
+  const { showAlert } = useAlert(); // Use custom alert hook
 
   const handleLogin = async () => {
     if (!identifier || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      showAlert('Error', 'Por favor completa todos los campos');
       return;
     }
 
@@ -33,7 +34,6 @@ export default function LoginScreen() {
       // Usar el nuevo método unificado que soporta Email, Cédula y Teléfono
       await signInWithIdentifier(identifier, password);
 
-      // Check for returnUrl
       // Check for returnUrl
       if (returnUrl) {
         router.replace(returnUrl as Href);
@@ -52,9 +52,10 @@ export default function LoginScreen() {
         errorMessage = 'No encontramos una cuenta con esos datos. Verifica tu Cédula, Teléfono o Email.';
       }
 
-      Alert.alert('Error al iniciar sesión', errorMessage);
+      showAlert('Error al iniciar sesión', errorMessage);
     } finally {
       setLoading(false);
+      // Force repaint
     }
   };
 

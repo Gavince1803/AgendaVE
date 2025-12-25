@@ -5,19 +5,19 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { OfflineStorage } from '@/lib/offline-storage';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function ProviderCalendarScreen() {
@@ -28,6 +28,8 @@ export default function ProviderCalendarScreen() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const log = useLogger(user?.id);
+
+  const { showAlert } = useAlert();
 
   useEffect(() => {
     if (user?.id) {
@@ -65,7 +67,7 @@ export default function ProviderCalendarScreen() {
         setAppointments(cachedAppointments);
         log.info(LogCategory.DATABASE, 'Using cached appointments (offline mode)', { count: cachedAppointments.length });
       } else {
-        Alert.alert('Error', 'No se pudieron cargar los datos del calendario');
+        showAlert('Error', 'No se pudieron cargar los datos del calendario');
       }
     } finally {
       setLoading(false);
@@ -331,12 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surfaceVariant,
     borderRadius: 8,
   },
-  notesLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.light.textSecondary,
-    marginBottom: 4,
-  },
+
   notesText: {
     fontSize: 14,
     color: Colors.light.text,

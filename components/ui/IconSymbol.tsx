@@ -2,7 +2,7 @@
 
 import { Colors } from '@/constants/Colors';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolViewProps, SymbolWeight } from 'expo-symbols';
+import { SymbolWeight } from 'expo-symbols';
 import { ComponentProps } from 'react';
 import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
@@ -26,6 +26,7 @@ const MAPPING: IconMapping = {
   'calendar.badge.clock': 'event',
   'calendar.day.timeline.left': 'event',
   'calendar.day.timeline.trailing': 'event',
+  'calendar.badge.plus': 'event',
   'clock': 'access-time',
   'timer': 'timer',
   'scissors': 'content-cut',
@@ -40,6 +41,7 @@ const MAPPING: IconMapping = {
   'person': 'person-outline',
   'person.circle.fill': 'person',
   'person.circle': 'person-outline',
+  'person.badge.plus': 'person-add',
   'book.pages.fill': 'book',
   'book.pages': 'book',
   'gear': 'settings',
@@ -215,6 +217,6 @@ export function IconSymbol({
   // Si no se proporciona color, usar color de texto del tema claro
   const defaultColor = Colors.light.text;
   const iconColor = color || defaultColor;
-  
+
   return <MaterialIcons color={iconColor} size={size} name={MAPPING[name]} style={style} />;
 }

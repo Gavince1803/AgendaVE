@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 // Compatible interface with React Native's Alert.alert
@@ -29,6 +29,10 @@ export const useAlert = () => {
     return context;
 };
 
+import { errorHandler } from '@/lib/errorHandling';
+
+// ... (existing imports)
+
 export function GlobalAlertProvider({ children }: { children: React.ReactNode }) {
     const [visible, setVisible] = useState(false);
     const [title, setTitle] = useState('');
@@ -36,7 +40,7 @@ export function GlobalAlertProvider({ children }: { children: React.ReactNode })
     const [buttons, setButtons] = useState<AlertButton[]>([]);
     const [options, setOptions] = useState<AlertOptions>({});
 
-    const showAlert = (
+    const showAlert = React.useCallback((
         newTitle: string,
         newMessage?: string,
         newButtons?: AlertButton[],
@@ -54,7 +58,13 @@ export function GlobalAlertProvider({ children }: { children: React.ReactNode })
         setButtons(newButtons || [{ text: 'OK', style: 'default', onPress: () => { } }]);
         setOptions(newOptions || {});
         setVisible(true);
-    };
+    }, []);
+
+    // Register with global error handler
+    useEffect(() => {
+        errorHandler.setAlertHandler(showAlert as any);
+        return () => errorHandler.setAlertHandler(null as any);
+    }, [showAlert]);
 
     const handleButtonPress = async (button: AlertButton) => {
         setVisible(false);

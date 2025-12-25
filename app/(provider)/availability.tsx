@@ -10,11 +10,12 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 const WEEKDAYS = [
   { key: 'monday', label: 'Lunes', short: 'L' },
@@ -28,6 +29,7 @@ const WEEKDAYS = [
 
 export default function AvailabilityScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const [saving, setSaving] = useState(false);
 
@@ -70,7 +72,7 @@ export default function AvailabilityScreen() {
     const enabledDays = Object.values(availability).filter((day: any) => day.enabled);
     if (enabledDays.length === 0) {
       const message = 'Debes habilitar al menos un día de la semana';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', message);
       return;
     }
 
@@ -81,31 +83,21 @@ export default function AvailabilityScreen() {
       .join('\n');
 
     // Diálogo de confirmación
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`
-      );
-
-      if (confirmed) {
-        saveAvailability(enabledDays);
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Horarios de Atención',
-        `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Guardar Horarios',
-            style: 'default',
-            onPress: () => saveAvailability(enabledDays)
-          }
-        ]
-      );
-    }
+    showAlert(
+      'Confirmar Horarios de Atención',
+      `¿Estás seguro de que quieres guardar estos horarios?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas en estos horarios.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Guardar Horarios',
+          style: 'default',
+          onPress: () => saveAvailability(enabledDays)
+        }
+      ]
+    );
   };
 
   const saveAvailability = async (enabledDays: any[]) => {
@@ -120,21 +112,16 @@ export default function AvailabilityScreen() {
       // El método updateAvailability ahora maneja internamente obtener el provider
       await BookingService.updateAvailability(user!.id, availability);
 
-      if (Platform.OS === 'web') {
-        window.alert('Éxito: Horarios actualizados exitosamente');
-        router.push('/(provider)/my-business');
-      } else {
-        Alert.alert(
-          'Éxito',
-          'Horarios actualizados exitosamente',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.push('/(provider)/my-business')
-            }
-          ]
-        );
-      }
+      showAlert(
+        'Éxito',
+        'Horarios actualizados exitosamente',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/(provider)/my-business')
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving availability', { error: error instanceof Error ? error.message : String(error) });
 
@@ -149,7 +136,7 @@ export default function AvailabilityScreen() {
         }
       }
 
-      Platform.OS === 'web' ? window.alert(`Error al Guardar Horarios: ${errorMessage}`) : Alert.alert('Error al Guardar Horarios', errorMessage);
+      showAlert('Error al Guardar Horarios', errorMessage);
     } finally {
       setSaving(false);
     }

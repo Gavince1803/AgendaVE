@@ -2,7 +2,10 @@
 // Production-ready error management with user-friendly messages and monitoring
 
 import React from 'react';
-import { Alert, View, Text, TouchableOpacity } from 'react-native';
+import { Alert, AlertButton, Text, TouchableOpacity, View } from 'react-native';
+
+// ===== ALERT HANDLER TYPE =====
+type AlertFunction = (title: string, message: string, buttons?: AlertButton[]) => void;
 
 // ===== ERROR TYPES =====
 export enum ErrorType {
@@ -43,14 +46,20 @@ export class ErrorHandler {
   private static instance: ErrorHandler;
   private errorLogs: AppError[] = [];
   private maxLogs = 100;
+  private alertHandler: AlertFunction | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): ErrorHandler {
     if (!ErrorHandler.instance) {
       ErrorHandler.instance = new ErrorHandler();
     }
     return ErrorHandler.instance;
+  }
+
+  // ===== REGISTER ALERT HANDLER =====
+  setAlertHandler(handler: AlertFunction): void {
+    this.alertHandler = handler;
   }
 
   // ===== MAIN ERROR HANDLING METHOD =====
@@ -60,16 +69,16 @@ export class ErrorHandler {
     additionalContext?: Record<string, any>;
   }): AppError {
     const appError = this.parseError(error, context);
-    
+
     // Log the error
     this.logError(appError);
-    
+
     // Show user-friendly message
     this.showUserError(appError);
-    
+
     // Send to monitoring service (implement as needed)
     this.sendToMonitoring(appError);
-    
+
     return appError;
   }
 
@@ -213,7 +222,7 @@ export class ErrorHandler {
   private logError(error: AppError): void {
     // Add to local log
     this.errorLogs.unshift(error);
-    
+
     // Keep only the latest logs
     if (this.errorLogs.length > this.maxLogs) {
       this.errorLogs = this.errorLogs.slice(0, this.maxLogs);
@@ -237,11 +246,26 @@ export class ErrorHandler {
     // Don't show alerts for low severity errors
     if (error.severity === ErrorSeverity.LOW) return;
 
-    // Show different UI based on severity
+    const title = error.severity === ErrorSeverity.CRITICAL ? 'Error Crítico' : 'Error';
+    const message = error.userMessage;
+
+    if (this.alertHandler) {
+      const buttons: AlertButton[] = error.severity === ErrorSeverity.CRITICAL
+        ? [
+          { text: 'Reportar', onPress: () => this.reportError(error) },
+          { text: 'OK', style: 'default' },
+        ]
+        : [{ text: 'OK', style: 'default' }];
+
+      this.alertHandler(title, message, buttons);
+      return;
+    }
+
+    // Fallback to Native Alert if no handler registered (native only mainly)
     if (error.severity === ErrorSeverity.CRITICAL) {
       Alert.alert(
-        'Error Crítico',
-        error.userMessage,
+        title,
+        message,
         [
           { text: 'Reportar', onPress: () => this.reportError(error) },
           { text: 'OK', style: 'default' },
@@ -250,8 +274,8 @@ export class ErrorHandler {
       );
     } else {
       Alert.alert(
-        'Error',
-        error.userMessage,
+        title,
+        message,
         [{ text: 'OK', style: 'default' }],
         { cancelable: true }
       );
@@ -287,20 +311,24 @@ export class ErrorHandler {
 
   // ===== REPORT ERROR (USER INITIATED) =====
   private reportError(error: AppError): void {
-    Alert.alert(
-      'Reportar Error',
-      'Tu reporte nos ayuda a mejorar la aplicación. ¿Deseas enviar los detalles del error?',
-      [
-        { text: 'No', style: 'cancel' },
-        { 
-          text: 'Sí, Reportar', 
-          onPress: () => {
-            // Implement user error reporting
-            console.log('🎯 User reported error:', error.code);
-          }
-        },
-      ]
-    );
+    const title = 'Reportar Error';
+    const message = 'Tu reporte nos ayuda a mejorar la aplicación. ¿Deseas enviar los detalles del error?';
+    const buttons: AlertButton[] = [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Sí, Reportar',
+        onPress: () => {
+          // Implement user error reporting
+          console.log('🎯 User reported error:', error.code);
+        }
+      },
+    ];
+
+    if (this.alertHandler) {
+      this.alertHandler(title, message, buttons);
+    } else {
+      Alert.alert(title, message, buttons);
+    }
   }
 
   // ===== UTILITY METHODS =====
@@ -345,16 +373,16 @@ export const handleError = (error: any, context?: {
 }) => errorHandler.handleError(error, context);
 
 // Specific error handlers for common scenarios
-export const handleNetworkError = (error: any) => 
+export const handleNetworkError = (error: any) =>
   handleError(error, { action: 'network_request' });
 
-export const handleAuthError = (error: any) => 
+export const handleAuthError = (error: any) =>
   handleError(error, { action: 'authentication' });
 
-export const handleDatabaseError = (error: any, action?: string) => 
+export const handleDatabaseError = (error: any, action?: string) =>
   handleError(error, { action: action || 'database_operation' });
 
-export const handleValidationError = (error: any) => 
+export const handleValidationError = (error: any) =>
   handleError(error, { action: 'validation' });
 
 // Async wrapper for error handling

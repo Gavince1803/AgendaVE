@@ -1,14 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -31,9 +30,11 @@ const WEEKDAYS = [
 ];
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 
 export default function EmployeeScheduleScreen() {
   const params = useLocalSearchParams();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const { employeeProfile, activeRole } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -118,7 +119,7 @@ export default function EmployeeScheduleScreen() {
         console.error('🔴 [EMPLOYEE SCHEDULE] Full error details:', error);
       }
 
-      Alert.alert('Error', 'No se pudo cargar la disponibilidad del empleado.');
+      showAlert('Error', 'No se pudo cargar la disponibilidad del empleado.');
     } finally {
       setLoading(false);
     }
@@ -150,12 +151,12 @@ export default function EmployeeScheduleScreen() {
         ? 'Horario personalizado habilitado. Ahora puedes configurar horarios específicos para este empleado.'
         : 'El empleado ahora usará el horario general del negocio.';
 
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Éxito', message);
+      showAlert('Éxito', message);
 
       log.userAction('Toggle employee custom schedule', { employeeId, enabled });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error toggling custom schedule', error);
-      Alert.alert('Error', 'No se pudo cambiar la configuración de horario personalizado.');
+      showAlert('Error', 'No se pudo cambiar la configuración de horario personalizado.');
     }
   };
 
@@ -193,7 +194,7 @@ export default function EmployeeScheduleScreen() {
     const enabledDays = Object.values(availability).filter((day: any) => day.enabled);
     if (enabledDays.length === 0) {
       const message = 'Debes habilitar al menos un día de la semana';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', message);
       return;
     }
 
@@ -201,34 +202,24 @@ export default function EmployeeScheduleScreen() {
     const enabledDaysText = WEEKDAYS
       .filter(day => availability[day.key].enabled)
       .map(day => `${day.label}: ${availability[day.key].startTime} - ${availability[day.key].endTime}`)
-      .join('\\n');
+      .join('\n');
 
     // Diálogo de confirmación
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que quieres guardar estos horarios para ${employeeName}?\\n\\n${enabledDaysText}\\n\\nLos clientes podrán reservar citas con este empleado en estos horarios.`
-      );
-
-      if (confirmed) {
-        saveAvailability();
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Horarios',
-        `¿Estás seguro de que quieres guardar estos horarios para ${employeeName}?\\n\\n${enabledDaysText}\\n\\nLos clientes podrán reservar citas con este empleado en estos horarios.`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Guardar Horarios',
-            style: 'default',
-            onPress: () => saveAvailability()
-          }
-        ]
-      );
-    }
+    showAlert(
+      'Confirmar Horarios',
+      `¿Estás seguro de que quieres guardar estos horarios para ${employeeName}?\n\n${enabledDaysText}\n\nLos clientes podrán reservar citas con este empleado en estos horarios.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Guardar Horarios',
+          style: 'default',
+          onPress: () => saveAvailability()
+        }
+      ]
+    );
   };
 
   const saveAvailability = async () => {
@@ -244,21 +235,16 @@ export default function EmployeeScheduleScreen() {
 
       await BookingService.updateEmployeeAvailability(employeeId, availability);
 
-      if (Platform.OS === 'web') {
-        window.alert('Éxito: Horarios del empleado actualizados exitosamente');
-        router.back();
-      } else {
-        Alert.alert(
-          'Éxito',
-          'Horarios del empleado actualizados exitosamente',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.back()
-            }
-          ]
-        );
-      }
+      showAlert(
+        'Éxito',
+        'Horarios del empleado actualizados exitosamente',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back()
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error saving employee availability', { error: error instanceof Error ? error.message : String(error) });
 
@@ -271,7 +257,7 @@ export default function EmployeeScheduleScreen() {
         }
       }
 
-      Platform.OS === 'web' ? window.alert(`Error al Guardar Horarios: ${errorMessage}`) : Alert.alert('Error al Guardar Horarios', errorMessage);
+      showAlert('Error al Guardar Horarios', errorMessage);
     } finally {
       setSaving(false);
     }

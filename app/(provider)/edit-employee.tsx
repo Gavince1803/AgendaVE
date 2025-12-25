@@ -21,6 +21,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { SafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { LogCategory, useLogger } from '@/lib/logger';
 
 export default function EditEmployeeScreen() {
@@ -34,6 +35,7 @@ export default function EditEmployeeScreen() {
   } = useLocalSearchParams();
 
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);

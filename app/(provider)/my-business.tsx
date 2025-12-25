@@ -6,6 +6,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -17,11 +18,14 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useAlert } from '@/contexts/GlobalAlertContext';
 
 export default function MyBusinessScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger();
   const insets = useSafeAreaInsets();
   const [provider, setProvider] = useState<Provider | null>(null);
@@ -137,7 +141,7 @@ export default function MyBusinessScreen() {
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading business data', { error: error instanceof Error ? error.message : String(error) });
-      Alert.alert('Error', 'No se pudieron cargar los datos del negocio');
+      showAlert('Error', 'No se pudieron cargar los datos del negocio');
     } finally {
       setLoading(false);
     }
@@ -165,7 +169,9 @@ export default function MyBusinessScreen() {
 
       console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
 
-      Alert.alert(
+      console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
+
+      showAlert(
         '✅ Datos Guardados',
         'La información de tu negocio se ha actualizado correctamente.',
         [
@@ -183,7 +189,7 @@ export default function MyBusinessScreen() {
       console.error('🔴 [MY BUSINESS] Error guardando:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       log.error(LogCategory.SERVICE, 'Error saving business data', { error: errorMessage });
-      Alert.alert('Error', `No se pudieron guardar los datos: ${errorMessage}`);
+      showAlert('Error', `No se pudieron guardar los datos: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -300,7 +306,7 @@ export default function MyBusinessScreen() {
                       setUploadingLogo(true);
                       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
                       if (permission.status !== 'granted') {
-                        Alert.alert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
+                        showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
                         return;
                       }
                       const result = await ImagePicker.launchImageLibraryAsync({
@@ -329,10 +335,10 @@ export default function MyBusinessScreen() {
                         // Persistir en provider
                         await BookingService.updateProvider(user!.id, { logo_url: publicUrl.publicUrl });
                         setProvider(prev => prev ? { ...prev, logo_url: publicUrl.publicUrl } as any : prev);
-                        Alert.alert('Logo subido', 'Logo actualizado correctamente');
+                        showAlert('Logo subido', 'Logo actualizado correctamente');
                       } catch (uploadErr) {
                         console.error('Error uploading logo:', uploadErr);
-                        Alert.alert('Error', 'No se pudo subir el logo');
+                        showAlert('Error', 'No se pudo subir el logo');
                       }
                     } finally {
                       setUploadingLogo(false);
@@ -353,7 +359,7 @@ export default function MyBusinessScreen() {
                       setUploadingBanner(true);
                       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
                       if (permission.status !== 'granted') {
-                        Alert.alert('Permiso requerido', 'Habilita el acceso a la galería para subir la portada');
+                        showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir la portada');
                         return;
                       }
                       const result = await ImagePicker.launchImageLibraryAsync({
@@ -382,10 +388,10 @@ export default function MyBusinessScreen() {
                         // Persistir en provider
                         await BookingService.updateProvider(user!.id, { hero_image_url: publicUrl.publicUrl });
                         setProvider(prev => prev ? { ...prev, hero_image_url: publicUrl.publicUrl } as any : prev);
-                        Alert.alert('Portada subida', 'Imagen de portada actualizada correctamente');
+                        showAlert('Portada subida', 'Imagen de portada actualizada correctamente');
                       } catch (uploadErr) {
                         console.error('Error uploading banner:', uploadErr);
-                        Alert.alert('Error', 'No se pudo subir la portada');
+                        showAlert('Error', 'No se pudo subir la portada');
                       }
                     } finally {
                       setUploadingBanner(false);
@@ -631,7 +637,7 @@ export default function MyBusinessScreen() {
                           const action = newStatus ? 'activar' : 'desactivar';
                           const actionPast = newStatus ? 'activado' : 'desactivado';
 
-                          Alert.alert(
+                          showAlert(
                             `${action.charAt(0).toUpperCase() + action.slice(1)} Servicio`,
                             `¿Estás seguro de que quieres ${action} el servicio "${service.name}"?`,
                             [
@@ -651,10 +657,10 @@ export default function MyBusinessScreen() {
                                     });
 
                                     await loadBusinessData(); // Refresh data
-                                    Alert.alert('Éxito', `Servicio ${actionPast} correctamente`);
+                                    showAlert('Éxito', `Servicio ${actionPast} correctamente`);
                                   } catch (error) {
                                     console.error('🔴 [MY BUSINESS] Error toggling service:', error);
-                                    Alert.alert('Error', 'No se pudo actualizar el servicio');
+                                    showAlert('Error', 'No se pudo actualizar el servicio');
                                   }
                                 }
                               }
@@ -691,51 +697,31 @@ export default function MyBusinessScreen() {
 
                               console.log('🔴 [MY BUSINESS] ✅ Service deactivation completed successfully');
 
-                              if (Platform.OS === 'web') {
-                                window.alert('Servicio desactivado correctamente');
-                              } else {
-                                Alert.alert('Éxito', 'Servicio desactivado correctamente');
-                              }
+                              showAlert('Éxito', 'Servicio desactivado correctamente');
                             } catch (error) {
                               console.error('🔴 [MY BUSINESS] ❌ Error deleting service:', error);
                               const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
 
-                              if (Platform.OS === 'web') {
-                                window.alert(`No se pudo eliminar el servicio:\n${errorMessage}`);
-                              } else {
-                                Alert.alert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
-                              }
+                              showAlert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
                             }
                           };
 
-                          if (Platform.OS === 'web') {
-                            const confirmed = window.confirm(
-                              `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`
-                            );
-
-                            if (confirmed) {
-                              deleteHandler();
-                            } else {
-                              console.log('🔴 [MY BUSINESS] Delete cancelled by user');
-                            }
-                          } else {
-                            Alert.alert(
-                              'Desactivar Servicio',
-                              `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`,
-                              [
-                                {
-                                  text: 'Cancelar',
-                                  style: 'cancel',
-                                  onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
-                                },
-                                {
-                                  text: 'Desactivar',
-                                  style: 'destructive',
-                                  onPress: deleteHandler
-                                }
-                              ]
-                            );
-                          }
+                          showAlert(
+                            'Desactivar Servicio',
+                            `¿Estás seguro de que quieres desactivar "${service.name}"?\n\nEl servicio se ocultará para nuevas citas, pero las citas existentes no se verán afectadas.`,
+                            [
+                              {
+                                text: 'Cancelar',
+                                style: 'cancel',
+                                onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
+                              },
+                              {
+                                text: 'Desactivar',
+                                style: 'destructive',
+                                onPress: deleteHandler
+                              }
+                            ]
+                          );
                         }}
                         style={styles.iconButton}
                       >

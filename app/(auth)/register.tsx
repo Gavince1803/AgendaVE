@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   Platform,
   StyleSheet,
   View
@@ -28,6 +27,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const { signUp } = useAuth();
+  const { showAlert } = useAlert();
 
   const validateFields = () => {
     const nextErrors: RegisterFieldErrors = {};
@@ -69,7 +69,7 @@ export default function RegisterScreen() {
       await signUp(email, password, fullName, role, phone, undefined, cedula);
 
       // Mostrar mensaje de éxito con información sobre confirmación de email
-      Alert.alert(
+      showAlert(
         '¡Cuenta creada exitosamente! 🎉',
         'Tu cuenta ha sido registrada correctamente. Ahora puedes iniciar sesión.',
         [
@@ -84,7 +84,7 @@ export default function RegisterScreen() {
       );
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error('Error al registrarse');
-      Alert.alert('Error', err.message || 'Error al registrarse');
+      showAlert('Error', err.message || 'Error al registrarse');
     } finally {
       setLoading(false);
     }

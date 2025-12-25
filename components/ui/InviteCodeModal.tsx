@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/Button';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
-import { Alert, Linking, Modal, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface InviteCodeModalProps {
@@ -24,10 +25,11 @@ export function InviteCodeModal({
     businessName,
 }: InviteCodeModalProps) {
     const insets = useSafeAreaInsets();
+    const { showAlert } = useAlert();
 
     const handleCopyCode = async () => {
         await Clipboard.setStringAsync(inviteToken);
-        Alert.alert('Copiado', 'Código copiado al portapapeles');
+        showAlert('Copiado', 'Código copiado al portapapeles');
     };
 
     const handleShareWhatsApp = async () => {
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: DesignTokens.typography.fontSizes.xl, // Slightly smaller title
-        fontWeight: DesignTokens.typography.fontWeights.bold,
+        fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.text,
         marginBottom: DesignTokens.spacing.xs,
         textAlign: 'center',
@@ -163,7 +165,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: DesignTokens.spacing.md,
     },
     bold: {
-        fontWeight: DesignTokens.typography.fontWeights.bold,
+        fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.text,
     },
     codeContainer: {
@@ -178,7 +180,7 @@ const styles = StyleSheet.create({
     },
     codeLabel: {
         fontSize: 10, // Smaller label
-        fontWeight: DesignTokens.typography.fontWeights.bold,
+        fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.textSecondary,
         marginBottom: DesignTokens.spacing.xs,
         textTransform: 'uppercase',
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
     },
     codeText: {
         fontSize: 22, // Significantly reduced font size
-        fontWeight: DesignTokens.typography.fontWeights.bold, // Reduced weight slightly
+        fontWeight: DesignTokens.typography.fontWeights.bold as any, // Reduced weight slightly
         color: Colors.light.primary,
         letterSpacing: 0.5,
         textAlign: 'center',

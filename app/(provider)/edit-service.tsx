@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/Input';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 interface ServiceFormData {
   name: string;
@@ -28,12 +29,13 @@ interface ServiceFormData {
 export default function EditServiceScreen() {
   const { user } = useAuth();
   const log = useLogger();
+  const { showAlert } = useAlert();
   const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [service, setService] = useState<Service | null>(null);
-  
+
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
     description: '',
@@ -55,7 +57,7 @@ export default function EditServiceScreen() {
     try {
       setLoading(true);
       console.log('🔴 [EDIT SERVICE] Loading service data for serviceId:', serviceId);
-      
+
       // Get provider first
       const provider = await BookingService.getProviderById(user.id);
       if (!provider) {
@@ -65,7 +67,7 @@ export default function EditServiceScreen() {
       // Get all services (active and inactive) and find the one we want to edit
       const services = await BookingService.getAllProviderServices(provider.id);
       const serviceToEdit = services.find(s => s.id === serviceId);
-      
+
       if (!serviceToEdit) {
         throw new Error('Service not found');
       }
@@ -84,7 +86,7 @@ export default function EditServiceScreen() {
     } catch (error) {
       console.error('🔴 [EDIT SERVICE] Error loading service data:', error);
       log.error(LogCategory.SERVICE, 'Error loading service data', { error: error instanceof Error ? error.message : String(error) });
-      Alert.alert('Error', 'No se pudo cargar la información del servicio');
+      showAlert('Error', 'No se pudo cargar la información del servicio');
       router.back();
     } finally {
       setLoading(false);
@@ -96,22 +98,19 @@ export default function EditServiceScreen() {
 
     // Validation
     if (!formData.name.trim()) {
-      const message = 'El nombre del servicio es obligatorio';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'El nombre del servicio es obligatorio');
       return;
     }
 
     const priceAmount = parseFloat(formData.price_amount);
     if (isNaN(priceAmount) || priceAmount <= 0) {
-      const message = 'El precio debe ser un número mayor a 0';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'El precio debe ser un número mayor a 0');
       return;
     }
 
     const durationMinutes = parseInt(formData.duration_minutes);
     if (isNaN(durationMinutes) || durationMinutes <= 0) {
-      const message = 'La duración debe ser un número mayor a 0';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Error', message);
+      showAlert('Error', 'La duración debe ser un número mayor a 0');
       return;
     }
 
@@ -122,48 +121,37 @@ export default function EditServiceScreen() {
     if (parseFloat(formData.price_amount) !== service.price_amount) changes.push(`Precio: $${service.price_amount} → $${formData.price_amount}`);
     if (parseInt(formData.duration_minutes) !== service.duration_minutes) changes.push(`Duración: ${service.duration_minutes} min → ${formData.duration_minutes} min`);
     if (formData.is_active !== service.is_active) changes.push(`Estado: ${service.is_active ? 'Activo' : 'Inactivo'} → ${formData.is_active ? 'Activo' : 'Inactivo'}`);
-    
+
     if (changes.length === 0) {
-      const message = 'No hay cambios para guardar';
-      Platform.OS === 'web' ? window.alert(message) : Alert.alert('Información', message);
+      showAlert('Información', 'No hay cambios para guardar');
       return;
     }
 
     const changesText = changes.join('\n');
 
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        `¿Estás seguro de que quieres actualizar este servicio?\n\nCambios a realizar:\n${changesText}`
-      );
-      
-      if (confirmed) {
-        saveService();
-      }
-    } else {
-      Alert.alert(
-        'Confirmar Cambios',
-        `¿Estás seguro de que quieres actualizar este servicio?\n\nCambios a realizar:\n${changesText}`,
-        [
-          {
-            text: 'Cancelar',
-            style: 'cancel'
-          },
-          {
-            text: 'Actualizar Servicio',
-            style: 'default',
-            onPress: saveService
-          }
-        ]
-      );
-    }
+    showAlert(
+      'Confirmar Cambios',
+      `¿Estás seguro de que quieres actualizar este servicio?\n\nCambios a realizar:\n${changesText}`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Actualizar Servicio',
+          style: 'default',
+          onPress: saveService
+        }
+      ]
+    );
   };
 
   const saveService = async () => {
     try {
       setSaving(true);
       console.log('🔴 [EDIT SERVICE] Updating service with data:', formData);
-      
-      log.userAction('Update service', { 
+
+      log.userAction('Update service', {
         serviceId,
         providerId: user!.id,
         changes: formData
@@ -182,27 +170,22 @@ export default function EditServiceScreen() {
 
       console.log('🔴 [EDIT SERVICE] ✅ Service updated successfully');
 
-      if (Platform.OS === 'web') {
-        window.alert('Éxito: Servicio actualizado exitosamente');
-        router.push('/(provider)/my-business');
-      } else {
-        Alert.alert(
-          'Éxito', 
-          'Servicio actualizado exitosamente',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.push('/(provider)/my-business')
-            }
-          ]
-        );
-      }
+      showAlert(
+        'Éxito',
+        'Servicio actualizado exitosamente',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/(provider)/my-business')
+          }
+        ]
+      );
     } catch (error) {
       console.error('🔴 [EDIT SERVICE] Error updating service:', error);
       log.error(LogCategory.SERVICE, 'Error updating service', { error: error instanceof Error ? error.message : String(error) });
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      Platform.OS === 'web' ? window.alert(`Error al Actualizar Servicio: ${errorMessage}`) : Alert.alert('Error al Actualizar Servicio', errorMessage);
+      showAlert('Error al Actualizar Servicio', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -238,7 +221,7 @@ export default function EditServiceScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <ThemedView style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButtonHeader}
             onPress={() => router.push('/(provider)/my-business')}
           >

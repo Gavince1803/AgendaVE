@@ -3,15 +3,16 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+// import { NotificationBell } from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Linking,
   Platform,
   RefreshControl,
@@ -87,6 +88,8 @@ export default function AppointmentsScreen() {
     apt.appointment_date < today || apt.status === 'done' || apt.status === 'cancelled'
   );
 
+  const { showAlert } = useAlert();
+
   const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
     try {
       log.userAction('Appointment action', {
@@ -114,19 +117,19 @@ export default function AppointmentsScreen() {
       // Recargar citas
       await loadAppointments();
 
-      Alert.alert(
+      showAlert(
         'Éxito',
         `Cita ${action === 'confirm' ? 'confirmada' : action === 'cancel' ? 'cancelada' : 'completada'} exitosamente`
       );
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error updating appointment status', error);
-      Alert.alert('Error', 'No se pudo actualizar el estado de la cita');
+      showAlert('Error', 'No se pudo actualizar el estado de la cita');
     }
   }
 
 
   const handlePaymentAction = (appointment: Appointment) => {
-    Alert.alert(
+    showAlert(
       'Registrar Pago',
       'Selecciona el método de pago:',
       [
@@ -155,10 +158,10 @@ export default function AppointmentsScreen() {
     try {
       await BookingService.updateAppointmentPayment(id, status, method);
       await loadAppointments();
-      Alert.alert('Éxito', 'Pago registrado correctamente');
+      showAlert('Éxito', 'Pago registrado correctamente');
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error updating payment', error);
-      Alert.alert('Error', 'No se pudo registrar el pago');
+      showAlert('Error', 'No se pudo registrar el pago');
     }
   };
 
@@ -312,10 +315,10 @@ export default function AppointmentsScreen() {
                   const message = `Hola ${name}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
                   const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
                   Linking.openURL(url).catch(() => {
-                    Alert.alert('Error', 'No se pudo abrir WhatsApp');
+                    showAlert('Error', 'No se pudo abrir WhatsApp');
                   });
                 } else {
-                  Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+                  showAlert('Error', 'El cliente no tiene número de teléfono registrado');
                 }
               }}
               style={styles.actionButton}
@@ -352,7 +355,7 @@ export default function AppointmentsScreen() {
           <ThemedText type="title" style={styles.title}>
             Mis Citas
           </ThemedText>
-          <NotificationBell />
+          {/* <NotificationBell /> */}
         </View>
         <ThemedText style={styles.subtitle}>
           Gestiona las citas de tus clientes
