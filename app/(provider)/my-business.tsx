@@ -11,17 +11,16 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { useAlert } from '@/contexts/GlobalAlertContext';
 
 export default function MyBusinessScreen() {
   const { user } = useAuth();
@@ -39,6 +38,7 @@ export default function MyBusinessScreen() {
   const [monthlyAppointments, setMonthlyAppointments] = useState<number>(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Estados para edición
   const [editingBusiness, setEditingBusiness] = useState(false);
@@ -49,20 +49,7 @@ export default function MyBusinessScreen() {
     address: '',
     phone: '',
     email: '',
-
   });
-
-  useEffect(() => {
-    loadBusinessData();
-  }, []);
-
-  // Refilter services when toggle changes
-  useEffect(() => {
-    const filteredServices = showInactiveServices
-      ? allServices // Show all services
-      : allServices.filter(s => s.is_active === true); // Show only active
-    setServices(filteredServices);
-  }, [showInactiveServices, allServices]);
 
   const loadBusinessData = async () => {
     if (!user) return;
@@ -98,7 +85,6 @@ export default function MyBusinessScreen() {
         address: providerData.address || '',
         phone: providerData.phone || '',
         email: providerData.email || '',
-
       });
 
       // Cargar TODOS los servicios (activos e inactivos) para gestión
@@ -147,6 +133,25 @@ export default function MyBusinessScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadBusinessData();
+    }, [user?.id])
+  );
+
+  useEffect(() => {
+    const filteredServices = showInactiveServices
+      ? allServices // Show all services
+      : allServices.filter(s => s.is_active === true); // Show only active
+    setServices(filteredServices);
+  }, [showInactiveServices, allServices]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadBusinessData();
+    setRefreshing(false);
+  }, []);
+
   const handleSaveBusiness = async () => {
     console.log('🔴 [MY BUSINESS] handleSaveBusiness llamado');
     console.log('🔴 [MY BUSINESS] user:', user);
@@ -166,8 +171,6 @@ export default function MyBusinessScreen() {
 
       // Actualizar el proveedor con los nuevos datos
       const updatedProvider = await BookingService.updateProvider(user.id, businessData);
-
-      console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
 
       console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
 
@@ -205,7 +208,6 @@ export default function MyBusinessScreen() {
         address: provider.address || '',
         phone: provider.phone || '',
         email: provider.email || '',
-
       });
     }
     setEditingBusiness(false);
@@ -254,6 +256,13 @@ export default function MyBusinessScreen() {
           keyboardShouldPersistTaps="always"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.light.primary}
+            />
+          }
         >
           {/* Header */}
           <ThemedView style={styles.header}>
@@ -871,8 +880,8 @@ export default function MyBusinessScreen() {
           {/* Espacio adicional */}
           <View style={styles.bottomSpacing} />
         </ScrollView>
-      </KeyboardAvoidingView >
-    </TabSafeAreaView >
+      </KeyboardAvoidingView>
+    </TabSafeAreaView>
   );
 }
 
@@ -1128,7 +1137,7 @@ const styles = StyleSheet.create({
   servicesLinkContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-between,',
   },
   servicesLinkInfo: {
     flex: 1,

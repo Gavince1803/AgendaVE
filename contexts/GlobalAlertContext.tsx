@@ -99,15 +99,20 @@ export function GlobalAlertProvider({ children }: { children: React.ReactNode })
                                         key={index}
                                         style={[
                                             styles.button,
-                                            buttons.length > 2 ? styles.buttonVertical : styles.buttonHorizontal
+                                            buttons.length > 2 ? styles.buttonVertical : styles.buttonHorizontal,
+                                            btn.style === 'cancel' ? styles.buttonCancel :
+                                                btn.style === 'destructive' ? styles.buttonDestructive :
+                                                    styles.buttonDefault
                                         ]}
                                         onPress={() => handleButtonPress(btn)}
+                                        activeOpacity={0.8}
                                     >
                                         <ThemedText
                                             style={[
                                                 styles.buttonText,
-                                                btn.style === 'cancel' && styles.textCancel,
-                                                btn.style === 'destructive' && styles.textDestructive
+                                                btn.style === 'cancel' ? styles.textCancel :
+                                                    btn.style === 'destructive' ? styles.textDestructive :
+                                                        styles.textDefault
                                             ]}
                                         >
                                             {btn.text || 'OK'}
@@ -133,43 +138,45 @@ const styles = StyleSheet.create({
     },
     alertBox: {
         backgroundColor: Colors.light.surface,
-        borderRadius: 16,
+        borderRadius: 24,
         padding: 24,
         width: '100%',
-        maxWidth: 320,
+        maxWidth: 340,
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-        elevation: 5
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8
     },
     title: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
         marginBottom: 8,
         textAlign: 'center',
         color: Colors.light.text
     },
     message: {
-        fontSize: 14,
+        fontSize: 16,
         color: Colors.light.textSecondary,
         textAlign: 'center',
-        marginBottom: 24
+        marginBottom: 32,
+        lineHeight: 22
     },
     buttonContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'flex-end',
         width: '100%',
-        gap: 8
+        gap: 12
     },
     button: {
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        minWidth: 80,
-        alignItems: 'center'
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        minWidth: 100,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     buttonHorizontal: {
         flex: 1
@@ -178,15 +185,41 @@ const styles = StyleSheet.create({
         width: '100%',
         marginBottom: 8
     },
+    // Button Variants
+    buttonDefault: {
+        backgroundColor: Colors.light.primary,
+        shadowColor: Colors.light.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    buttonCancel: {
+        backgroundColor: Colors.light.surfaceVariant,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    buttonDestructive: {
+        backgroundColor: Colors.light.error,
+        shadowColor: Colors.light.error,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    // Text Styles
     buttonText: {
         fontSize: 16,
         fontWeight: '600',
-        color: Colors.light.primary
+        textAlign: 'center',
+    },
+    textDefault: {
+        color: '#ffffff',
     },
     textCancel: {
-        color: Colors.light.textSecondary
+        color: Colors.light.text,
     },
     textDestructive: {
-        color: Colors.light.error
+        color: '#ffffff',
     }
 });

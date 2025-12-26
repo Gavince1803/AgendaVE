@@ -2,12 +2,13 @@ import { Colors, DesignTokens } from '@/constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import {
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { IconSymbol } from './IconSymbol';
 
@@ -33,13 +34,13 @@ export function TimePicker({
       if (parts.length !== 2) {
         throw new Error('Invalid time format');
       }
-      
+
       const [hours, minutes] = parts.map(Number);
-      
+
       if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
         throw new Error('Invalid time values');
       }
-      
+
       const date = new Date();
       date.setHours(hours, minutes, 0, 0);
       return date;
@@ -63,7 +64,7 @@ export function TimePicker({
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    
+
     if (selectedDate) {
       const timeStr = dateToTime(selectedDate);
       onTimeChange(timeStr);
@@ -80,13 +81,13 @@ export function TimePicker({
       if (parts.length !== 2) {
         return '9:00 AM';
       }
-      
+
       const [hours, minutes] = parts.map(Number);
-      
+
       if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
         return '9:00 AM';
       }
-      
+
       const hour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
       const period = hours >= 12 ? 'PM' : 'AM';
       return `${hour}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -96,12 +97,46 @@ export function TimePicker({
     }
   };
 
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.container}>
+        {label && (
+          <Text style={styles.label}>{label}</Text>
+        )}
+        <View style={[
+          styles.button,
+          disabled && styles.buttonDisabled,
+          { paddingVertical: 0 } // Remove padding for input alignment
+        ]}>
+          <TextInput
+            style={[
+              styles.timeText,
+              disabled && styles.timeTextDisabled,
+              { flex: 1, height: 44, outlineStyle: 'none' } as any
+            ]}
+            value={value}
+            onChangeText={(text) => onTimeChange(text)}
+            placeholder="HH:MM"
+            placeholderTextColor={Colors.light.textTertiary}
+            editable={!disabled}
+            maxLength={5}
+          />
+          <IconSymbol
+            name="clock"
+            size={16}
+            color={disabled ? Colors.light.textTertiary : Colors.light.textSecondary}
+          />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {label && (
         <Text style={styles.label}>{label}</Text>
       )}
-      
+
       <TouchableOpacity
         style={[
           styles.button,
@@ -116,10 +151,10 @@ export function TimePicker({
         ]}>
           {formatTimeDisplay(value)}
         </Text>
-        <IconSymbol 
-          name="clock" 
-          size={16} 
-          color={disabled ? Colors.light.textTertiary : Colors.light.textSecondary} 
+        <IconSymbol
+          name="clock"
+          size={16}
+          color={disabled ? Colors.light.textTertiary : Colors.light.textSecondary}
         />
       </TouchableOpacity>
 
@@ -134,7 +169,7 @@ export function TimePicker({
               presentationStyle="overFullScreen"
             >
               <View style={styles.modalOverlay}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.modalBackdrop}
                   activeOpacity={1}
                   onPress={handleModalClose}
@@ -159,7 +194,7 @@ export function TimePicker({
                       </Text>
                     </TouchableOpacity>
                   </View>
-                  
+
                   <View style={styles.pickerContainer}>
                     <DateTimePicker
                       value={timeToDate(value)}
