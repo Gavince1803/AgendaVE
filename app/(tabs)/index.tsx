@@ -1407,6 +1407,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: DesignTokens.spacing.sm,
     marginTop: DesignTokens.spacing.md,
+    width: '100%',
   },
   businessButton: {
     flex: 1,

@@ -26,7 +26,7 @@ export function ConfirmationModal({
     cancelText = 'Cancelar',
     onConfirm,
     onCancel,
-    type = 'danger',
+    type = 'success',
     loading = false,
 }: ConfirmationModalProps) {
     const iconName = type === 'danger' ? 'exclamationmark.triangle.fill' : type === 'success' ? 'checkmark.circle.fill' : 'info.circle';
