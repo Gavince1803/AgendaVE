@@ -122,8 +122,8 @@ function ClientHomeScreen() {
 
       if (lat && long) {
         const { data: nearbyData, error } = await supabase.rpc('get_nearby_providers', {
-          user_lat: lat,
-          user_long: long,
+          lat: lat,
+          long: long,
           radius_km: 50
         });
 
@@ -186,7 +186,7 @@ function ClientHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header con saludo personalizado */}
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: DesignTokens.spacing.md }]}>
           {/* Botón de búsqueda rápida */}
           <Button
             title="Buscar servicios"
@@ -198,14 +198,15 @@ function ClientHomeScreen() {
               log.navigation('ClientHome', 'Explore');
               router.push('/(tabs)/explore');
             }}
-            style={styles.searchButton}
+            style={[styles.searchButton, { flex: 1, marginRight: 8 }]}
           />
           <Button
             title="Cerca de mí"
-            variant="ghost"
+            variant="secondary"
             size="medium"
             icon={<IconSymbol name="location.fill" size={18} color={Colors.light.primary} />}
             onPress={handleNearbySearch}
+            style={{ marginRight: 8 }}
           />
           <NotificationBell />
         </View>
