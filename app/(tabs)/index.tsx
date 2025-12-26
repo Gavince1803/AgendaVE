@@ -334,7 +334,9 @@ function ClientHomeScreen() {
 
                   <View style={styles.providerFooter}>
                     <View style={styles.providerDetails}>
-                      <ThemedText style={styles.distance} numberOfLines={1}>{provider.address || 'Ubicación no disponible'}</ThemedText>
+                      <ThemedText style={styles.distance} numberOfLines={1}>
+                        {provider.distance_km ? `📍 ${provider.distance_km.toFixed(1)} km` : (provider.address || 'Ubicación no disponible')}
+                      </ThemedText>
                       <ThemedText style={styles.price}>
                         {provider.price_tier ? Array(provider.price_tier).fill('$').join('') : '$$'}
                       </ThemedText>

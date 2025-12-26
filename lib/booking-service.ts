@@ -40,6 +40,7 @@ export interface Provider {
   cover_video_url?: string;
   specialties?: string[];
   loyalty_enabled?: boolean;
+  distance_km?: number;
 }
 
 export interface Service {
