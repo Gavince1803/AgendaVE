@@ -542,30 +542,26 @@ function ProviderHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-          <View style={styles.welcomeSection}>
-            <ThemedText type="title" style={styles.welcomeText}>
-              Dashboard 📊
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              Gestiona tu negocio y citas
-            </ThemedText>
-          </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.welcomeText}>
+            Dashboard 📊
+          </ThemedText>
 
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <NotificationBell />
-            {/* Botón de Mi Negocio */}
+          <View style={styles.headerControls}>
             <Button
               title="Mi Negocio"
               variant="outline"
               size="medium"
               icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
               onPress={() => {
-                log.userAction('Navigate to my business', { screen: 'ProviderHome' });
+                useLogger().userAction('Navigate to my business', { screen: 'ProviderHome' });
                 router.push('/(provider)/my-business');
               }}
-              style={styles.searchButton}
+              style={styles.businessButton}
+              textStyle={{ fontSize: 14 }}
             />
+            <NotificationBell />
           </View>
         </View>
 
@@ -1405,5 +1401,15 @@ const styles = StyleSheet.create({
     fontSize: DesignTokens.typography.fontSizes.xl,
     fontWeight: 'bold',
     color: Colors.light.text,
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: DesignTokens.spacing.sm,
+    marginTop: DesignTokens.spacing.md,
+  },
+  businessButton: {
+    flex: 1,
+    height: 44,
   },
 });

@@ -41,6 +41,7 @@ interface ButtonProps extends TouchableOpacityProps {
   gradient?: boolean | 'primary' | 'wellness' | 'premium' | 'soft';
   rounded?: boolean;
   elevated?: boolean;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export function Button({
@@ -57,6 +58,7 @@ export function Button({
   rounded = false,
   elevated = false,
   style,
+  textStyle: customTextStyle,
   ...props
 }: ButtonProps) {
   const theme = useTheme();
@@ -100,6 +102,7 @@ export function Button({
     styles[`${variant}Text`],
     styles[`${size}Text`],
     (disabled || loading) ? styles.disabledText : undefined,
+    customTextStyle,
   ];
 
   const animatedStyle = useMemo(

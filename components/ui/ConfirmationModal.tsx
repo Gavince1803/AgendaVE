@@ -142,6 +142,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: DesignTokens.spacing.md,
         width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     button: {
         flex: 1,
