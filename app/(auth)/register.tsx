@@ -152,6 +152,11 @@ export default function RegisterScreen() {
                 setFullName(text);
                 setErrors((prev) => ({ ...prev, fullName: undefined }));
               }}
+              onBlur={() => {
+                if (!fullName.trim() || fullName.trim().length < 3) {
+                  setErrors(prev => ({ ...prev, fullName: 'Ingresa tu nombre completo (mínimo 3 letras).' }));
+                }
+              }}
               placeholder="Tu nombre completo"
               autoCapitalize="words"
               error={errors.fullName}
@@ -163,6 +168,14 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setCedula(text.replace(/\D/g, ''));
                 setErrors((prev) => ({ ...prev, cedula: undefined }));
+              }}
+              onBlur={() => {
+                const cedulaRegex = /^\d{5,10}$/;
+                if (!cedula.trim()) {
+                  setErrors(prev => ({ ...prev, cedula: 'Ingresa tu cédula.' }));
+                } else if (!cedulaRegex.test(cedula)) {
+                  setErrors(prev => ({ ...prev, cedula: 'Cédula inválida (solo números, 5-10 dígitos).' }));
+                }
               }}
               placeholder="Ej: 12345678"
               keyboardType="numeric"
@@ -176,6 +189,14 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setEmail(text);
                 setErrors((prev) => ({ ...prev, email: undefined }));
+              }}
+              onBlur={() => {
+                const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                if (!email.trim()) {
+                  setErrors(prev => ({ ...prev, email: 'Ingresa un correo válido.' }));
+                } else if (!emailRegex.test(email)) {
+                  setErrors(prev => ({ ...prev, email: 'Formato inválido. Ejemplo: usuario@gmail.com' }));
+                }
               }}
               placeholder="tu@email.com"
               keyboardType="email-address"
@@ -191,6 +212,15 @@ export default function RegisterScreen() {
                 setPhone(text);
                 setErrors((prev) => ({ ...prev, phone: undefined }));
               }}
+              onBlur={() => {
+                const cleanPhone = phone.replace(/\D/g, '');
+                const phoneRegex = /^(0414|0424|0412|0416|0426)\d{7}$/;
+                if (!phone.trim()) {
+                  setErrors(prev => ({ ...prev, phone: 'Ingresa tu teléfono.' }));
+                } else if (!phoneRegex.test(cleanPhone)) {
+                  setErrors(prev => ({ ...prev, phone: 'El formato debe ser 04xx + 7 dígitos (ej: 04121234567).' }));
+                }
+              }}
               placeholder="+58 412 123 4567"
               keyboardType="numeric"
               autoCapitalize="none"
@@ -205,6 +235,11 @@ export default function RegisterScreen() {
                 setPassword(text);
                 setErrors((prev) => ({ ...prev, password: undefined }));
               }}
+              onBlur={() => {
+                if (!password || password.length < 6) {
+                  setErrors(prev => ({ ...prev, password: 'La contraseña debe tener al menos 6 caracteres.' }));
+                }
+              }}
               placeholder="Mínimo 6 caracteres"
               secureTextEntry
               autoCapitalize="none"
@@ -217,6 +252,11 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setConfirmPassword(text);
                 setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+              }}
+              onBlur={() => {
+                if (confirmPassword !== password) {
+                  setErrors(prev => ({ ...prev, confirmPassword: 'Las contraseñas no coinciden.' }));
+                }
               }}
               placeholder="Repite tu contraseña"
               secureTextEntry

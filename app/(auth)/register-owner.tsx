@@ -158,6 +158,9 @@ export default function RegisterOwnerScreen() {
                   setFullName(text);
                   setErrors((prev) => ({ ...prev, fullName: undefined }));
                 }}
+                onBlur={() => {
+                  if (!fullName.trim()) setErrors(prev => ({ ...prev, fullName: 'Ingresa el nombre del propietario.' }));
+                }}
                 placeholder="Tu nombre completo"
                 autoCapitalize="words"
                 error={errors.fullName}
@@ -169,6 +172,13 @@ export default function RegisterOwnerScreen() {
                 onChangeText={(text) => {
                   setCedula(text.replace(/\D/g, ''));
                   setErrors((prev) => ({ ...prev, cedula: undefined }));
+                }}
+                onBlur={() => {
+                  if (!cedula.trim()) {
+                    setErrors(prev => ({ ...prev, cedula: 'Ingresa tu cédula.' }));
+                  } else if (cedula.length < 5) {
+                    setErrors(prev => ({ ...prev, cedula: 'Cédula inválida (mínimo 5 números).' }));
+                  }
                 }}
                 placeholder="Ej: 12345678"
                 keyboardType="numeric"
@@ -183,6 +193,14 @@ export default function RegisterOwnerScreen() {
                   setEmail(text);
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
+                onBlur={() => {
+                  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                  if (!email.trim()) {
+                    setErrors(prev => ({ ...prev, email: 'Ingresa un correo válido.' }));
+                  } else if (!emailRegex.test(email)) {
+                    setErrors(prev => ({ ...prev, email: 'Formato inválido. Ejemplo: usuario@gmail.com' }));
+                  }
+                }}
                 placeholder="tu@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -196,6 +214,15 @@ export default function RegisterOwnerScreen() {
                 onChangeText={(text) => {
                   setPhone(text);
                   setErrors((prev) => ({ ...prev, phone: undefined }));
+                }}
+                onBlur={() => {
+                  const cleanPhone = phone.replace(/\D/g, '');
+                  const phoneRegex = /^(0414|0424|0412|0416|0426)\d{7}$/;
+                  if (!phone.trim()) {
+                    setErrors(prev => ({ ...prev, phone: 'Ingresa un teléfono de contacto.' }));
+                  } else if (!phoneRegex.test(cleanPhone)) {
+                    setErrors(prev => ({ ...prev, phone: 'El formato debe ser 04xx + 7 dígitos.' }));
+                  }
                 }}
                 placeholder="+58 412 123 4567"
                 keyboardType="numeric"
@@ -216,6 +243,9 @@ export default function RegisterOwnerScreen() {
                   setBusinessName(text);
                   setErrors((prev) => ({ ...prev, businessName: undefined }));
                 }}
+                onBlur={() => {
+                  if (!businessName.trim()) setErrors(prev => ({ ...prev, businessName: 'Ingresa el nombre del negocio.' }));
+                }}
                 placeholder="Mi Peluquería"
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -228,6 +258,9 @@ export default function RegisterOwnerScreen() {
                 onChangeText={(text) => {
                   setBusinessType(text);
                   setErrors((prev) => ({ ...prev, businessType: undefined }));
+                }}
+                onBlur={() => {
+                  if (!businessType.trim()) setErrors(prev => ({ ...prev, businessType: 'Describe el tipo de negocio.' }));
                 }}
                 placeholder="Peluquería, Barbería, Spa..."
                 autoCapitalize="words"
@@ -254,6 +287,9 @@ export default function RegisterOwnerScreen() {
                   setPassword(text);
                   setErrors((prev) => ({ ...prev, password: undefined }));
                 }}
+                onBlur={() => {
+                  if (password.length < 6) setErrors(prev => ({ ...prev, password: 'La contraseña debe tener al menos 6 caracteres.' }));
+                }}
                 placeholder="Mínimo 6 caracteres"
                 secureTextEntry
                 autoCapitalize="none"
@@ -266,6 +302,9 @@ export default function RegisterOwnerScreen() {
                 onChangeText={(text) => {
                   setConfirmPassword(text);
                   setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                }}
+                onBlur={() => {
+                  if (confirmPassword !== password) setErrors(prev => ({ ...prev, confirmPassword: 'Las contraseñas no coinciden.' }));
                 }}
                 placeholder="Repite tu contraseña"
                 secureTextEntry

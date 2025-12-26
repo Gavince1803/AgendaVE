@@ -1,6 +1,6 @@
 import { Colors, DesignTokens } from '@/constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -26,6 +26,29 @@ export function TimePicker({
   disabled = false,
 }: TimePickerProps) {
   const [showPicker, setShowPicker] = useState(false);
+
+  // Web-specific state
+  const [webTime, setWebTime] = useState({ hour: '', minute: '', period: 'AM' });
+
+  // Initialize web state from value
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      try {
+        const [h, m] = value.split(':').map(Number);
+        if (!isNaN(h) && !isNaN(m)) {
+          const period = h >= 12 ? 'PM' : 'AM';
+          const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          setWebTime({
+            hour: hour.toString().padStart(2, '0'),
+            minute: m.toString().padStart(2, '0'),
+            period
+          });
+        }
+      } catch (e) {
+        // Fallback or ignore
+      }
+    }
+  }, [value]);
 
   // Convert time string to Date object
   const timeToDate = (timeStr: string): Date => {
@@ -97,6 +120,30 @@ export function TimePicker({
     }
   };
 
+  // Web handlers
+  const updateWebTime = (newTime: { hour: string; minute: string; period: string }) => {
+    setWebTime(newTime);
+
+    // Validate and propagate if complete
+    if (newTime.hour.length > 0 && newTime.minute.length > 0) {
+      let h = parseInt(newTime.hour, 10);
+      const m = parseInt(newTime.minute, 10);
+
+      if (!isNaN(h) && !isNaN(m)) {
+        // Normalize 12h to 24h
+        if (newTime.period === 'PM' && h < 12) h += 12;
+        if (newTime.period === 'AM' && h === 12) h = 0;
+
+        // Clamp values
+        h = Math.min(23, Math.max(0, h));
+        const validM = Math.min(59, Math.max(0, m));
+
+        const timeStr = `${h.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
+        onTimeChange(timeStr);
+      }
+    }
+  };
+
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
@@ -106,21 +153,58 @@ export function TimePicker({
         <View style={[
           styles.button,
           disabled && styles.buttonDisabled,
-          { paddingVertical: 0 } // Remove padding for input alignment
+          { paddingVertical: 0, paddingHorizontal: 12 }
         ]}>
           <TextInput
             style={[
               styles.timeText,
               disabled && styles.timeTextDisabled,
-              { flex: 1, height: 44, outlineStyle: 'none' } as any
+              { width: 30, textAlign: 'center', height: 44, outlineStyle: 'none' } as any
             ]}
-            value={value}
-            onChangeText={(text) => onTimeChange(text)}
-            placeholder="HH:MM"
+            value={webTime.hour}
+            onChangeText={(text) => {
+              // Allow only numbers, max 2 chars, max value 12
+              const numeric = text.replace(/[^0-9]/g, '');
+              if (numeric.length <= 2) {
+                // optional: auto-move focus if length is 2 (requires ref)
+                updateWebTime({ ...webTime, hour: numeric });
+              }
+            }}
+            placeholder="HH"
             placeholderTextColor={Colors.light.textTertiary}
             editable={!disabled}
-            maxLength={5}
+            maxLength={2}
           />
+          <Text style={{ color: Colors.light.textSecondary }}>:</Text>
+          <TextInput
+            style={[
+              styles.timeText,
+              disabled && styles.timeTextDisabled,
+              { width: 30, textAlign: 'center', height: 44, outlineStyle: 'none' } as any
+            ]}
+            value={webTime.minute}
+            onChangeText={(text) => {
+              const numeric = text.replace(/[^0-9]/g, '');
+              if (numeric.length <= 2) {
+                updateWebTime({ ...webTime, minute: numeric });
+              }
+            }}
+            placeholder="MM"
+            placeholderTextColor={Colors.light.textTertiary}
+            editable={!disabled}
+            maxLength={2}
+          />
+
+          <TouchableOpacity
+            style={[styles.periodToggle, disabled && { opacity: 0.5 }]}
+            onPress={() => !disabled && updateWebTime({ ...webTime, period: webTime.period === 'AM' ? 'PM' : 'AM' })}
+          >
+            <Text style={[styles.timeText, { color: Colors.light.primary, fontWeight: 'bold' }]}>
+              {webTime.period}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }} />
           <IconSymbol
             name="clock"
             size={16}
@@ -203,6 +287,9 @@ export function TimePicker({
                       onChange={handleTimeChange}
                       style={styles.picker}
                       textColor={Colors.light.text}
+                      locale="es-VE" // Force locale if supported
+                      // Force 12h format if possible (Android only, iOS uses device locale usually)
+                      is24Hour={false}
                     />
                   </View>
                 </View>
@@ -214,6 +301,7 @@ export function TimePicker({
               mode="time"
               display="default"
               onChange={handleTimeChange}
+              is24Hour={false}
             />
           )}
         </>
@@ -302,4 +390,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
     height: 200,
   },
+  periodToggle: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: 4,
+  }
 });
