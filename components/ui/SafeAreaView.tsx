@@ -1,12 +1,12 @@
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import React, { useMemo } from 'react';
 import {
   Platform,
   StatusBar,
+  StyleProp,
   View,
   ViewStyle,
-  StyleProp,
 } from 'react-native';
-import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/theme';
@@ -101,7 +101,8 @@ export function TabSafeAreaView({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const containerStyle: StyleProp<ViewStyle> = [{ paddingTop: insets.top }, style];
+  const paddingTop = Platform.OS === 'web' ? 0 : insets.top;
+  const containerStyle: StyleProp<ViewStyle> = [{ paddingTop }, style];
   return (
     <SafeAreaView
       backgroundColor={colors.background}

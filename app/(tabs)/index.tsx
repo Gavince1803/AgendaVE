@@ -201,9 +201,10 @@ function ClientHomeScreen() {
             style={styles.searchButton}
           />
           <Button
-            title="📍"
+            title="Cerca de mí"
             variant="ghost"
             size="medium"
+            icon={<IconSymbol name="location.fill" size={18} color={Colors.light.primary} />}
             onPress={handleNearbySearch}
           />
           <NotificationBell />
@@ -593,7 +594,7 @@ function ProviderHomeScreen() {
               size="medium"
               icon={<IconSymbol name="building.2" size={18} color={Colors.light.primary} />}
               onPress={() => {
-                useLogger().userAction('Navigate to my business', { screen: 'ProviderHome' });
+                log.userAction('Navigate to my business', { screen: 'ProviderHome' });
                 router.push('/(provider)/my-business');
               }}
               containerStyle={styles.businessButton}
