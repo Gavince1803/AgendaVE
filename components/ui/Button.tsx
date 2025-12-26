@@ -42,6 +42,7 @@ interface ButtonProps extends TouchableOpacityProps {
   rounded?: boolean;
   elevated?: boolean;
   textStyle?: StyleProp<TextStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export function Button({
@@ -59,6 +60,7 @@ export function Button({
   elevated = false,
   style,
   textStyle: customTextStyle,
+  containerStyle,
   ...props
 }: ButtonProps) {
   const theme = useTheme();
@@ -113,7 +115,11 @@ export function Button({
   );
 
   return (
-    <Animated.View style={[animatedStyle, fullWidth ? styles.fullWidthContainer : undefined]}>
+    <Animated.View style={[
+      animatedStyle,
+      fullWidth ? styles.fullWidthContainer : undefined,
+      containerStyle
+    ]}>
       <TouchableOpacity
         style={buttonStyle}
         disabled={disabled || loading}

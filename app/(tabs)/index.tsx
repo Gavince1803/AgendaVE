@@ -558,7 +558,7 @@ function ProviderHomeScreen() {
                 useLogger().userAction('Navigate to my business', { screen: 'ProviderHome' });
                 router.push('/(provider)/my-business');
               }}
-              style={styles.businessButton}
+              containerStyle={styles.businessButton}
               textStyle={{ fontSize: 14 }}
             />
             <NotificationBell />
