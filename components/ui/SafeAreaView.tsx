@@ -112,8 +112,8 @@ export function TabSafeAreaView({
     >
       <ExpoStatusBar
         style="dark"
-        backgroundColor={colors.background}
-        translucent={false}
+        backgroundColor="transparent"
+        translucent={true}
       />
       {children}
     </SafeAreaView>

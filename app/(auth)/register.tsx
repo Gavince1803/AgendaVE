@@ -33,25 +33,45 @@ export default function RegisterScreen() {
   const validateFields = () => {
     const nextErrors: RegisterFieldErrors = {};
 
-    if (!fullName.trim()) {
-      nextErrors.fullName = 'Ingresa tu nombre completo.';
+    // Nombre
+    if (!fullName.trim() || fullName.trim().length < 3) {
+      nextErrors.fullName = 'Ingresa tu nombre completo (mínimo 3 letras).';
     }
+
+    // Cédula: solo números, longitud razonable (5-10 dígitos)
+    const cedulaRegex = /^\d{5,10}$/;
     if (!cedula.trim()) {
       nextErrors.cedula = 'Ingresa tu cédula.';
-    } else if (cedula.length < 5) {
-      nextErrors.cedula = 'Cédula inválida.';
+    } else if (!cedulaRegex.test(cedula)) {
+      nextErrors.cedula = 'Cédula inválida (solo números, 5-10 dígitos).';
     }
+
+    // Email: Regex estricta
+    // Estándar HTML5 para email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!email.trim()) {
       nextErrors.email = 'Ingresa un correo válido.';
-    } else if (!email.includes('@')) {
-      nextErrors.email = 'El correo parece inválido.';
+    } else if (!emailRegex.test(email)) {
+      nextErrors.email = 'Formato de correo inválido (ej: usuario@dominio.com).';
     }
+
+    // Teléfono: Celular venezolano (0414, 0424, 0412, 0416, 0426)
+    // Acepta con o sin formato, pero validamos que tenga 11 dígitos y empiece por el prefijo
+    const cleanPhone = phone.replace(/\D/g, ''); // Eliminar todo lo que no sea número
+    const phoneRegex = /^(0414|0424|0412|0416|0426)\d{7}$/;
+
     if (!phone.trim()) {
       nextErrors.phone = 'Ingresa tu teléfono.';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      nextErrors.phone = 'Teléfono inválido. Usa formato 0412/0414/0424 + 7 dígitos.';
     }
+
+    // Password
     if (!password || password.length < 6) {
       nextErrors.password = 'La contraseña debe tener 6+ caracteres.';
     }
+
+    // Confirm Password
     if (confirmPassword !== password) {
       nextErrors.confirmPassword = 'Las contraseñas no coinciden.';
     }

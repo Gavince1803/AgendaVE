@@ -55,7 +55,16 @@ export default function AppointmentsScreen() {
         appointmentsData = await BookingService.getProviderAppointments();
       }
 
-      setAppointments(appointmentsData);
+      // Enriquecer citas con estadísticas de No Show
+      const enrichedAppointments = await Promise.all(appointmentsData.map(async (apt) => {
+        if (apt.client_id) {
+          const stats = await BookingService.getClientStats(apt.client_id);
+          return { ...apt, no_show_count: stats.noShowCount };
+        }
+        return apt;
+      }));
+
+      setAppointments(enrichedAppointments);
 
       log.info(LogCategory.DATA, 'Appointments loaded', {
         count: appointmentsData.length,
@@ -232,6 +241,14 @@ export default function AppointmentsScreen() {
               </ThemedText>
             </View>
           )}
+          {/* Warning Badge for Frequent No-Shows */}
+          {appointment.no_show_count && appointment.no_show_count > 0 ? (
+            <View style={[styles.statusBadge, { backgroundColor: Colors.light.warning + '20', borderWidth: 1, borderColor: Colors.light.warning, marginTop: 4 }]}>
+              <ThemedText style={[styles.statusText, { color: Colors.light.warning, fontSize: 10 }]}>
+                ⚠️ {appointment.no_show_count} No Shows
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
       </View>
 

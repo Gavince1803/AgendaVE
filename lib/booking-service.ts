@@ -141,6 +141,8 @@ export interface Appointment {
   // Manual Booking Fields
   client_name?: string;
   client_phone?: string;
+  // Computed Fields
+  no_show_count?: number;
 }
 
 export interface Review {
@@ -778,6 +780,24 @@ export class BookingService {
       console.error('Error updating employee availability:', error);
       throw error;
     }
+  }
+
+  // 🚩 Obtener estadísticas del cliente (No Shows)
+  static async getClientStats(clientId: string) {
+    if (!supabase) throw new Error('Supabase no configurado');
+
+    const { count, error } = await supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'no_show');
+
+    if (error) {
+      console.error('Ocurrió un error obteniendo estadisticas del cliente:', error);
+      return { noShowCount: 0 };
+    }
+
+    return { noShowCount: count || 0 };
   }
 
   // 👥 Habilitar/deshabilitar horario personalizado de empleado

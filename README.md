@@ -10,6 +10,8 @@ AgendaVE is a cross-platform React Native (Expo) application designed to help se
 -   **Provider Dashboard**: Manage services, availability, and employees.
 -   **Client Booking**: Easy service selection, calendar view, and booking management.
 -   **Metrics**: Track revenue and appointment stats.
+-   **Nearby Providers**: Find services near you with "Cerca de mí".
+-   **Reliability System**: Providers can identify reliable clients and manage No-Shows.
 
 ## 🛠 Tech Stack
 

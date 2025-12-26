@@ -8,6 +8,7 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService, Provider, ProviderDashboardMetrics, Service } from '@/lib/booking-service';
 import { CurrencyService } from '@/lib/currency-service';
 import { LogCategory, useLogger } from '@/lib/logger';
@@ -18,6 +19,7 @@ import { Href, router } from 'expo-router';
 import React from 'react';
 import {
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -89,7 +91,9 @@ function ClientHomeScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [featuredProviders, setFeaturedProviders] = React.useState<Provider[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [searchingLocation, setSearchingLocation] = React.useState(false);
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const log = useLogger(user?.id);
 
   React.useEffect(() => {
@@ -98,18 +102,42 @@ function ClientHomeScreen() {
 
   const handleNearbySearch = async () => {
     try {
-      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Habilita la ubicación para buscar cerca de ti.');
+      setSearchingLocation(true);
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost') {
+        showAlert(
+          'Ubicación no disponible',
+          'Para usar "Cerca de mí" en la web, necesitas acceder vía HTTPS o localhost.'
+        );
         return;
       }
 
-      const location = await ExpoLocation.getCurrentPositionAsync({});
-      loadFeaturedProviders(location.coords.latitude, location.coords.longitude);
-      log.userAction('Nearby search', { lat: location.coords.latitude, long: location.coords.longitude });
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Permiso denegado', 'Habilita la ubicación para buscar cerca de ti.');
+        return;
+      }
+
+      // Try last known first for speed, then current
+      let location = await ExpoLocation.getLastKnownPositionAsync({});
+      if (!location) {
+        location = await ExpoLocation.getCurrentPositionAsync({
+          accuracy: ExpoLocation.Accuracy.Balanced, // Faster, good enough for "nearby"
+        });
+      }
+
+      if (location) {
+        loadFeaturedProviders(location.coords.latitude, location.coords.longitude);
+        log.userAction('Nearby search', { lat: location.coords.latitude, long: location.coords.longitude });
+      } else {
+        throw new Error('Location is null');
+      }
+
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+      showAlert('Error', 'No se pudo obtener tu ubicación. Verifica que el GPS esté activado.');
+    } finally {
+      setSearchingLocation(false);
     }
   };
 
@@ -122,8 +150,8 @@ function ClientHomeScreen() {
 
       if (lat && long) {
         const { data: nearbyData, error } = await supabase.rpc('get_nearby_providers', {
-          lat: lat,
-          long: long,
+          user_lat: lat,
+          user_long: long,
           radius_km: 50
         });
 
@@ -186,27 +214,30 @@ function ClientHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header con saludo personalizado */}
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: DesignTokens.spacing.md }]}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: DesignTokens.spacing.xl }]}>
+          {/* Botón de búsqueda rápida */}
           {/* Botón de búsqueda rápida */}
           <Button
             title="Buscar servicios"
-            variant="outline"
+            variant="soft"
             size="medium"
-            icon={<IconSymbol name="magnifyingglass" size={18} color={Colors.light.primary} />}
+            icon={<IconSymbol name="magnifyingglass" size={18} color={Colors.light.textSecondary} />}
             onPress={() => {
               log.userAction('Navigate to explore', { screen: 'ClientHome' });
               log.navigation('ClientHome', 'Explore');
               router.push('/(tabs)/explore');
             }}
-            style={[styles.searchButton, { flex: 1, marginRight: 8 }]}
+            containerStyle={{ flex: 1, marginRight: 8 }}
+            textStyle={{ color: Colors.light.textSecondary, fontWeight: 'normal' }}
           />
           <Button
             title="Cerca de mí"
-            variant="secondary"
+            variant="outline"
             size="medium"
+            loading={searchingLocation}
             icon={<IconSymbol name="location.fill" size={18} color={Colors.light.primary} />}
             onPress={handleNearbySearch}
-            style={{ marginRight: 8 }}
+            containerStyle={{ marginRight: 8 }}
           />
           <NotificationBell />
         </View>
@@ -336,7 +367,9 @@ function ClientHomeScreen() {
                   <View style={styles.providerFooter}>
                     <View style={styles.providerDetails}>
                       <ThemedText style={styles.distance} numberOfLines={1}>
-                        {provider.distance_km ? `📍 ${provider.distance_km.toFixed(1)} km` : (provider.address || 'Ubicación no disponible')}
+                        {provider.distance_km !== undefined && provider.distance_km !== null
+                          ? `📍 ${provider.distance_km.toFixed(1)} km`
+                          : (provider.address || 'Ubicación no disponible')}
                       </ThemedText>
                       <ThemedText style={styles.price}>
                         {provider.price_tier ? Array(provider.price_tier).fill('$').join('') : '$$'}

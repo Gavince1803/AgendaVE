@@ -208,7 +208,7 @@ export default function ProfileScreen() {
               onPress: () => {
                 Alert.alert(
                   'Preguntas Frecuentes',
-                  '¿¿Cómo hago una reserva?\nSelecciona un proveedor, elige un servicio, selecciona fecha y hora.\n\n¿Puedo cancelar mi cita?\nSí, puedes cancelar desde "Mis Citas".\n\n¿Cómo contacto al proveedor?\nEncuentra la información de contacto en los detalles del proveedor.',
+                  '¿Cómo hago una reserva?\nSelecciona un proveedor, elige un servicio, selecciona fecha y hora.\n\n¿Qué son las "Alertas de No Show"?\nSi un usuario falta repetidamente a sus citas, aparecerá una alerta en su perfil para los proveedores.\n\n¿Puedo cancelar mi cita?\nSí, puedes cancelar desde "Mis Citas".\n\n¿Cómo contacto al proveedor?\nEncuentra la información de contacto en los detalles del proveedor.',
                   [{ text: 'Entendido' }]
                 );
               }
@@ -263,8 +263,8 @@ export default function ProfileScreen() {
                 style: 'cancel'
               },
               {
-                text: 'Mi Negocio',
-                onPress: () => router.push('/(provider)/my-business')
+                text: 'Preferencias',
+                onPress: () => router.push('/(provider)/settings')
               },
               {
                 text: 'Empleados',
