@@ -90,7 +90,7 @@ export default function AppointmentsScreen() {
 
   const { showAlert } = useAlert();
 
-  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete') => {
+  const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete' | 'no_show') => {
     try {
       log.userAction('Appointment action', {
         appointmentId: appointment.id,
@@ -99,7 +99,7 @@ export default function AppointmentsScreen() {
         screen: 'Appointments'
       });
 
-      let newStatus: 'confirmed' | 'cancelled' | 'done';
+      let newStatus: 'confirmed' | 'cancelled' | 'done' | 'no_show';
       switch (action) {
         case 'confirm':
           newStatus = 'confirmed';
@@ -109,6 +109,9 @@ export default function AppointmentsScreen() {
           break;
         case 'complete':
           newStatus = 'done';
+          break;
+        case 'no_show':
+          newStatus = 'no_show';
           break;
       }
 
@@ -175,6 +178,8 @@ export default function AppointmentsScreen() {
         return ComponentColors.appointment.cancelled;
       case 'done':
         return ComponentColors.appointment.completed;
+      case 'no_show':
+        return Colors.light.error;
       default:
         return Colors.light.textSecondary;
     }
@@ -190,6 +195,8 @@ export default function AppointmentsScreen() {
         return 'Cancelada';
       case 'done':
         return 'Completada';
+      case 'no_show':
+        return 'No Asistió';
       default:
         return status;
     }
@@ -293,13 +300,36 @@ export default function AppointmentsScreen() {
         (appointment.status === 'confirmed' || appointment.status === 'done') && (
           <View style={styles.appointmentActions}>
             {appointment.status === 'confirmed' && (
-              <Button
-                title="Completar"
-                variant="primary"
-                size="small"
-                onPress={() => handleAppointmentAction(appointment, 'complete')}
-                style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
-              />
+              <>
+                <Button
+                  title="Completar"
+                  variant="primary"
+                  size="small"
+                  onPress={() => handleAppointmentAction(appointment, 'complete')}
+                  style={[styles.actionButton, { backgroundColor: Colors.light.success }]}
+                />
+                <Button
+                  title="No Show"
+                  variant="outline"
+                  size="small"
+                  onPress={() => {
+                    showAlert(
+                      'Marcar como No Show',
+                      '¿Estás seguro de que el cliente no asistió? Esto afectará sus estadísticas.',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Marcar No Show',
+                          style: 'destructive',
+                          onPress: () => handleAppointmentAction(appointment, 'no_show')
+                        }
+                      ]
+                    );
+                  }}
+                  style={[styles.actionButton, { borderColor: Colors.light.error }]}
+                  textStyle={{ color: Colors.light.error }}
+                />
+              </>
             )}
 
             <Button

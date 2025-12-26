@@ -26,6 +26,7 @@ export interface Provider {
 
   lat?: number;
   lng?: number;
+  price_tier?: 1 | 2 | 3 | 4;
   timezone: string;
   category: string;
   rating: number;
@@ -3470,6 +3471,9 @@ export class BookingService {
       email?: string;
       logo_url?: string;
       hero_image_url?: string;
+      price_tier?: 1 | 2 | 3 | 4;
+      latitude?: number;
+      longitude?: number;
     }
   ): Promise<Provider | null> {
     try {
@@ -3486,6 +3490,9 @@ export class BookingService {
           email: updateData.email,
           logo_url: updateData.logo_url,
           hero_image_url: updateData.hero_image_url,
+          price_tier: updateData.price_tier,
+          latitude: updateData.latitude,
+          longitude: updateData.longitude,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', providerId)

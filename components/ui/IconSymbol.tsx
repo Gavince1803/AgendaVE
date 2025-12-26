@@ -194,7 +194,13 @@ const MAPPING: IconMapping = {
   'leaf': 'eco',
   'leaf.fill': 'eco',
   'line.3.horizontal.decrease': 'filter-list',
+  'dollarsign.circle.fill': 'attach-money',
+  'clock.fill': 'schedule',
+  'person.2.fill': 'group',
+  'location.fill': 'location-on',
   'star.lefthalf.fill': 'star-half',
+  'exclamationmark.triangle.fill': 'warning',
+  'checkmark.circle.fill': 'check-circle',
 } as IconMapping;
 
 /**

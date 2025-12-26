@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/Input';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, ProviderSchedulingSettings } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import * as ExpoLocation from 'expo-location';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -27,6 +29,7 @@ interface SettingsFormState {
   cancellationHours: string;
   cancellationMessage: string;
   reminderLeadMinutes: string;
+  priceTier: number;
 }
 
 const BUFFER_PRESETS = [0, 5, 10, 15, 30];
@@ -48,6 +51,7 @@ export default function ProviderSettingsScreen() {
     cancellationHours: '12',
     cancellationMessage: '',
     reminderLeadMinutes: '60',
+    priceTier: 2,
   });
 
   useEffect(() => {
@@ -73,8 +77,15 @@ export default function ProviderSettingsScreen() {
       setProviderMissing(false);
       setProviderId(provider.id);
 
+      setProviderId(provider.id);
+
       const settings = await BookingService.getProviderSchedulingSettings(provider.id);
       applySettingsToForm(settings);
+
+      setForm(prev => ({
+        ...prev,
+        priceTier: (provider.price_tier as number) || 1
+      }));
 
       log.info(LogCategory.DATABASE, 'Scheduling settings loaded', {
         bufferBefore: settings.bufferBeforeMinutes,
@@ -97,6 +108,7 @@ export default function ProviderSettingsScreen() {
       cancellationHours: String(settings.cancellationPolicyHours ?? 12),
       cancellationMessage: settings.cancellationPolicyMessage || '',
       reminderLeadMinutes: String(settings.reminderLeadTimeMinutes ?? 60),
+      priceTier: 2,
     });
   };
 
@@ -130,6 +142,11 @@ export default function ProviderSettingsScreen() {
 
       await BookingService.saveProviderSchedulingSettings(user.id, payload);
 
+      // Update provider profile settings (Price Tier)
+      await BookingService.updateProvider(user.id, {
+        price_tier: form.priceTier as 1 | 2 | 3 | 4
+      });
+
       showAlert('Ajustes guardados', 'Tus preferencias han sido actualizadas correctamente.');
       log.info(LogCategory.SERVICE, 'Scheduling settings saved', payload);
     } catch (error) {
@@ -146,6 +163,40 @@ export default function ProviderSettingsScreen() {
 
   const handleUseReminderPreset = (value: number) => {
     updateForm('reminderLeadMinutes', String(value));
+  };
+
+  const handleUpdateLocation = async () => {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        showAlert('Permiso denegado', 'Necesitamos acceso a tu ubicación para actualizar la dirección del negocio.');
+        setSaving(false);
+        return;
+      }
+
+      const location = await ExpoLocation.getCurrentPositionAsync({});
+
+      await BookingService.updateProvider(user.id, {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      showAlert('Ubicación Actualizada', 'La ubicación de tu negocio se ha actualizado correctamente.');
+      log.userAction('Update provider location', {
+        lat: location.coords.latitude,
+        lng: location.coords.longitude
+      });
+
+    } catch (error) {
+      log.error(LogCategory.SERVICE, 'Error updating location', error);
+      showAlert('Error', 'No se pudo obtener la ubicación.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -300,6 +351,46 @@ export default function ProviderSettingsScreen() {
                   />
                 ))}
               </View>
+            </Card>
+
+            <Card variant="elevated" style={styles.sectionCard}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Nivel de Precio
+              </ThemedText>
+              <ThemedText style={styles.sectionDescription}>
+                Indica el rango de precios de tus servicios para ayudar a los clientes a elegir.
+              </ThemedText>
+
+              <View style={styles.presetRow}>
+                {[1, 2, 3, 4].map((tier) => (
+                  <Button
+                    key={`price-tier-${tier}`}
+                    title={Array(tier).fill('$').join('')}
+                    variant={form.priceTier === tier ? 'primary' : 'outline'}
+                    size="small"
+                    onPress={() => updateForm('priceTier', tier)}
+                    containerStyle={{ minWidth: 60, flex: 1 }}
+                  />
+                ))}
+              </View>
+            </Card>
+
+            <Card variant="elevated" style={styles.sectionCard}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Ubicación del Negocio
+              </ThemedText>
+              <ThemedText style={styles.sectionDescription}>
+                Actualiza las coordenadas de tu negocio usando tu posición GPS actual para que los clientes cercanos te encuentren.
+              </ThemedText>
+
+              <Button
+                title="Actualizar con mi GPS"
+                variant="outline"
+                icon={<IconSymbol name="location.fill" size={18} color={Colors.light.primary} />}
+                onPress={handleUpdateLocation}
+                disabled={saving}
+                style={styles.secondaryButton}
+              />
             </Card>
 
             <Card variant="elevated" style={styles.sectionCard}>

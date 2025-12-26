@@ -11,7 +11,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Appointment, BookingService, Provider, ProviderDashboardMetrics, Service } from '@/lib/booking-service';
 import { CurrencyService } from '@/lib/currency-service';
 import { LogCategory, useLogger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 import { Image as ExpoImage } from 'expo-image';
+import * as ExpoLocation from 'expo-location';
 import { Href, router } from 'expo-router';
 import React from 'react';
 import {
@@ -94,19 +96,47 @@ function ClientHomeScreen() {
     loadFeaturedProviders();
   }, []);
 
-  const loadFeaturedProviders = async () => {
+  const handleNearbySearch = async () => {
+    try {
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Habilita la ubicación para buscar cerca de ti.');
+        return;
+      }
+
+      const location = await ExpoLocation.getCurrentPositionAsync({});
+      loadFeaturedProviders(location.coords.latitude, location.coords.longitude);
+      log.userAction('Nearby search', { lat: location.coords.latitude, long: location.coords.longitude });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
+    }
+  };
+
+  const loadFeaturedProviders = async (lat?: number, long?: number) => {
     try {
       setLoading(true);
       log.info(LogCategory.DATABASE, 'Loading featured providers', { screen: 'ClientHome' });
 
-      const providers = await BookingService.getAllProviders();
-      // Tomar los primeros 3 proveedores como destacados
-      setFeaturedProviders(providers.slice(0, 3));
+      let data: Provider[] | null = null;
 
-      log.info(LogCategory.DATABASE, 'Featured providers loaded', {
-        count: providers.slice(0, 3).length,
-        screen: 'ClientHome'
-      });
+      if (lat && long) {
+        const { data: nearbyData, error } = await supabase.rpc('get_nearby_providers', {
+          user_lat: lat,
+          user_long: long,
+          radius_km: 50
+        });
+
+        if (error) throw error;
+        data = nearbyData as unknown as Provider[];
+      } else {
+        const providers = await BookingService.getAllProviders();
+        data = providers.slice(0, 3);
+      }
+
+      if (data) {
+        setFeaturedProviders(data);
+      }
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading featured providers', error);
       setFeaturedProviders([]);
@@ -169,6 +199,12 @@ function ClientHomeScreen() {
               router.push('/(tabs)/explore');
             }}
             style={styles.searchButton}
+          />
+          <Button
+            title="📍"
+            variant="ghost"
+            size="medium"
+            onPress={handleNearbySearch}
           />
           <NotificationBell />
         </View>
@@ -298,7 +334,9 @@ function ClientHomeScreen() {
                   <View style={styles.providerFooter}>
                     <View style={styles.providerDetails}>
                       <ThemedText style={styles.distance} numberOfLines={1}>{provider.address || 'Ubicación no disponible'}</ThemedText>
-                      <ThemedText style={styles.price}>Desde $25</ThemedText>
+                      <ThemedText style={styles.price}>
+                        {provider.price_tier ? Array(provider.price_tier).fill('$').join('') : '$$'}
+                      </ThemedText>
                     </View>
                     <View style={styles.reserveButtonContainer}>
                       <Button
