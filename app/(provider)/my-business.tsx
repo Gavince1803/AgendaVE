@@ -266,6 +266,12 @@ export default function MyBusinessScreen() {
         >
           {/* Header */}
           <ThemedView style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+            >
+              <IconSymbol name="chevron.left" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
             <ThemedText type="title" style={styles.title}>
               Mi Negocio
             </ThemedText>
@@ -902,16 +908,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: DesignTokens.spacing.lg,
-    paddingTop: DesignTokens.spacing.sm,    // pequeño espacio superior
-    paddingBottom: DesignTokens.spacing.lg, // espacio inferior cómodo
+    paddingTop: DesignTokens.spacing.sm,
+    paddingBottom: DesignTokens.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
   },
-
+  backButton: {
+    padding: DesignTokens.spacing.sm,
+    marginLeft: -DesignTokens.spacing.sm,
+  },
   title: {
+    flex: 1,
     textAlign: 'center',
+    marginRight: 24, // Balance the back button spacing visually if needed, though Space Between handles it partially
   },
   section: {
     margin: DesignTokens.spacing.lg,

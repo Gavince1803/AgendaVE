@@ -153,63 +153,90 @@ export function TimePicker({
         <View style={[
           styles.button,
           disabled && styles.buttonDisabled,
-          { paddingVertical: 0, paddingHorizontal: 12 }
+          {
+            paddingVertical: 0,
+            paddingHorizontal: 0,
+            backgroundColor: Colors.light.background,
+            width: 140,
+            justifyContent: 'center',
+            overflow: 'hidden'
+          }
         ]}>
-          <TextInput
-            style={[
-              styles.timeText,
-              disabled && styles.timeTextDisabled,
-              { width: 30, textAlign: 'center', height: 44, outlineStyle: 'none' } as any
-            ]}
-            value={webTime.hour}
-            onChangeText={(text) => {
-              // Allow only numbers, max 2 chars, max value 12
-              const numeric = text.replace(/[^0-9]/g, '');
-              if (numeric.length <= 2) {
-                // optional: auto-move focus if length is 2 (requires ref)
-                updateWebTime({ ...webTime, hour: numeric });
-              }
-            }}
-            placeholder="HH"
-            placeholderTextColor={Colors.light.textTertiary}
-            editable={!disabled}
-            maxLength={2}
-          />
-          <Text style={{ color: Colors.light.textSecondary }}>:</Text>
-          <TextInput
-            style={[
-              styles.timeText,
-              disabled && styles.timeTextDisabled,
-              { width: 30, textAlign: 'center', height: 44, outlineStyle: 'none' } as any
-            ]}
-            value={webTime.minute}
-            onChangeText={(text) => {
-              const numeric = text.replace(/[^0-9]/g, '');
-              if (numeric.length <= 2) {
-                updateWebTime({ ...webTime, minute: numeric });
-              }
-            }}
-            placeholder="MM"
-            placeholderTextColor={Colors.light.textTertiary}
-            editable={!disabled}
-            maxLength={2}
-          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+            <TextInput
+              style={[
+                styles.timeText,
+                disabled && styles.timeTextDisabled,
+                {
+                  width: 32,
+                  textAlign: 'center',
+                  height: 44,
+                  outlineStyle: 'none',
+                  backgroundColor: 'transparent'
+                } as any
+              ]}
+              value={webTime.hour}
+              onChangeText={(text) => {
+                const numeric = text.replace(/[^0-9]/g, '');
+                if (numeric.length <= 2) {
+                  updateWebTime({ ...webTime, hour: numeric });
+                }
+              }}
+              placeholder="HH"
+              placeholderTextColor={Colors.light.textTertiary}
+              editable={!disabled}
+              maxLength={2}
+            />
+            <Text style={{ color: Colors.light.textSecondary, marginHorizontal: 2, fontWeight: 'bold' }}>:</Text>
+            <TextInput
+              style={[
+                styles.timeText,
+                disabled && styles.timeTextDisabled,
+                {
+                  width: 32,
+                  textAlign: 'center',
+                  height: 44,
+                  outlineStyle: 'none',
+                  backgroundColor: 'transparent'
+                } as any
+              ]}
+              value={webTime.minute}
+              onChangeText={(text) => {
+                const numeric = text.replace(/[^0-9]/g, '');
+                if (numeric.length <= 2) updateWebTime({ ...webTime, minute: numeric });
+              }}
+              placeholder="MM"
+              placeholderTextColor={Colors.light.textTertiary}
+              editable={!disabled}
+              maxLength={2}
+            />
+          </View>
+
+          <View style={{ width: 1, height: '60%', backgroundColor: Colors.light.border }} />
 
           <TouchableOpacity
-            style={[styles.periodToggle, disabled && { opacity: 0.5 }]}
+            style={[
+              {
+                paddingHorizontal: 12,
+                height: '100%',
+                justifyContent: 'center',
+                backgroundColor: disabled ? 'transparent' : Colors.light.surfaceVariant,
+              },
+              disabled && { opacity: 0.5 }
+            ]}
             onPress={() => !disabled && updateWebTime({ ...webTime, period: webTime.period === 'AM' ? 'PM' : 'AM' })}
           >
-            <Text style={[styles.timeText, { color: Colors.light.primary, fontWeight: 'bold' }]}>
+            <Text style={[
+              styles.timeText,
+              {
+                color: Colors.light.primary,
+                fontWeight: 'bold',
+                fontSize: 14
+              }
+            ]}>
               {webTime.period}
             </Text>
           </TouchableOpacity>
-
-          <View style={{ flex: 1 }} />
-          <IconSymbol
-            name="clock"
-            size={16}
-            color={disabled ? Colors.light.textTertiary : Colors.light.textSecondary}
-          />
         </View>
       </View>
     );
