@@ -91,16 +91,16 @@ export default function RegisterOwnerScreen() {
         address: address
       }, cedula);
 
-      // Mostrar mensaje de éxito con información sobre confirmación de email
+      // Mostrar mensaje de éxito
       showAlert(
         '¡Negocio registrado exitosamente! 🎉',
-        'Tu cuenta de negocio ha sido creada correctamente. Inicia sesión para configurar tu perfil.',
+        'Tu cuenta de negocio ha sido creada correctamente. Bienvenido.',
         [
           {
-            text: 'Ir a Iniciar Sesión',
+            text: 'Continuar',
             onPress: () => {
-              // Redirigir al login
-              router.replace('/(auth)/login');
+              // Redirigir al inicio, el auth context manejará la navegación
+              router.replace('/');
             }
           }
         ]
