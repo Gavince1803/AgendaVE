@@ -6,7 +6,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { NotificationBell } from '@/components/ui/NotificationBell';
+import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, DesignTokens } from '@/constants/Colors';

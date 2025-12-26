@@ -9,7 +9,7 @@ import {
   EmptyState,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
-import { NotificationBell } from '@/components/ui/NotificationBell';
+import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, ComponentColors } from '@/constants/Colors';
 import { Appointment, BookingService } from '@/lib/booking-service';

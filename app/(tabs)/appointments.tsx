@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-// import { NotificationBell } from '@/components/ui/NotificationBell';
+import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Colors, ComponentColors, DesignTokens } from '@/constants/Colors';
@@ -355,7 +355,7 @@ export default function AppointmentsScreen() {
           <ThemedText type="title" style={styles.title}>
             Mis Citas
           </ThemedText>
-          {/* <NotificationBell /> */}
+          <NotificationBell />
         </View>
         <ThemedText style={styles.subtitle}>
           Gestiona las citas de tus clientes

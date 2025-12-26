@@ -15,16 +15,16 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { useAlert } from '@/contexts/GlobalAlertContext';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 export default function ProfileScreen() {
   const { user, signOut, activeRole, setActiveRole, employeeProfile, refreshUser } = useAuth();
-  const { showAlert } = useAlert();
   const { isLargeText, toggleLargeText } = useTextScale();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [isAcceptingInvite, setIsAcceptingInvite] = useState(false);
@@ -51,56 +51,7 @@ export default function ProfileScreen() {
     loadProviderInfo();
   }, [isEmployee, employeeProfile?.provider_id]);
 
-  const handleSignOut = async () => {
-    console.log('🔴 [PROFILE] handleSignOut llamado');
-    console.log('🔴 [PROFILE] isSigningOut:', isSigningOut);
 
-    if (isSigningOut) {
-      console.log('🔴 [PROFILE] Ya se está cerrando sesión, ignorando...');
-      return;
-    }
-
-    console.log('🔴 [PROFILE] Mostrando confirmación...');
-
-    // Use showAlert instead of Alert.alert for web compatibility
-    showAlert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-          onPress: () => console.log('🔴 [PROFILE] Usuario canceló cerrar sesión')
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
-            setIsSigningOut(true);
-
-            try {
-              console.log('🔴 [PROFILE] Llamando a signOut()...');
-              await signOut();
-              console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
-
-              setToastMessage('Sesión cerrada exitosamente');
-              setToastType('success');
-              setShowToast(true);
-              // No navegación manual: el layout redirige automáticamente al login cuando user es null
-
-            } catch (error) {
-              console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
-              setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
-              setToastType('error');
-              setShowToast(true);
-              setIsSigningOut(false);
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const handleDeleteAccount = () => {
     if (!user || isDeletingAccount) return;
@@ -560,6 +511,43 @@ export default function ProfileScreen() {
           />
         </Card>
 
+        <ConfirmationModal
+          visible={showSignOutModal}
+          title="Cerrar Sesión"
+          message="¿Estás seguro de que quieres cerrar sesión?"
+          confirmText="Cerrar Sesión"
+          cancelText="Cancelar"
+          type="danger"
+          loading={isSigningOut}
+          onConfirm={async () => {
+            console.log('🔴 [PROFILE] Usuario confirmó cerrar sesión');
+            setIsSigningOut(true);
+
+            try {
+              console.log('🔴 [PROFILE] Llamando a signOut()...');
+              await signOut();
+              console.log('🔴 [PROFILE] ✅ signOut() completado exitosamente');
+
+              setToastMessage('Sesión cerrada exitosamente');
+              setToastType('success');
+              setShowToast(true);
+              // No navegación manual: el layout redirige automáticamente al login cuando user es null
+
+            } catch (error) {
+              console.error('🔴 [PROFILE] ❌ Error en signOut:', error);
+              setToastMessage('Error al cerrar sesión. Inténtalo de nuevo.');
+              setToastType('error');
+              setShowToast(true);
+              setIsSigningOut(false);
+            }
+            setShowSignOutModal(false);
+          }}
+          onCancel={() => {
+            console.log('🔴 [PROFILE] Usuario canceló cerrar sesión');
+            setShowSignOutModal(false);
+          }}
+        />
+
         <View style={styles.signOutSection}>
           <Button
             title={isSigningOut ? "Cerrando Sesión..." : "Cerrar Sesión"}
@@ -570,21 +558,7 @@ export default function ProfileScreen() {
             icon={!isSigningOut ? <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={Colors.light.error} /> : undefined}
             onPress={() => {
               console.log('🔴 [PROFILE] Botón Cerrar Sesión presionado');
-              // Use showAlert instead of Alert.alert for web compatibility
-              showAlert(
-                "Cerrar Sesión",
-                "¿Estás seguro que deseas cerrar sesión?",
-                [
-                  { text: "Cancelar", style: "cancel" },
-                  {
-                    text: "Cerrar Sesión",
-                    style: "destructive",
-                    onPress: async () => {
-                      handleSignOut();
-                    }
-                  }
-                ]
-              );
+              setShowSignOutModal(true);
             }}
             style={styles.signOutButton}
           />

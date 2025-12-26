@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
-export function NotificationBell() {
+export default function NotificationBell() {
     const { user } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
 
