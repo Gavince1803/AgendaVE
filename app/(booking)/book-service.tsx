@@ -20,6 +20,7 @@ import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, type AppointmentValidationResult, type Provider, type Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 
