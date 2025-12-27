@@ -1228,12 +1228,13 @@ const styles = StyleSheet.create({
     marginBottom: 50, // Space for the overlapping logo
     position: 'relative',
     borderRadius: DesignTokens.radius.lg,
-    overflow: 'hidden',
+    // overflow: 'hidden', // Removed to allow logo overlap
     backgroundColor: Colors.light.surfaceVariant,
   },
   profileBanner: {
     width: '100%',
     height: 120,
+    borderRadius: DesignTokens.radius.lg,
     backgroundColor: Colors.light.textSecondary + '20',
   },
   profileLogoContainer: {
