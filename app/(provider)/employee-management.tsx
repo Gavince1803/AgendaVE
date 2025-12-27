@@ -286,25 +286,29 @@ export default function EmployeeManagementScreen() {
                             {employee.is_active ? 'Activo' : 'Inactivo'}
                           </Text>
                         </View>
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            employee.profile_id ? styles.connectedBadge : styles.pendingBadge,
-                          ]}
-                        >
-                          <Text
+
+                        {!employee.is_owner && (
+                          <View
                             style={[
-                              styles.statusBadgeText,
-                              employee.profile_id ? styles.connectedText : styles.pendingText,
+                              styles.statusBadge,
+                              employee.profile_id ? styles.connectedBadge : styles.pendingBadge,
                             ]}
                           >
-                            {employee.profile_id ? 'Conectado' : 'Invitado'}
-                          </Text>
-                        </View>
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                employee.profile_id ? styles.connectedText : styles.pendingText,
+                              ]}
+                            >
+                              {employee.profile_id ? 'Conectado' : 'Invitado'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
-                    {!employee.profile_id ? (
+                    {/* Show invite block only if NOT owner and NOT connected */}
+                    {!employee.is_owner && !employee.profile_id ? (
                       <View style={styles.inviteContainer}>
                         <View style={styles.inviteInfoRow}>
                           <Text style={styles.inviteText}>

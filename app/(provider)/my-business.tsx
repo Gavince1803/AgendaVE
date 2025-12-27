@@ -813,6 +813,16 @@ export default function MyBusinessScreen() {
               <View style={styles.availabilityList}>
                 {availability.map((av) => {
                   const weekdays = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+                  const formatTime = (timeStr: string) => {
+                    if (!timeStr) return '';
+                    const [h, m] = timeStr.split(':').map(Number);
+                    if (isNaN(h) || isNaN(m)) return timeStr; // Fallback
+                    const period = h >= 12 ? 'PM' : 'AM';
+                    const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                    return `${hour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
+                  };
+
                   return (
                     <View key={av.id} style={styles.availabilityItem}>
                       <View style={styles.dayInfo}>
@@ -820,7 +830,7 @@ export default function MyBusinessScreen() {
                           {weekdays[av.weekday]}
                         </ThemedText>
                         <ThemedText style={styles.timeRange}>
-                          {av.start_time} - {av.end_time}
+                          {formatTime(av.start_time)} - {formatTime(av.end_time)}
                         </ThemedText>
                       </View>
                       <View style={styles.availabilityBadge}>
@@ -1150,7 +1160,7 @@ const styles = StyleSheet.create({
   servicesLinkContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between,',
+    justifyContent: 'space-between',
   },
   servicesLinkInfo: {
     flex: 1,

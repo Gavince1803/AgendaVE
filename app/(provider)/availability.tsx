@@ -118,7 +118,7 @@ export default function AvailabilityScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.push('/(provider)/my-business')
+            onPress: () => router.back()
           }
         ]
       );
@@ -176,7 +176,7 @@ export default function AvailabilityScreen() {
         <ThemedView style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.push('/(provider)/my-business')}
+            onPress={() => router.back()}
           >
             <IconSymbol name="chevron.left" size={24} color={Colors.light.text} />
           </TouchableOpacity>
@@ -295,7 +295,7 @@ export default function AvailabilityScreen() {
           <Button
             title="Cancelar"
             variant="outline"
-            onPress={() => router.push('/(provider)/my-business')}
+            onPress={() => router.back()}
             style={styles.cancelButton}
           />
           <Button

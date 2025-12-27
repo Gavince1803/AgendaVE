@@ -155,9 +155,8 @@ export default function BookingConfirmationScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header (Simplified) */}
         <View style={styles.header}>
-          {/* Content removed for cleaner look */}
+          <Text style={styles.title}>Confirmación de Reserva</Text>
         </View>
 
         {/* Resumen de la reserva */}
@@ -411,6 +410,11 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: DesignTokens.spacing.sm, // Reduced
     backgroundColor: Colors.light.background,
+  },
+  title: {
+    fontSize: DesignTokens.typography.fontSizes.xl,
+    fontWeight: '700',
+    color: Colors.light.text,
   },
   // Removed providerName and stepText styles
   section: {

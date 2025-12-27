@@ -1890,6 +1890,8 @@ export class BookingService {
             serviceName: serviceData?.name,
           });
 
+          const employeeName = employeeId ? (await supabase.from('employees').select('name').eq('id', employeeId).single()).data?.name : null;
+
           await NotificationService.notifyNewAppointment(providerUserId, {
             id: data.id,
             provider_id: providerId,
@@ -1898,6 +1900,7 @@ export class BookingService {
             appointment_time: appointmentTime,
             client_name: clientName,
             service_name: serviceData?.name,
+            employee_name: employeeName,
           });
           console.log('✅ [BOOKING SERVICE] Provider notification sent successfully');
         } else {

@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     },
     container: {
         width: '100%',
-        maxWidth: 360, // Slightly narrower max width
+        maxWidth: 400, // Increased max width
         backgroundColor: Colors.light.surface,
         borderRadius: DesignTokens.radius['2xl'],
         shadowColor: '#000',
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     content: {
-        padding: DesignTokens.spacing.xl, // Reduced padding
+        padding: DesignTokens.spacing.xl,
         alignItems: 'center',
     },
     iconContainer: {
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
         marginBottom: DesignTokens.spacing.md,
     },
     title: {
-        fontSize: DesignTokens.typography.fontSizes.xl, // Slightly smaller title
+        fontSize: DesignTokens.typography.fontSizes.xl,
         fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.text,
         marginBottom: DesignTokens.spacing.xs,
@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
         marginBottom: DesignTokens.spacing.xl,
         backgroundColor: Colors.light.background,
         padding: DesignTokens.spacing.md,
-        borderRadius: DesignTokens.radius.lg, // Slightly smaller radius
+        borderRadius: DesignTokens.radius.lg,
         borderWidth: 1,
         borderColor: Colors.light.border,
         alignItems: 'center',
     },
     codeLabel: {
-        fontSize: 10, // Smaller label
+        fontSize: 10,
         fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.textSecondary,
         marginBottom: DesignTokens.spacing.xs,
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: DesignTokens.spacing.sm,
     },
     codeText: {
-        fontSize: 22, // Significantly reduced font size
-        fontWeight: DesignTokens.typography.fontWeights.bold as any, // Reduced weight slightly
+        fontSize: 18,
+        fontWeight: DesignTokens.typography.fontWeights.bold as any,
         color: Colors.light.primary,
         letterSpacing: 0.5,
         textAlign: 'center',

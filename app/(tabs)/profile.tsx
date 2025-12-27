@@ -9,16 +9,18 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Toast } from '@/components/ui/Toast';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { useTextScale } from '@/contexts/TextScaleContext';
 import { BookingService, type Provider } from '@/lib/booking-service';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 export default function ProfileScreen() {
   const { user, signOut, activeRole, setActiveRole, employeeProfile, refreshUser } = useAuth();
+  const { showAlert } = useAlert();
   const { isLargeText, toggleLargeText } = useTextScale();
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -56,7 +58,7 @@ export default function ProfileScreen() {
   const handleDeleteAccount = () => {
     if (!user || isDeletingAccount) return;
 
-    Alert.alert(
+    showAlert(
       'Eliminar cuenta y negocio',
       'Esto desactivará tu negocio, eliminará disponibilidad, pausará tus servicios y cerrará tu sesión. Esta acción es irreversible desde la app.',
       [
@@ -137,7 +139,7 @@ export default function ProfileScreen() {
       icon: 'bell',
       onPress: () => {
         // Show notification settings in a modal
-        Alert.alert(
+        showAlert(
           'Configuración de Notificaciones',
           'Configura cómo quieres recibir notificaciones sobre tus citas y recordatorios.',
           [
@@ -171,7 +173,7 @@ export default function ProfileScreen() {
       icon: 'creditcard',
       onPress: () => {
         // Show payment methods management
-        Alert.alert(
+        showAlert(
           'Métodos de Pago',
           'Gestiona tus métodos de pago y facturación',
           [
@@ -182,7 +184,7 @@ export default function ProfileScreen() {
             {
               text: 'Agregar Tarjeta',
               onPress: () => {
-                Alert.alert('Información', 'La gestión de métodos de pago estará disponible próximamente');
+                showAlert('Información', 'La gestión de métodos de pago estará disponible próximamente');
               }
             }
           ]
@@ -195,7 +197,7 @@ export default function ProfileScreen() {
       icon: 'questionmark.circle',
       onPress: () => {
         // Show help and support options
-        Alert.alert(
+        showAlert(
           'Ayuda y Soporte',
           '¿En qué podemos ayudarte?',
           [
@@ -206,7 +208,7 @@ export default function ProfileScreen() {
             {
               text: 'Preguntas Frecuentes',
               onPress: () => {
-                Alert.alert(
+                showAlert(
                   'Preguntas Frecuentes',
                   '¿Cómo hago una reserva?\nSelecciona un proveedor, elige un servicio, selecciona fecha y hora.\n\n¿Qué son las "Alertas de No Show"?\nSi un usuario falta repetidamente a sus citas, aparecerá una alerta en su perfil para los proveedores.\n\n¿Puedo cancelar mi cita?\nSí, puedes cancelar desde "Mis Citas".\n\n¿Cómo contacto al proveedor?\nEncuentra la información de contacto en los detalles del proveedor.',
                   [{ text: 'Entendido' }]
@@ -216,7 +218,7 @@ export default function ProfileScreen() {
             {
               text: 'Contactar Soporte',
               onPress: () => {
-                Alert.alert(
+                showAlert(
                   'Contactar Soporte',
                   'Contáctanos:\n\nEmail: soporte@agendave.com\nTeléfono: +58 412-1234567\nHorario: Lun-Vie 9AM-6PM',
                   [{ text: 'Cerrar' }]
@@ -232,7 +234,7 @@ export default function ProfileScreen() {
       title: 'Acerca de',
       icon: 'info.circle',
       onPress: () => {
-        Alert.alert(
+        showAlert(
           'Acerca de AgendaVE',
           'Versión: 1.0.0\n\nAgendaVE es tu plataforma de reservas en Venezuela.\n\nConecta con los mejores proveedores de servicios y gestiona tus citas de manera sencilla.\n\n© 2024 AgendaVE. Todos los derechos reservados.',
           [{ text: 'Cerrar' }]
@@ -254,7 +256,7 @@ export default function ProfileScreen() {
         title: 'Configuración de Proveedor',
         icon: 'gearshape',
         onPress: () => {
-          Alert.alert(
+          showAlert(
             'Panel de Proveedor',
             'Accede a las herramientas para gestionar tu negocio',
             [
@@ -312,7 +314,7 @@ export default function ProfileScreen() {
       title: 'Privacidad y Seguridad',
       icon: 'lock.shield',
       onPress: () => {
-        Alert.alert(
+        showAlert(
           'Privacidad y Seguridad',
           'Gestiona tu privacidad y seguridad',
           [
@@ -323,7 +325,7 @@ export default function ProfileScreen() {
             {
               text: 'Ver Configuración',
               onPress: () => {
-                Alert.alert(
+                showAlert(
                   'Configuración de Privacidad',
                   'Tu privacidad es importante para nosotros.\n\n• Tus datos están encriptados\n• No compartimos información personal\n• Puedes eliminar tu cuenta en cualquier momento\n\nPara cambios específicos, contacta soporte.',
                   [{ text: 'Entendido' }]

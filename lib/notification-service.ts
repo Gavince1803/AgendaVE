@@ -283,7 +283,7 @@ export class NotificationService {
     try {
       const notification: NotificationData = {
         title: 'Nueva Reserva 📅',
-        body: `Tienes una nueva cita con ${appointmentData.client_name} para ${appointmentData.service_name}`,
+        body: `Tienes una nueva cita con ${appointmentData.client_name} para ${appointmentData.service_name}${appointmentData.employee_name ? ` con ${appointmentData.employee_name}` : ''}`,
         data: {
           type: 'new_appointment',
           appointment_id: appointmentData.id,

@@ -220,7 +220,7 @@ export function TimePicker({
                 paddingHorizontal: 12,
                 height: '100%',
                 justifyContent: 'center',
-                backgroundColor: disabled ? 'transparent' : Colors.light.surfaceVariant,
+                backgroundColor: 'transparent', // Removed grey background
               },
               disabled && { opacity: 0.5 }
             ]}
