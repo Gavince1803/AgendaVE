@@ -17,8 +17,6 @@ import { LogCategory, useLogger } from '@/lib/logger';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -27,9 +25,11 @@ import {
 
 /* import from context */
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 
 export default function BookingsScreen() {
   const { user, loading: authLoading } = useAuth(); // Get auth state
+  const { showAlert } = useAlert();
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -104,15 +104,15 @@ export default function BookingsScreen() {
           await BookingService.updateAppointmentStatus(appointment.id, 'cancelled');
           await loadAppointments();
 
-          Alert.alert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
+          showAlert('Cita Cancelada', 'Tu cita ha sido cancelada exitosamente');
         } catch (error) {
           console.error('🔴 [BOOKINGS] Error cancelling appointment:', error);
           const errorMsg = 'No se pudo cancelar la cita';
-          Alert.alert('Error', errorMsg);
+          showAlert('Error', errorMsg);
         }
       };
 
-      Alert.alert(
+      showAlert(
         'Cancelar Cita',
         '¿Estás seguro de que quieres cancelar esta cita?',
         [
@@ -130,7 +130,7 @@ export default function BookingsScreen() {
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error canceling booking', error);
       const errorMsg = 'No se pudo cancelar la cita';
-      Alert.alert('Error', errorMsg);
+      showAlert('Error', errorMsg);
     }
   };
 
@@ -160,7 +160,7 @@ export default function BookingsScreen() {
 
       const message = `¿Quieres reprogramar tu cita de "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
 
-      Alert.alert(
+      showAlert(
         'Reprogramar Cita',
         message,
         [
@@ -177,7 +177,7 @@ export default function BookingsScreen() {
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error starting reschedule process', error);
       const errorMsg = 'No se pudo iniciar el proceso de reprogramación';
-      Alert.alert('Error', errorMsg);
+      showAlert('Error', errorMsg);
     }
   };
 
@@ -208,35 +208,24 @@ export default function BookingsScreen() {
 
       const message = `¿Quieres reservar nuevamente "${appointment.services?.name}" con ${appointment.providers?.business_name}?`;
 
-      if (Platform.OS === 'web') {
-        const confirmed = window.confirm(message);
-        if (confirmed) {
-          navigateToBookAgain();
-        }
-      } else {
-        Alert.alert(
-          'Reservar de Nuevo',
-          message,
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Reservar',
-              onPress: navigateToBookAgain
-            }
-          ]
-        );
-      }
+      showAlert(
+        'Reservar de Nuevo',
+        message,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Reservar',
+            onPress: navigateToBookAgain
+          }
+        ]
+      );
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error starting book again process', error);
       const errorMsg = 'No se pudo iniciar el proceso de reserva';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert('Error', errorMsg);
     }
   };
 
@@ -248,11 +237,7 @@ export default function BookingsScreen() {
     } catch (error) {
       log.error(LogCategory.ERROR, 'Error navigating to explore', error);
       const errorMsg = 'No se pudo navegar a explorar servicios';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Error', errorMsg);
-      }
+      showAlert('Error', errorMsg);
     }
   };
 

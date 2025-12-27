@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/ThemedText';
-import { Button } from '@/components/ui/Button';
 import { CalendarView } from '@/components/ui/CalendarView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
@@ -195,12 +194,7 @@ export default function ProviderCalendarScreen() {
               </ScrollView>
             )}
 
-            <Button
-              title="Cerrar"
-              onPress={() => setSelectedAppointment(null)}
-              variant="outline"
-              style={styles.modalButton}
-            />
+
           </View>
         </View>
       </Modal>
