@@ -155,9 +155,7 @@ export default function BookingConfirmationScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Confirmación de Reserva</Text>
-        </View>
+
 
         {/* Resumen de la reserva */}
         <View style={styles.section}>
@@ -403,18 +401,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: DesignTokens.spacing.xl,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: DesignTokens.spacing.sm, // Reduced
+    paddingTop: Platform.OS === 'ios' ? 20 : 20,
     backgroundColor: Colors.light.background,
-  },
-  title: {
-    fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: '700',
-    color: Colors.light.text,
   },
   // Removed providerName and stepText styles
   section: {

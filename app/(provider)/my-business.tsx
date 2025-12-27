@@ -315,110 +315,109 @@ export default function MyBusinessScreen() {
             {editingBusiness ? (
               <View style={styles.editForm}>
                 {/* Logo uploader */}
-                <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      setUploadingLogo(true);
-                      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                      if (permission.status !== 'granted') {
-                        showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
-                        return;
-                      }
-                      const result = await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                        allowsEditing: true,
-                        aspect: [1, 1],
-                        quality: 0.8,
-                      });
-                      if (result.canceled || !result.assets?.length) return;
-                      const asset = result.assets[0];
-                      // Subir a Supabase Storage (bucket 'logos')
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                  <Button
+                    title={uploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                    variant="outline"
+                    size="small"
+                    onPress={async () => {
                       try {
-                        const fileUri = asset.uri;
-                        const mime = (asset as any).mimeType || 'image/jpeg';
-                        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-                        const filePath = `${user?.id}/${Date.now()}.${ext}`;
-                        const response = await fetch(fileUri);
-                        const arrayBuffer = await response.arrayBuffer();
-                        const { error: uploadError } = await supabase.storage
-                          .from('logos')
-                          .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
-                        if (uploadError) throw uploadError;
-                        // Obtener URL pública
-                        const { data: publicUrl } = await supabase.storage
-                          .from('logos').getPublicUrl(filePath);
-                        // Persistir en provider
-                        await BookingService.updateProvider(user!.id, { logo_url: publicUrl.publicUrl });
-                        setProvider(prev => prev ? { ...prev, logo_url: publicUrl.publicUrl } as any : prev);
-                        showAlert('Logo subido', 'Logo actualizado correctamente');
-                      } catch (uploadErr) {
-                        console.error('Error uploading logo:', uploadErr);
-                        showAlert('Error', 'No se pudo subir el logo');
+                        setUploadingLogo(true);
+                        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                        if (permission.status !== 'granted') {
+                          showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir el logo');
+                          return;
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          aspect: [1, 1],
+                          quality: 0.8,
+                        });
+                        if (result.canceled || !result.assets?.length) return;
+                        const asset = result.assets[0];
+                        try {
+                          const fileUri = asset.uri;
+                          const mime = (asset as any).mimeType || 'image/jpeg';
+                          const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+                          const filePath = `${user?.id}/${Date.now()}.${ext}`;
+                          const response = await fetch(fileUri);
+                          const arrayBuffer = await response.arrayBuffer();
+                          const { error: uploadError } = await supabase.storage
+                            .from('logos')
+                            .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
+                          if (uploadError) throw uploadError;
+                          const { data: publicUrl } = await supabase.storage
+                            .from('logos').getPublicUrl(filePath);
+                          await BookingService.updateProvider(user!.id, { logo_url: publicUrl.publicUrl });
+                          setProvider(prev => prev ? { ...prev, logo_url: publicUrl.publicUrl } as any : prev);
+                          showAlert('Logo subido', 'Logo actualizado correctamente');
+                        } catch (uploadErr) {
+                          console.error('Error uploading logo:', uploadErr);
+                          showAlert('Error', 'No se pudo subir el logo');
+                        }
+                      } finally {
+                        setUploadingLogo(false);
                       }
-                    } finally {
-                      setUploadingLogo(false);
-                    }
-                  }}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <IconSymbol name="photo" size={18} color={Colors.light.primary} />
-                    <ThemedText>{uploadingLogo ? 'Subiendo logo...' : 'Subir logo'}</ThemedText>
-                  </View>
-                </TouchableOpacity>
+                    }}
+                    loading={uploadingLogo}
+                    leftIcon={<IconSymbol name="photo" size={16} color={Colors.light.primary} />}
+                    style={{ flex: 1 }}
+                  />
 
-                {/* Banner uploader */}
-                <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      setUploadingBanner(true);
-                      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                      if (permission.status !== 'granted') {
-                        showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir la portada');
-                        return;
-                      }
-                      const result = await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                        allowsEditing: true,
-                        aspect: [16, 9],
-                        quality: 0.8,
-                      });
-                      if (result.canceled || !result.assets?.length) return;
-                      const asset = result.assets[0];
-                      // Subir a Supabase Storage (bucket 'banners')
+                  {/* Banner uploader */}
+                  <Button
+                    title={uploadingBanner ? 'Subiendo...' : 'Subir Portada'}
+                    variant="outline"
+                    size="small"
+                    onPress={async () => {
                       try {
-                        const fileUri = asset.uri;
-                        const mime = (asset as any).mimeType || 'image/jpeg';
-                        const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
-                        const filePath = `${user?.id}/${Date.now()}.${ext}`;
-                        const response = await fetch(fileUri);
-                        const arrayBuffer = await response.arrayBuffer();
-                        const { error: uploadError } = await supabase.storage
-                          .from('banners')
-                          .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
-                        if (uploadError) throw uploadError;
-                        // Obtener URL pública
-                        const { data: publicUrl } = await supabase.storage
-                          .from('banners').getPublicUrl(filePath);
-                        // Persistir en provider
-                        await BookingService.updateProvider(user!.id, { hero_image_url: publicUrl.publicUrl });
-                        setProvider(prev => prev ? { ...prev, hero_image_url: publicUrl.publicUrl } as any : prev);
-                        showAlert('Portada subida', 'Imagen de portada actualizada correctamente');
-                      } catch (uploadErr) {
-                        console.error('Error uploading banner:', uploadErr);
-                        showAlert('Error', 'No se pudo subir la portada');
+                        setUploadingBanner(true);
+                        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                        if (permission.status !== 'granted') {
+                          showAlert('Permiso requerido', 'Habilita el acceso a la galería para subir la portada');
+                          return;
+                        }
+                        const result = await ImagePicker.launchImageLibraryAsync({
+                          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                          allowsEditing: true,
+                          aspect: [16, 9],
+                          quality: 0.8,
+                        });
+                        if (result.canceled || !result.assets?.length) return;
+                        const asset = result.assets[0];
+                        // Subir a Supabase Storage (bucket 'banners')
+                        try {
+                          const fileUri = asset.uri;
+                          const mime = (asset as any).mimeType || 'image/jpeg';
+                          const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+                          const filePath = `${user?.id}/${Date.now()}.${ext}`;
+                          const response = await fetch(fileUri);
+                          const arrayBuffer = await response.arrayBuffer();
+                          const { error: uploadError } = await supabase.storage
+                            .from('banners')
+                            .upload(filePath, arrayBuffer, { upsert: true, contentType: mime });
+                          if (uploadError) throw uploadError;
+                          // Obtener URL pública
+                          const { data: publicUrl } = await supabase.storage
+                            .from('banners').getPublicUrl(filePath);
+                          // Persistir en provider
+                          await BookingService.updateProvider(user!.id, { hero_image_url: publicUrl.publicUrl });
+                          setProvider(prev => prev ? { ...prev, hero_image_url: publicUrl.publicUrl } as any : prev);
+                          showAlert('Portada subida', 'Imagen de portada actualizada correctamente');
+                        } catch (uploadErr) {
+                          console.error('Error uploading banner:', uploadErr);
+                          showAlert('Error', 'No se pudo subir la portada');
+                        }
+                      } finally {
+                        setUploadingBanner(false);
                       }
-                    } finally {
-                      setUploadingBanner(false);
-                    }
-                  }}
-                  style={{ alignSelf: 'flex-start', marginTop: 12 }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <IconSymbol name="photo.fill" size={18} color={Colors.light.primary} />
-                    <ThemedText>{uploadingBanner ? 'Subiendo portada...' : 'Subir portada (Banner)'}</ThemedText>
-                  </View>
-                </TouchableOpacity>
+                    }}
+                    loading={uploadingBanner}
+                    leftIcon={<IconSymbol name="photo.fill" size={16} color={Colors.light.primary} />}
+                    style={{ flex: 1 }}
+                  />
+                </View>
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>Nombre del Negocio</Text>
                   <TextInput
@@ -528,14 +527,25 @@ export default function MyBusinessScreen() {
               </View>
             ) : (
               <View style={styles.businessInfo}>
-                <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                {/* Twitter-style Header */}
+                <View style={styles.profileHeaderContainer}>
                   <Image
-                    source={{ uri: provider?.logo_url || `https://picsum.photos/seed/${provider?.id}/200` }}
-                    style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.light.surfaceVariant }}
+                    source={{
+                      uri: provider?.hero_image_url || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=800&q=80'
+                    }}
+                    style={styles.profileBanner}
                     contentFit="cover"
-                    cachePolicy="memory-disk"
                     transition={200}
                   />
+                  <View style={styles.profileLogoContainer}>
+                    <Image
+                      source={{ uri: provider?.logo_url || `https://picsum.photos/seed/${provider?.id}/200` }}
+                      style={styles.profileLogo}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={200}
+                    />
+                  </View>
                 </View>
                 <View style={styles.infoRow}>
                   <ThemedText style={styles.infoLabel}>Nombre:</ThemedText>
@@ -1210,6 +1220,35 @@ const styles = StyleSheet.create({
   },
   addFirstServiceButton: {
     marginTop: DesignTokens.spacing.lg,
+  },
+  secondaryButton: {
+    marginTop: DesignTokens.spacing.md,
+  },
+  profileHeaderContainer: {
+    marginBottom: 50, // Space for the overlapping logo
+    position: 'relative',
+    borderRadius: DesignTokens.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.light.surfaceVariant,
+  },
+  profileBanner: {
+    width: '100%',
+    height: 120,
+    backgroundColor: Colors.light.textSecondary + '20',
+  },
+  profileLogoContainer: {
+    position: 'absolute',
+    bottom: -40, // Half of logo height (80/2)
+    left: 16,
+    padding: 3, // White border effect
+    backgroundColor: Colors.light.surface,
+    borderRadius: 43, // (80 + 6) / 2
+  },
+  profileLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.light.surfaceVariant,
   },
   serviceHeaderActions: {
     flexDirection: 'row',

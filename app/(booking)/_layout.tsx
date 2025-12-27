@@ -50,6 +50,13 @@ export default function BookingLayout() {
           headerBackTitle: 'Atrás',
         }}
       />
+      <Stack.Screen
+        name="booking-confirmation"
+        options={{
+          title: 'Confirmación de Reserva',
+          headerBackTitle: 'Atrás',
+        }}
+      />
     </Stack>
   );
 }

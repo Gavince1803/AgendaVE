@@ -336,7 +336,7 @@ function ClientHomeScreen() {
                   <View style={styles.providerHeader}>
                     <View style={styles.providerImageContainer}>
                       <ExpoImage
-                        source={`https://picsum.photos/seed/${provider.id}/400/300`}
+                        source={provider.hero_image_url || `https://picsum.photos/seed/${provider.id}/400/300`}
                         style={styles.providerImage}
                         contentFit="cover"
                         transition={200}
