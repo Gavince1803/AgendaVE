@@ -115,8 +115,8 @@ export default function ServiceSelectionScreen() {
       servicesCount: services.length
     });
 
-    // If service is preselected, use the preselected params directly
-    if (preselectedServiceId) {
+    // If service is preselected AND we have all details
+    if (preselectedServiceId && preselectedServiceName && preselectedServicePrice) {
       console.log('🔴 [SERVICE SELECTION] Using preselected service params');
       router.push({
         pathname: '/(booking)/time-selection',
@@ -131,6 +131,30 @@ export default function ServiceSelectionScreen() {
           employeeName: selectedEmployee?.name || '',
         },
       });
+    } else if (preselectedServiceId && services.length > 0) {
+      // Fallback: Service ID is preselected but details missing (e.g. from back nav)
+      // Find it in the loaded list
+      const service = services.find(s => s.id === preselectedServiceId);
+      if (service) {
+        console.log('🔴 [SERVICE SELECTION] Found preselected service in list fallback');
+        const servicePriceValue = service.price_amount ?? 0;
+        const serviceDurationValue = service.duration_minutes ?? 30;
+        router.push({
+          pathname: '/(booking)/time-selection',
+          params: {
+            providerId,
+            providerName,
+            serviceId: service.id,
+            serviceName: service.name,
+            servicePrice: servicePriceValue.toString(),
+            serviceDuration: serviceDurationValue.toString(),
+            employeeId: selectedEmployee?.id || '',
+            employeeName: selectedEmployee?.name || '',
+          },
+        });
+      } else {
+        console.error('🔴 [SERVICE SELECTION] Preselected service ID not found in list');
+      }
     } else {
       // Otherwise, find the service from the loaded services array
       const service = services.find(s => s.id === selectedService);

@@ -3037,7 +3037,18 @@ export class BookingService {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select('*')
+        .select(`
+          *,
+          client:profiles!client_id (
+            id,
+            full_name,
+            display_name
+          ),
+          service:services!service_id (
+            id,
+            name
+          )
+        `)
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
 

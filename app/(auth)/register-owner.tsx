@@ -2,8 +2,10 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { CategorySelector } from '@/components/ui/CategorySelector';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
+import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/GlobalAlertContext';
@@ -252,20 +254,29 @@ export default function RegisterOwnerScreen() {
                 error={errors.businessName}
               />
 
-              <SimpleInput
-                label="Tipo de Negocio *"
-                value={businessType}
-                onChangeText={(text) => {
-                  setBusinessType(text);
-                  setErrors((prev) => ({ ...prev, businessType: undefined }));
-                }}
-                onBlur={() => {
-                  if (!businessType.trim()) setErrors(prev => ({ ...prev, businessType: 'Describe el tipo de negocio.' }));
-                }}
-                placeholder="Peluquería, Barbería, Spa..."
-                autoCapitalize="words"
-                error={errors.businessType}
-              />
+              <View style={{ marginBottom: 24 }}>
+                <ThemedText style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: Colors.light.text,
+                  marginBottom: 8
+                }}>
+                  Categoría del Negocio *
+                </ThemedText>
+                <CategorySelector
+                  selectedCategory={businessType}
+                  onCategoryChange={(cat) => {
+                    setBusinessType(cat);
+                    setErrors((prev) => ({ ...prev, businessType: undefined }));
+                  }}
+                  categories={BUSINESS_CATEGORIES}
+                />
+                {errors.businessType && (
+                  <ThemedText style={{ color: Colors.light.error, fontSize: 12, marginTop: 4 }}>
+                    {errors.businessType}
+                  </ThemedText>
+                )}
+              </View>
 
               <SimpleInput
                 label="Dirección"

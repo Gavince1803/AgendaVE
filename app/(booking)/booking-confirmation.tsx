@@ -190,7 +190,14 @@ export default function BookingConfirmationScreen() {
                 size="small"
                 onPress={() => router.push({
                   pathname: '/(booking)/service-selection',
-                  params: { providerId, providerName, preselectedServiceId: serviceId }
+                  params: {
+                    providerId,
+                    providerName,
+                    preselectedServiceId: serviceId,
+                    preselectedServiceName: serviceName,
+                    preselectedServicePrice: servicePrice,
+                    preselectedServiceDuration: serviceDuration
+                  }
                 })}
               />
             </View>

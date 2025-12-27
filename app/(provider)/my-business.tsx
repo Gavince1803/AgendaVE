@@ -5,10 +5,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { CategorySelector } from '@/components/ui/CategorySelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/GlobalAlertContext';
@@ -433,14 +435,10 @@ export default function MyBusinessScreen() {
 
                 <View style={styles.fieldGroup}>
                   <Text style={styles.fieldLabel}>Categoría</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={businessData.category}
-                    onChangeText={(text) => setBusinessData({ ...businessData, category: text })}
-                    placeholder="Categoría del Negocio"
-                    placeholderTextColor={Colors.light.textSecondary}
-                    autoCapitalize="words"
-                    returnKeyType="next"
+                  <CategorySelector
+                    selectedCategory={businessData.category}
+                    onCategoryChange={(cat) => setBusinessData({ ...businessData, category: cat })}
+                    categories={BUSINESS_CATEGORIES}
                   />
                 </View>
 
@@ -553,7 +551,9 @@ export default function MyBusinessScreen() {
                 </View>
                 <View style={styles.infoRow}>
                   <ThemedText style={styles.infoLabel}>Categoría:</ThemedText>
-                  <ThemedText style={styles.infoValue}>{provider?.category || 'No especificado'}</ThemedText>
+                  <ThemedText style={styles.infoValue}>
+                    {BUSINESS_CATEGORIES.find(c => c.id === provider?.category)?.name || provider?.category || 'No especificado'}
+                  </ThemedText>
                 </View>
                 <View style={styles.infoRow}>
                   <ThemedText style={styles.infoLabel}>Descripción:</ThemedText>
