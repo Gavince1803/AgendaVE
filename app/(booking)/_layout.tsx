@@ -57,6 +57,13 @@ export default function BookingLayout() {
           headerBackTitle: 'Atrás',
         }}
       />
+      <Stack.Screen
+        name="rate-appointment"
+        options={{
+          title: 'Calificar Servicio',
+          headerBackTitle: 'Atrás',
+        }}
+      />
     </Stack>
   );
 }

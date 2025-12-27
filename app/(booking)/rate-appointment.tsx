@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService, Review } from '@/lib/booking-service';
 import { supabase } from '@/lib/supabase';
 // import { ReviewService } from '@/lib/review-service';
@@ -10,18 +11,18 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function RateAppointmentScreen() {
   const { user } = useAuth();
+  const { showAlert } = useAlert();
   const { appointmentId } = useLocalSearchParams();
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -58,7 +59,7 @@ export default function RateAppointmentScreen() {
       }
     } catch (error) {
       console.error('Error loading appointment:', error);
-      Alert.alert('Error', 'No se pudo cargar la información de la cita');
+      showAlert('Error', 'No se pudo cargar la información de la cita');
     } finally {
       setLoadingAppointment(false);
     }
@@ -72,12 +73,12 @@ export default function RateAppointmentScreen() {
     console.log('🔴 [RATE APPOINTMENT] Button pressed!', { rating, isUpdating, existingReview });
 
     if (rating === 0) {
-      Alert.alert('Error', 'Por favor selecciona una calificación');
+      showAlert('Error', 'Por favor selecciona una calificación');
       return;
     }
 
     if (!appointment || !user) {
-      Alert.alert('Error', 'Información de cita o usuario no disponible');
+      showAlert('Error', 'Información de cita o usuario no disponible');
       return;
     }
 
@@ -104,7 +105,7 @@ export default function RateAppointmentScreen() {
           await BookingService.updateProviderRating(providerId);
         }
 
-        Alert.alert(
+        showAlert(
           '¡Calificación Actualizada!',
           'Tu calificación ha sido actualizada exitosamente.',
           [
@@ -119,7 +120,7 @@ export default function RateAppointmentScreen() {
           comment.trim() || undefined,
         );
 
-        Alert.alert(
+        showAlert(
           '¡Calificación Enviada!',
           'Gracias por tu calificación. Tu opinión es muy importante para nosotros.',
           [
@@ -131,7 +132,7 @@ export default function RateAppointmentScreen() {
     } catch (error) {
       console.error('Error submitting rating:', error);
       if (error instanceof Error && error.message.includes('unique_review_per_appointment')) {
-        Alert.alert(
+        showAlert(
           'Calificación ya Existe',
           'Ya has calificado esta cita anteriormente. Si deseas cambiar tu calificación, por favor recarga la pantalla.',
           [
@@ -140,7 +141,7 @@ export default function RateAppointmentScreen() {
           ],
         );
       } else {
-        Alert.alert(
+        showAlert(
           'Error',
           error instanceof Error ? error.message : 'No se pudo enviar la calificación. Inténtalo de nuevo.',
           [{ text: 'OK' }],
