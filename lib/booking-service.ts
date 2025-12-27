@@ -559,6 +559,26 @@ export class BookingService {
     }
   }
 
+  // 📍 Obtener servicio por ID (incluso si está inactivo)
+  static async getServiceById(serviceId: string): Promise<Service | null> {
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('id', serviceId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching service by ID:', error);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error in getServiceById:', error);
+      return null;
+    }
+  }
+
   // 📸 Obtener medios destacados del proveedor
   static async getProviderMedia(providerId: string): Promise<ProviderMedia[]> {
     try {

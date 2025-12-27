@@ -82,7 +82,16 @@ export default function BookServiceScreen() {
       ]);
 
       setProvider(providerData);
-      const serviceData = servicesData.find(s => s.id === serviceId);
+
+      // Try to find service in active services list
+      let serviceData = servicesData.find(s => s.id === serviceId);
+
+      // If not found (maybe inactive?), fetch directly
+      if (!serviceData) {
+        console.log('⚠️ [BOOK SERVICE] Service not found in active list, fetching directly:', serviceId);
+        serviceData = await BookingService.getServiceById(serviceId) || undefined;
+      }
+
       setService(serviceData || null);
 
       log.info(LogCategory.DATABASE, 'Booking data loaded successfully', {
@@ -91,6 +100,7 @@ export default function BookServiceScreen() {
       });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading booking data', error);
+      console.error('🔴 [BOOK SERVICE] Crash loading data:', error);
       showAlert('Error', 'No se pudo cargar la información del servicio');
     } finally {
       setLoading(false);
