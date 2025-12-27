@@ -608,11 +608,15 @@ export default function MyBusinessScreen() {
 
           {/* Servicios */}
           <Card variant="elevated" style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderStack}>
               <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Mis Servicios ({allServices.filter(s => s.is_active).length} activos / {allServices.length} total)
+                Mis Servicios
               </ThemedText>
-              <View style={styles.serviceHeaderActions}>
+              <ThemedText style={styles.sectionSubtitle}>
+                {allServices.filter(s => s.is_active).length} activos / {allServices.length} total
+              </ThemedText>
+
+              <View style={styles.serviceHeaderActionsRow}>
                 <TouchableOpacity
                   onPress={() => setShowInactiveServices(!showInactiveServices)}
                   style={[styles.toggleButton, showInactiveServices && styles.toggleButtonActive]}
@@ -952,9 +956,24 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: DesignTokens.spacing.lg,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionHeaderStack: {
+    flexDirection: 'column',
+    marginBottom: 16,
+    gap: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    marginBottom: 12,
+  },
+  serviceHeaderActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 12,
   },
   sectionTitle: {
     flex: 1,
