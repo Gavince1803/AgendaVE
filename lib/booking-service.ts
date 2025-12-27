@@ -891,10 +891,13 @@ export class BookingService {
   // 📝 Actualizar un empleado existente
   static async updateEmployee(employeeId: string, updates: Partial<Employee>): Promise<Employee> {
     try {
-      // Sanitize updates: Convert empty email to null to avoid check constraint violations
+      // Sanitize updates: Convert empty email/phone to null to avoid check constraint violations
       const sanitizedUpdates = { ...updates };
       if (sanitizedUpdates.email === '') {
         sanitizedUpdates.email = null as any;
+      }
+      if (sanitizedUpdates.phone === '') {
+        sanitizedUpdates.phone = null as any;
       }
 
       const { data, error } = await supabase
