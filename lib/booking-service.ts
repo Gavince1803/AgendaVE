@@ -915,6 +915,20 @@ export class BookingService {
     }
   }
 
+  static async deleteEmployee(employeeId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', employeeId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      throw error;
+    }
+  }
+
   static async inviteEmployee(params: {
     name: string;
     email?: string; // Made optional

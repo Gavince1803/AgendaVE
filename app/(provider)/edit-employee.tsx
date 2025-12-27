@@ -2,7 +2,6 @@ import { BookingService } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,7 +10,7 @@ import {
   Switch,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -87,7 +86,7 @@ export default function EditEmployeeScreen() {
   const handleSave = async () => {
     if (!validateForm()) return;
     if (!user?.id || !employeeId) {
-      Alert.alert('Error', 'Datos inválidos');
+      showAlert('Error', 'Datos inválidos');
       return;
     }
 
@@ -111,14 +110,15 @@ export default function EditEmployeeScreen() {
         is_active: formData.isActive,
       });
 
-      Alert.alert(
+      showAlert(
         'Éxito',
         `Los datos de ${formData.name} han sido actualizados correctamente`,
-        [{ text: 'OK', onPress: () => router.back() }]
+        undefined,
+        () => router.back()
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error updating employee', error);
-      Alert.alert('Error', 'No se pudieron actualizar los datos');
+      showAlert('Error', 'No se pudieron actualizar los datos');
     } finally {
       setSaving(false);
     }
@@ -130,30 +130,24 @@ export default function EditEmployeeScreen() {
 
   const handleDelete = () => {
     if (isOwner === 'true') {
-      Alert.alert('Error', 'No puedes eliminar al propietario del negocio');
+      showAlert('Error', 'No puedes eliminar al propietario del negocio');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Eliminar Empleado',
       `¿Estás seguro de que quieres eliminar a ${formData.name}? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // For now, just log the action
-              log.userAction('Delete employee', { employeeId, employeeName: formData.name });
-              Alert.alert('Éxito', `${formData.name} ha sido eliminado correctamente`);
-              router.back();
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el empleado');
-            }
-          }
+      'confirm',
+      async () => {
+        try {
+          // For now, just log the action
+          log.userAction('Delete employee', { employeeId, employeeName: formData.name });
+          await BookingService.deleteEmployee(employeeId as string);
+          showAlert('Éxito', `${formData.name} ha sido eliminado correctamente`, undefined, () => router.back());
+        } catch (error) {
+          showAlert('Error', 'No se pudo eliminar el empleado');
         }
-      ]
+      }
     );
   };
 
