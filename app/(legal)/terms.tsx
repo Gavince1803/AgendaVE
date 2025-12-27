@@ -19,15 +19,15 @@ export default function TermsScreen() {
                 <ThemedText style={styles.lastUpdated}>Última actualización: 4 de Diciembre, 2025</ThemedText>
 
                 <Section title="1. Introducción">
-                    Bienvenido a AgendaVE. Al utilizar nuestra aplicación, aceptas estos términos y condiciones en su totalidad. Si no estás de acuerdo con alguna parte de estos términos, no deberás utilizar nuestra aplicación.
+                    Bienvenido a MiCita. Al utilizar nuestra aplicación, aceptas estos términos y condiciones en su totalidad. Si no estás de acuerdo con alguna parte de estos términos, no deberás utilizar nuestra aplicación.
                 </Section>
 
                 <Section title="2. Uso del Servicio">
-                    AgendaVE es una plataforma que conecta a usuarios con proveedores de servicios locales en Venezuela. No somos responsables directos de los servicios prestados por los proveedores, pero facilitamos la conexión y gestión de citas.
+                    MiCita es una plataforma que conecta a usuarios con proveedores de servicios locales en Venezuela. No somos responsables directos de los servicios prestados por los proveedores, pero facilitamos la conexión y gestión de citas.
                 </Section>
 
                 <Section title="3. Pagos y Tarifas">
-                    Los pagos se realizan directamente entre el cliente y el proveedor ("Pago en sitio" o "Pago Móvil"). AgendaVE no procesa pagos directamente ni retiene comisiones de las transacciones en esta versión.
+                    Los pagos se realizan directamente entre el cliente y el proveedor ("Pago en sitio" o "Pago Móvil"). MiCita no procesa pagos directamente ni retiene comisiones de las transacciones en esta versión.
                 </Section>
 
                 <Section title="4. Cancelaciones">
@@ -39,15 +39,15 @@ export default function TermsScreen() {
                 </Section>
 
                 <Section title="6. Responsabilidad">
-                    AgendaVE no se hace responsable por daños, pérdidas o insatisfacción con los servicios recibidos. Cualquier reclamo debe ser dirigido al proveedor del servicio.
+                    MiCita no se hace responsable por daños, pérdidas o insatisfacción con los servicios recibidos. Cualquier reclamo debe ser dirigido al proveedor del servicio.
                 </Section>
 
                 <Section title="7. Contacto">
-                    Para cualquier duda o soporte, puedes contactarnos a través de soporte@agendave.com o vía WhatsApp al número oficial de soporte.
+                    Para cualquier duda o soporte, puedes contactarnos a través de soporte@micita.dev o vía WhatsApp al número oficial de soporte +1 652522076.
                 </Section>
 
                 <View style={styles.footer}>
-                    <ThemedText style={styles.footerText}>© 2025 AgendaVE. Hecho con ❤️ en Venezuela.</ThemedText>
+                    <ThemedText style={styles.footerText}>© 2025 MiCita. Hecho con ❤️ en Venezuela.</ThemedText>
                 </View>
             </ScrollView>
         </TabSafeAreaView>

@@ -220,7 +220,7 @@ export default function ProfileScreen() {
               onPress: () => {
                 showAlert(
                   'Contactar Soporte',
-                  'Contáctanos:\n\nEmail: soporte@agendave.com\nTeléfono: +58 412-1234567\nHorario: Lun-Vie 9AM-6PM',
+                  'Contáctanos:\n\nEmail: soporte@micita.dev\nTeléfono: +1 652522076\nHorario: Lun-Vie 9AM-6PM',
                   [{ text: 'Cerrar' }]
                 );
               }
@@ -231,12 +231,12 @@ export default function ProfileScreen() {
     },
     {
       id: 'about',
-      title: 'Acerca de',
+      title: 'Mi Cita',
       icon: 'info.circle',
       onPress: () => {
         showAlert(
-          'Acerca de AgendaVE',
-          'Versión: 1.0.0\n\nAgendaVE es tu plataforma de reservas en Venezuela.\n\nConecta con los mejores proveedores de servicios y gestiona tus citas de manera sencilla.\n\n© 2024 AgendaVE. Todos los derechos reservados.',
+          'Sobre Mi Cita',
+          'Versión: 1.0.0\n\nMi Cita es tu plataforma de reservas en Venezuela.\n\nConecta con los mejores proveedores de servicios y gestiona tus citas de manera sencilla.\n\n© 2024 Mi Cita. Todos los derechos reservados.',
           [{ text: 'Cerrar' }]
         );
       },

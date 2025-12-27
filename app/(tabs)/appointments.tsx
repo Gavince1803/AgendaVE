@@ -359,8 +359,10 @@ export default function AppointmentsScreen() {
                 const name = (appointment as any).profiles?.full_name || appointment.client_name || 'Cliente';
 
                 if (phone) {
-                  const message = `Hola ${name}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en AgendaVE.`;
-                  const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(message)}`;
+                  // Sanitize phone number: remove all non-numeric characters
+                  const cleanPhone = phone.replace(/\D/g, '');
+                  const message = `Hola ${name}, recordatorio de tu cita mañana a las ${appointment.appointment_time} en MiCita.`;
+                  const url = `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
                   Linking.openURL(url).catch(() => {
                     showAlert('Error', 'No se pudo abrir WhatsApp');
                   });
@@ -645,6 +647,7 @@ const styles = StyleSheet.create({
   appointmentActions: {
     flexDirection: 'row',
     gap: 12,
+    flexWrap: 'wrap',
   },
   actionButton: {
     flex: 1,
