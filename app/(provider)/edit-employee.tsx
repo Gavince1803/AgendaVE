@@ -114,7 +114,7 @@ export default function EditEmployeeScreen() {
         'Éxito',
         `Los datos de ${formData.name} han sido actualizados correctamente`,
         undefined,
-        () => router.back()
+        () => router.replace('/(provider)/my-business')
       );
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error updating employee', error);
