@@ -2,7 +2,7 @@
   "expo": {
     "name": "MiCita",
     "slug": "AgendaVE",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon-final.png",
     "scheme": "agendave",
@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gavince1803.AgendaVE",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -23,6 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gavince1803.AgendaVE",
+      "versionCode": 2,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
