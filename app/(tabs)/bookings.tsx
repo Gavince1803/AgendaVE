@@ -267,6 +267,8 @@ export default function BookingsScreen() {
         return 'Cancelada';
       case 'done':
         return 'Completada';
+      case 'no_show':
+        return 'No asistió';
       default:
         return status;
     }
