@@ -495,8 +495,15 @@ function ProviderHomeScreen() {
         return;
       }
 
+      const today = new Date();
+      const nextYear = new Date(today);
+      nextYear.setFullYear(today.getFullYear() + 1);
+
+      const todayStr = today.toISOString().split('T')[0];
+      const nextYearStr = nextYear.toISOString().split('T')[0];
+
       const [appointmentsData, metricsData, expiredData, providerData, servicesData] = await Promise.all([
-        BookingService.getProviderAppointments(user?.id), // Pass user ID to ensure RLS works
+        BookingService.getProviderAppointments(user?.id, todayStr, nextYearStr), // Optimization: Only fetch future
         BookingService.getProviderDashboardMetrics(user?.id),
         BookingService.getExpiredPendingAppointments(providerId),
         BookingService.getProviderDetails(providerId),

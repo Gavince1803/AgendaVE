@@ -8,7 +8,8 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 
 export type CalendarViewMode = 'month' | 'week';
@@ -42,6 +43,8 @@ export function CalendarView({
   onDatePress,
   selectedDate,
 }: CalendarViewProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
   const [currentDate, setCurrentDate] = useState(selectedDate || new Date());
   const [mode, setMode] = useState<CalendarViewMode>(viewMode);
 
@@ -193,38 +196,71 @@ export function CalendarView({
         key={dayCell.date.toISOString()}
         style={[
           styles.dayCell,
+          isDesktop && styles.dayCellDesktop,
+          isDesktop && dayCell.isSelected && { height: 'auto', minHeight: 120, overflow: 'visible', zIndex: 10 },
           !dayCell.isCurrentMonth && styles.dayCellInactive,
           dayCell.isToday && styles.dayCellToday,
           dayCell.isSelected && styles.dayCellSelected,
         ]}
         onPress={() => handleDayPress(dayCell)}
       >
-        <ThemedText
-          style={[
-            styles.dayText,
-            !dayCell.isCurrentMonth && styles.dayTextInactive,
-            dayCell.isToday && styles.dayTextToday,
-            dayCell.isSelected && styles.dayTextSelected,
-          ]}
-        >
-          {dayCell.date.getDate()}
-        </ThemedText>
+        <View style={[styles.dayHeaderContainer, isDesktop && { alignSelf: 'flex-start', marginBottom: 4 }]}>
+          <ThemedText
+            style={[
+              styles.dayText,
+              !dayCell.isCurrentMonth && styles.dayTextInactive,
+              dayCell.isToday && styles.dayTextToday,
+              dayCell.isSelected && styles.dayTextSelected,
+            ]}
+          >
+            {dayCell.date.getDate()}
+          </ThemedText>
+        </View>
 
-        {hasAppointments && (
-          <View style={styles.appointmentIndicator}>
-            <View style={[
-              styles.appointmentDot,
-              dayCell.isSelected && styles.appointmentDotSelected,
-            ]} />
-            {appointmentCount > 1 && (
-              <ThemedText style={[
-                styles.appointmentCount,
-                dayCell.isSelected && styles.appointmentCountSelected,
+        {isDesktop ? (
+          <View style={styles.desktopAppointmentsContainer}>
+            {(dayCell.isSelected ? dayCell.appointments : dayCell.appointments.slice(0, 3)).map((apt, i) => (
+              <View key={apt.id} style={[
+                styles.desktopAppointmentChip,
+                { backgroundColor: getStatusColor(apt.status) + (dayCell.isSelected ? '' : '20') }
               ]}>
-                {appointmentCount}
+                <ThemedText
+                  numberOfLines={1}
+                  style={[
+                    styles.desktopAppointmentText,
+                    { color: dayCell.isSelected ? '#fff' : getStatusColor(apt.status) }
+                  ]}
+                >
+                  {apt.appointment_time.slice(0, 5)} {apt.profiles?.display_name || apt.client_name || 'Cliente'}
+                </ThemedText>
+              </View>
+            ))}
+            {!dayCell.isSelected && dayCell.appointments.length > 3 && (
+              <ThemedText style={[
+                styles.moreAppointmentsText,
+                dayCell.isSelected && { color: '#fff' }
+              ]}>
+                +{dayCell.appointments.length - 3} más
               </ThemedText>
             )}
           </View>
+        ) : (
+          hasAppointments && (
+            <View style={styles.appointmentIndicator}>
+              <View style={[
+                styles.appointmentDot,
+                dayCell.isSelected && styles.appointmentDotSelected,
+              ]} />
+              {appointmentCount > 1 && (
+                <ThemedText style={[
+                  styles.appointmentCount,
+                  dayCell.isSelected && styles.appointmentCountSelected,
+                ]}>
+                  {appointmentCount}
+                </ThemedText>
+              )}
+            </View>
+          )
         )}
       </TouchableOpacity>
     );
@@ -312,7 +348,7 @@ export function CalendarView({
                       {appointment.services?.name || 'Servicio'}
                     </ThemedText>
                     <ThemedText style={styles.appointmentClient} numberOfLines={1}>
-                      {appointment.profiles?.display_name || 'Cliente'}
+                      {appointment.profiles?.display_name || appointment.client_name || 'Cliente'}
                     </ThemedText>
                     <View style={[
                       styles.appointmentStatus,
@@ -332,20 +368,22 @@ export function CalendarView({
           );
         })}
 
-        {weekDays.every(d => d.appointments.length === 0) && (
-          <View style={styles.emptyState}>
-            <IconSymbol name="calendar" size={48} color={Colors.light.textSecondary} />
-            <ThemedText style={styles.emptyStateText}>
-              No hay citas esta semana
-            </ThemedText>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+        {
+          weekDays.every(d => d.appointments.length === 0) && (
+            <View style={styles.emptyState}>
+              <IconSymbol name="calendar" size={48} color={Colors.light.textSecondary} />
+              <ThemedText style={styles.emptyStateText}>
+                No hay citas esta semana
+              </ThemedText>
+            </View>
+          )
+        }
+      </ScrollView >
+    </View >
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -436,7 +474,7 @@ export function CalendarView({
                       {appointment.services?.name || 'Servicio'}
                     </ThemedText>
                     <ThemedText style={styles.appointmentClient} numberOfLines={1}>
-                      {appointment.profiles?.display_name || 'Cliente'}
+                      {appointment.profiles?.display_name || appointment.client_name || 'Cliente'}
                     </ThemedText>
                     <View style={[
                       styles.appointmentStatus,
@@ -456,7 +494,7 @@ export function CalendarView({
           </View>
         </>
       ) : renderWeekView()}
-    </View>
+    </View >
   );
 }
 
@@ -825,5 +863,46 @@ const styles = StyleSheet.create({
   emptyStateTextCompact: {
     color: Colors.light.textSecondary,
     fontSize: DesignTokens.typography.fontSizes.sm,
+  },
+  dayCellDesktop: {
+    height: 120,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    margin: -1,
+    borderRadius: 0,
+    overflow: 'hidden',
+  },
+  dayHeaderContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  desktopAppointmentsContainer: {
+    width: '100%',
+    gap: 4,
+  },
+  desktopAppointmentChip: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    width: '100%',
+    marginBottom: 2,
+  },
+  desktopAppointmentText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  moreAppointmentsText: {
+    fontSize: 10,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  containerDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
   },
 });

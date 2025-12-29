@@ -8,6 +8,7 @@ import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Appointment, BookingService } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { OfflineStorage } from '@/lib/offline-storage';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Modal,
@@ -49,8 +50,18 @@ export default function ProviderCalendarScreen() {
         log.info(LogCategory.DATABASE, 'Loaded appointments from cache', { count: cachedAppointments.length });
       }
 
+      // Calculate date range (current date +/- 3 months)
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setMonth(today.getMonth() - 3);
+      const endDate = new Date(today);
+      endDate.setMonth(today.getMonth() + 3);
+
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = endDate.toISOString().split('T')[0];
+
       // Try to fetch from server
-      const providerAppointments = await BookingService.getProviderAppointments();
+      const providerAppointments = await BookingService.getProviderAppointments(undefined, startStr, endStr);
       setAppointments(providerAppointments);
 
       // Cache for offline use
@@ -106,6 +117,12 @@ export default function ProviderCalendarScreen() {
             <ThemedText type="title" style={styles.title}>Mi Calendario</ThemedText>
             <ThemedText style={styles.subtitle}>Vista mensual y semanal de tus citas</ThemedText>
           </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(provider)/import-bookings' as any)}
+            style={styles.importButton}
+          >
+            <IconSymbol name="square.and.arrow.down" size={24} color={Colors.light.primary} />
+          </TouchableOpacity>
         </View>
 
         {/* Calendar View Component */}
@@ -235,6 +252,11 @@ const styles = StyleSheet.create({
   headerText: {
     marginLeft: 12,
     flex: 1,
+  },
+  importButton: {
+    padding: 8,
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: 8,
   },
   title: {
     fontSize: 24,

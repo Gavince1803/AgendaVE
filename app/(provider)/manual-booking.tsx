@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -24,6 +25,8 @@ import { useAlert } from '@/contexts/GlobalAlertContext';
 import { BookingService, Service } from '@/lib/booking-service';
 import { useLogger } from '@/lib/logger';
 
+type BookingSource = 'app' | 'whatsapp' | 'instagram' | 'phone' | 'walk_in' | 'other';
+
 export default function ManualBookingScreen() {
     const { user } = useAuth();
     const { showAlert } = useAlert();
@@ -39,8 +42,8 @@ export default function ManualBookingScreen() {
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [selectedSource, setSelectedSource] = useState<BookingSource>('whatsapp');
 
-    // Define local type to match TimeSlots component expectation since it's not exported
     // Define local type to match TimeSlots component expectation since it's not exported
     type TimeSlotItem = { time: string; isAvailable: boolean; isBooked?: boolean; isSelected?: boolean; };
     const [availableSlots, setAvailableSlots] = useState<TimeSlotItem[]>([]);
@@ -54,6 +57,10 @@ export default function ManualBookingScreen() {
     const [clientName, setClientName] = useState('');
     const [clientPhone, setClientPhone] = useState('');
     const [notes, setNotes] = useState('');
+    const [clientId, setClientId] = useState<string | null>(null);
+
+    // Lookup
+    const [isLookingUp, setIsLookingUp] = useState(false);
 
     useEffect(() => {
         loadProviderData();
@@ -158,6 +165,25 @@ export default function ManualBookingScreen() {
         }
     };
 
+    const handlePhoneBlur = async () => {
+        if (!clientPhone || clientPhone.length < 6) return;
+
+        try {
+            setIsLookingUp(true);
+            const found = await BookingService.lookupClientByPhone(clientPhone);
+            if (found) {
+                if (!clientName) {
+                    setClientName(found.full_name);
+                }
+                setClientId(found.id || null);
+            }
+        } catch (error) {
+            console.warn('Lookup failed');
+        } finally {
+            setIsLookingUp(false);
+        }
+    };
+
     const handleCreateBooking = async () => {
         if (!providerId || !selectedService || !selectedTime) {
             showAlert('Error', 'Por favor completa todos los campos requeridos');
@@ -173,24 +199,27 @@ export default function ManualBookingScreen() {
                 selectedDate,
                 selectedTime,
                 undefined, // Employee ID 
-                clientName,
+                clientName || 'Cliente Externo',
                 notes,
-                clientPhone
+                clientPhone,
+                clientId,
+                selectedSource
             );
 
             log.userAction('Created manual appointment', {
                 service: selectedService.name,
                 date: selectedDate,
-                time: selectedTime
+                time: selectedTime,
+                source: selectedSource
             });
 
             if (Platform.OS === 'web') {
-                showAlert('Horario reservado exitosamente.');
+                showAlert('Cita Registrada Exitosamente.');
                 router.back();
             } else {
                 showAlert(
-                    '✅ Horario Bloqueado',
-                    'La cita manual ha sido creada y el horario reservado exitosamente.',
+                    '✅ Cita Registrada',
+                    `Se ha guardado la cita proveniente de ${getSourceLabel(selectedSource)}.`,
                     [
                         {
                             text: 'OK',
@@ -208,13 +237,33 @@ export default function ManualBookingScreen() {
         }
     };
 
+    const getSourceLabel = (source: BookingSource) => {
+        switch (source) {
+            case 'whatsapp': return 'WhatsApp';
+            case 'instagram': return 'Instagram';
+            case 'phone': return 'Teléfono';
+            case 'walk_in': return 'Presencial';
+            default: return 'Otro';
+        }
+    };
+
+    const getSourceIcon = (source: BookingSource): any => {
+        switch (source) {
+            case 'whatsapp': return 'text.bubble.fill';
+            case 'instagram': return 'camera';
+            case 'phone': return 'phone';
+            case 'walk_in': return 'person.fill';
+            default: return 'square.and.arrow.down';
+        }
+    };
+
     return (
         <TabSafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <IconSymbol name="chevron.left" size={24} color={Colors.light.text} />
                 </TouchableOpacity>
-                <ThemedText type="subtitle" style={styles.title}>Bloquear Horarios</ThemedText>
+                <ThemedText type="subtitle" style={styles.title}>Registrar Cita Externa</ThemedText>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -225,14 +274,47 @@ export default function ManualBookingScreen() {
                 <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
 
                     <ThemedText style={styles.description}>
-                        Reserva manualmente un espacio para clientes telefónicos o bloqueos personales.
+                        Registra manualmente citas que recibas por WhatsApp, Instagram o teléfono para mantener tu agenda bloqueada.
                     </ThemedText>
 
-                    {/* 1. Select Service */}
+                    {/* 1. Select Source */}
                     <View style={styles.cleanSection}>
                         <View style={styles.cleanSectionHeader}>
                             <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                                1. Servicio a Realizar (Define la duración)
+                                1. Origen de la Cita
+                            </ThemedText>
+                        </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sourceScroll}>
+                            {(['whatsapp', 'instagram', 'phone', 'walk_in'] as BookingSource[]).map((src) => (
+                                <TouchableOpacity
+                                    key={src}
+                                    style={[
+                                        styles.sourceChip,
+                                        selectedSource === src && styles.sourceChipSelected
+                                    ]}
+                                    onPress={() => setSelectedSource(src)}
+                                >
+                                    <IconSymbol
+                                        name={getSourceIcon(src)}
+                                        size={20}
+                                        color={selectedSource === src ? '#fff' : Colors.light.primary}
+                                    />
+                                    <ThemedText style={[
+                                        styles.sourceChipText,
+                                        selectedSource === src && styles.sourceChipTextSelected
+                                    ]}>
+                                        {getSourceLabel(src)}
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    {/* 2. Select Service */}
+                    <View style={styles.cleanSection}>
+                        <View style={styles.cleanSectionHeader}>
+                            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                                2. Servicio
                             </ThemedText>
                         </View>
 
@@ -267,17 +349,14 @@ export default function ManualBookingScreen() {
                                     </ThemedText>
                                 </TouchableOpacity>
                             ))}
-                            {services.length === 0 && !loading && (
-                                <ThemedText style={styles.emptyText}>No hay servicios activos</ThemedText>
-                            )}
                         </ScrollView>
                     </View>
 
-                    {/* 2. Select Date */}
+                    {/* 3. Select Date */}
                     <View style={styles.cleanSection}>
                         <View style={styles.cleanSectionHeader}>
                             <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                                2. Fecha
+                                3. Fecha
                             </ThemedText>
                         </View>
                         <Calendar
@@ -288,11 +367,11 @@ export default function ManualBookingScreen() {
                         />
                     </View>
 
-                    {/* 3. Select Time */}
+                    {/* 4. Select Time */}
                     <View style={styles.cleanSection}>
                         <View style={styles.cleanSectionHeader}>
                             <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                                3. Hora ({availableSlots.length} disponibles)
+                                4. Hora ({availableSlots.length} disponibles)
                             </ThemedText>
                         </View>
 
@@ -311,23 +390,44 @@ export default function ManualBookingScreen() {
                             />
                         ) : (
                             <View style={styles.emptySlots}>
-                                <IconSymbol name="calendar.badge.exclamationmark" size={32} color={Colors.light.textSecondary} />
+                                <IconSymbol name="exclamationmark.triangle" size={32} color={Colors.light.textSecondary} />
                                 <ThemedText style={styles.emptyText}>No hay horarios disponibles para esta fecha.</ThemedText>
                             </View>
                         )}
                     </View>
 
-                    {/* 4. Client Info */}
+                    {/* 5. Client Info */}
                     <Card variant="elevated" style={styles.section}>
                         <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                            4. Datos del Cliente (Opcional)
+                            5. Datos del Cliente
                         </ThemedText>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Nombre del Cliente / Referencia</Text>
+                            <Text style={styles.label}>Teléfono (Búsqueda automática)</Text>
+                            <View style={styles.phoneInputContainer}>
+                                <TextInput
+                                    style={[styles.input, { flex: 1 }]}
+                                    placeholder="Ej. 04121234567"
+                                    value={clientPhone}
+                                    onChangeText={setClientPhone}
+                                    onBlur={handlePhoneBlur}
+                                    keyboardType="phone-pad"
+                                    placeholderTextColor={Colors.light.textSecondary}
+                                />
+                                {isLookingUp && (
+                                    <View style={styles.lookupIndicator}>
+                                        <ActivityIndicator size="small" color={Colors.light.primary} />
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.helperText}>Ingresa el número para buscar clientes frecuentes</Text>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Nombre del Cliente</Text>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Ej. Juan Pérez"
+                                placeholder="Nombre del cliente"
                                 value={clientName}
                                 onChangeText={setClientName}
                                 placeholderTextColor={Colors.light.textSecondary}
@@ -335,22 +435,10 @@ export default function ManualBookingScreen() {
                         </View>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Teléfono (Para recordatorios)</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Ej. 584121234567"
-                                value={clientPhone}
-                                onChangeText={setClientPhone}
-                                keyboardType="phone-pad"
-                                placeholderTextColor={Colors.light.textSecondary}
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Notas Adicionales</Text>
+                            <Text style={styles.label}>Notas</Text>
                             <TextInput
                                 style={[styles.input, styles.textArea]}
-                                placeholder="Detalles adicionales..."
+                                placeholder="Detalles de la cita..."
                                 value={notes}
                                 onChangeText={setNotes}
                                 multiline
@@ -365,7 +453,7 @@ export default function ManualBookingScreen() {
 
                 <View style={styles.footer}>
                     <Button
-                        title={submitting ? "Confirmando..." : "Confirmar Bloqueo"}
+                        title={submitting ? "Guardando..." : "Registrar Cita"}
                         onPress={handleCreateBooking}
                         loading={submitting}
                         disabled={!selectedService || !selectedTime || submitting}
@@ -408,6 +496,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textSecondary,
         marginBottom: 16,
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
     section: {
         marginBottom: 16,
@@ -417,14 +506,38 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     cleanSectionHeader: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 4,
         marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 16,
     },
+    sourceScroll: {
+        flexDirection: 'row',
+    },
+    sourceChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: Colors.light.surfaceVariant,
+        borderRadius: 20,
+        marginRight: 8,
+        gap: 8,
+    },
+    sourceChipSelected: {
+        backgroundColor: Colors.light.primary,
+    },
+    sourceChipText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.light.primary,
+    },
+    sourceChipTextSelected: {
+        color: '#fff',
+    },
     servicesScroll: {
-        paddingHorizontal: 16, // Content padding 
+        paddingHorizontal: 4,
     },
     servicesRow: {
         flexDirection: 'row',
@@ -467,6 +580,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         gap: 8,
+        backgroundColor: Colors.light.surfaceVariant + '40',
+        borderRadius: 12,
     },
     emptyText: {
         color: Colors.light.textSecondary,
@@ -480,6 +595,19 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: Colors.light.text,
         marginBottom: 6,
+    },
+    phoneInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    lookupIndicator: {
+        position: 'absolute',
+        right: 12,
+    },
+    helperText: {
+        fontSize: 11,
+        color: Colors.light.textSecondary,
+        marginTop: 4,
     },
     input: {
         backgroundColor: Colors.light.surfaceVariant,

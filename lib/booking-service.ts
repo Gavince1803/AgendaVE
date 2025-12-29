@@ -141,6 +141,7 @@ export interface Appointment {
   // Manual Booking Fields
   client_name?: string;
   client_phone?: string;
+  source?: 'app' | 'whatsapp' | 'instagram' | 'phone' | 'walk_in' | 'other';
   // Computed Fields
   no_show_count?: number;
 }
@@ -1857,6 +1858,42 @@ export class BookingService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
+      // 🚀 ATOMIC BOOKING ATTEMPT
+      try {
+        const { data: atomicResult, error: atomicError } = await supabase.rpc('book_appointment_atomic', {
+          p_client_id: user.id,
+          p_provider_id: providerId,
+          p_service_id: serviceId,
+          p_employee_id: employeeId || null,
+          p_appointment_date: appointmentDate,
+          p_appointment_time: appointmentTime,
+          p_notes: notes || null
+        });
+
+        if (!atomicError && atomicResult && atomicResult.success) {
+          const newAppointment = atomicResult.data;
+          console.log('✅ [BOOKING SERVICE] Atomic booking successful:', newAppointment.id);
+
+          await this.handlePostBookingNotifications(newAppointment, providerId, serviceId, employeeId, user);
+          await this.scheduleAppointmentReminders(newAppointment);
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          return newAppointment;
+        } else if (atomicResult && !atomicResult.success) {
+          throw new Error(atomicResult.message || 'Error al reservar cita atomicamente.');
+        }
+
+        if (atomicError) {
+          console.warn('⚠️ [BOOKING SERVICE] Atomic RPC failed, falling back to legacy:', atomicError.message);
+        }
+      } catch (rpcError: any) {
+        if (rpcError.message && (rpcError.message.includes('servado') || rpcError.message.includes('ocupado'))) {
+          throw rpcError;
+        }
+        console.warn('⚠️ [BOOKING SERVICE] RPC error, using legacy method:', rpcError);
+      }
+
+      // ⬇️ LEGACY FALLBACK
+      console.log('🔄 [BOOKING SERVICE] Using legacy concurrency check');
       const validation = await this.validateAppointmentSlot({
         providerId,
         serviceId,
@@ -1869,10 +1906,8 @@ export class BookingService {
         throw new Error(validation.message || 'Este horario ya no está disponible.');
       }
 
-      // Crear timestamp combinando fecha y hora
       const startTimestamp = new Date(`${appointmentDate}T${appointmentTime}:00`).toISOString();
 
-      // Obtener duración del servicio para calcular end_ts
       const { data: serviceData } = await supabase
         .from('services')
         .select('duration_minutes, name')
@@ -1901,82 +1936,78 @@ export class BookingService {
 
       if (error) throw error;
 
-      // Load additional metadata for notifications
-      try {
-        const [{ data: providerDetails }, { data: clientProfile }] = await Promise.all([
-          supabase
-            .from('providers')
-            .select('business_name, user_id')
-            .eq('id', providerId)
-            .maybeSingle(),
-          supabase
-            .from('profiles')
-            .select('display_name, full_name')
-            .eq('id', user.id)
-            .maybeSingle(),
-        ]);
-
-        const providerUserId = providerDetails?.user_id as string | undefined;
-        const providerName = providerDetails?.business_name || 'Tu negocio';
-        const clientName =
-          clientProfile?.display_name ||
-          clientProfile?.full_name ||
-          user.user_metadata?.full_name ||
-          user.email?.split('@')[0] ||
-          'Cliente';
-
-        if (providerUserId) {
-          console.log('🔔 [BOOKING SERVICE] Sending notification to provider:', {
-            providerUserId,
-            providerName,
-            clientName,
-            serviceName: serviceData?.name,
-          });
-
-          const employeeName = employeeId ? (await supabase.from('employees').select('name').eq('id', employeeId).single()).data?.name : null;
-
-          await NotificationService.notifyNewAppointment(providerUserId, {
-            id: data.id,
-            provider_id: providerId,
-            provider_name: providerName,
-            appointment_date: appointmentDate,
-            appointment_time: appointmentTime,
-            client_name: clientName,
-            service_name: serviceData?.name,
-            employee_name: employeeName,
-          });
-          console.log('✅ [BOOKING SERVICE] Provider notification sent successfully');
-        } else {
-          console.warn('⚠️ [BOOKING SERVICE] Provider user ID not found, cannot send notification');
-        }
-
-        if (employeeId) {
-          await this.notifyEmployeeAssignment(employeeId, {
-            appointmentId: data.id,
-            providerName,
-            appointmentDate,
-            appointmentTime,
-            serviceName: serviceData?.name,
-            clientName,
-            status: 'created',
-          });
-        }
-      } catch (notificationError) {
-        console.warn('⚠️ [BOOKING SERVICE] Error sending notifications for new appointment:', notificationError);
-      }
-
-      // ... (notifications logic)
-
-      // Schedule local reminders for the user who created the appointment
+      await this.handlePostBookingNotifications(data, providerId, serviceId, employeeId, user);
       await this.scheduleAppointmentReminders(data);
-
-      // Haptic feedback for success
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
       throw error;
+    }
+  }
+
+  // Helper to avoid duplication
+  private static async handlePostBookingNotifications(
+    appointment: any,
+    providerId: string,
+    serviceId: string,
+    employeeId: string | undefined,
+    user: any
+  ) {
+    try {
+      const [{ data: providerDetails }, { data: clientProfile }] = await Promise.all([
+        supabase
+          .from('providers')
+          .select('business_name, user_id')
+          .eq('id', providerId)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('display_name, full_name')
+          .eq('id', user.id)
+          .maybeSingle(),
+      ]);
+
+      const providerUserId = providerDetails?.user_id as string | undefined;
+      const providerName = providerDetails?.business_name || 'Tu negocio';
+      const clientName =
+        clientProfile?.display_name ||
+        clientProfile?.full_name ||
+        user.user_metadata?.full_name ||
+        user.email?.split('@')[0] ||
+        'Cliente';
+
+      const { data: serviceData } = await supabase.from('services').select('name').eq('id', serviceId).single();
+
+      if (providerUserId) {
+        const employeeName = employeeId ? (await supabase.from('employees').select('name').eq('id', employeeId).single()).data?.name : null;
+
+        await NotificationService.notifyNewAppointment(providerUserId, {
+          id: appointment.id,
+          provider_id: providerId,
+          provider_name: providerName,
+          appointment_date: appointment.appointment_date,
+          appointment_time: appointment.appointment_time,
+          client_name: clientName,
+          service_name: serviceData?.name,
+          employee_name: employeeName,
+        });
+      }
+
+      if (employeeId) {
+        await this.notifyEmployeeAssignment(employeeId, {
+          appointmentId: appointment.id,
+          providerName,
+          appointmentDate: appointment.appointment_date,
+          appointmentTime: appointment.appointment_time,
+          serviceName: serviceData?.name,
+          clientName,
+          status: 'created',
+        });
+      }
+    } catch (notificationError) {
+      console.warn('⚠️ [BOOKING SERVICE] Error sending notifications:', notificationError);
     }
   }
 
@@ -1990,23 +2021,30 @@ export class BookingService {
     employeeId: string | undefined,
     clientName: string,
     notes: string,
-    clientPhone?: string
+    clientPhone?: string,
+    clientId?: string | null, // Nuevo parámetro
+    source: 'app' | 'whatsapp' | 'instagram' | 'phone' | 'walk_in' | 'other' = 'walk_in',
+    status: 'confirmed' | 'pending' | 'cancelled' | 'done' = 'confirmed',
+    skipAvailabilityCheck: boolean = false
   ): Promise<Appointment> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
-      // Validamos disponibilidad igual que una cita normal
-      const validation = await this.validateAppointmentSlot({
-        providerId,
-        serviceId,
-        appointmentDate,
-        appointmentTime,
-        employeeId,
-      });
+      // Solo validamos disponibilidad si NO se ha pedido saltarla y el status no es 'cancelled'
+      // Las citas canceladas no necesitan validar disponibilidad de horario.
+      if (!skipAvailabilityCheck && status !== 'cancelled') {
+        const validation = await this.validateAppointmentSlot({
+          providerId,
+          serviceId,
+          appointmentDate,
+          appointmentTime,
+          employeeId,
+        });
 
-      if (!validation.ok) {
-        throw new Error(validation.message || 'Este horario ya no está disponible.');
+        if (!validation.ok) {
+          throw new Error(validation.message || 'Este horario ya no está disponible.');
+        }
       }
 
       // Crear timestamp combinando fecha y hora
@@ -2025,7 +2063,7 @@ export class BookingService {
       const { data, error } = await supabase
         .from('appointments')
         .insert({
-          client_id: null, // Importante: Sin cliente registrado
+          client_id: clientId || null, // Usar clientId si existe
           provider_id: providerId,
           service_id: serviceId,
           employee_id: employeeId || null,
@@ -2033,11 +2071,12 @@ export class BookingService {
           appointment_time: appointmentTime,
           start_ts: startTimestamp,
           end_ts: endTimestamp,
-          status: 'confirmed', // Las manuales nacen confirmadas
+          status: status, // Usar el status pasado como argumento
           payment_status: 'pending',
           notes: notes.trim(),
           client_name: clientName,
-          client_phone: clientPhone
+          client_phone: clientPhone,
+          source: source
         })
         .select('*')
         .single();
@@ -2046,6 +2085,18 @@ export class BookingService {
 
       console.log('✅ [BOOKING SERVICE] Manual appointment created:', data.id);
 
+      // Enviar notificación si el cliente está registrado
+      if (clientId) {
+        // Enriquecer datos para la notificación
+        const appointmentForNotification = {
+          ...data,
+          provider_name: 'su proveedor', // Idealmente buscar el nombre del negocio
+          service_name: serviceData?.name
+        };
+
+        await NotificationService.notifyAppointmentConfirmation(clientId, appointmentForNotification);
+      }
+
       // Haptic feedback
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -2053,6 +2104,41 @@ export class BookingService {
     } catch (error) {
       console.error('Error creating manual appointment:', error);
       throw error;
+    }
+  }
+
+  // 🔍 Buscar cliente por teléfono (para autocompletado)
+  static async lookupClientByPhone(phone: string): Promise<{ full_name: string, id?: string } | null> {
+    try {
+      // 1. Try to find in profiles (registered users)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, id')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (profileData) {
+        return { full_name: profileData.full_name || '', id: profileData.id };
+      }
+
+      // 2. Try to find in past manual appointments
+      const { data: aptData, error: aptError } = await supabase
+        .from('appointments')
+        .select('client_name')
+        .eq('client_phone', phone)
+        .not('client_name', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (aptData) {
+        return { full_name: aptData.client_name || '' };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error looking up client by phone:', error);
+      return null;
     }
   }
 
@@ -2159,7 +2245,11 @@ export class BookingService {
   }
 
   // 📍 Obtener citas del proveedor
-  static async getProviderAppointments(userId?: string): Promise<Appointment[]> {
+  static async getProviderAppointments(
+    userId?: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<Appointment[]> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
@@ -2171,14 +2261,24 @@ export class BookingService {
         return [];
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('appointments')
         .select(`
           *,
           services(*),
           profiles!appointments_client_id_fkey(id, display_name, phone)
         `)
-        .eq('provider_id', provider.id)
+        .eq('provider_id', provider.id);
+
+      if (startDate) {
+        query = query.gte('appointment_date', startDate);
+      }
+
+      if (endDate) {
+        query = query.lte('appointment_date', endDate);
+      }
+
+      const { data, error } = await query
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
 

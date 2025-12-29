@@ -18,12 +18,14 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 
 export default function AppointmentsScreen() {
   const [selectedTab, setSelectedTab] = useState('today');
+  const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,21 @@ export default function AppointmentsScreen() {
   );
 
   const { showAlert } = useAlert();
+
+  // Helper para filtrar
+  const filterAppointments = (list: Appointment[]) => {
+    if (!searchQuery) return list;
+    const query = searchQuery.toLowerCase();
+    return list.filter(apt =>
+      (apt.client_name || '').toLowerCase().includes(query) ||
+      (apt.client_phone || '').includes(query) ||
+      (apt.profiles?.display_name || '').toLowerCase().includes(query)
+    );
+  };
+
+  const filteredToday = filterAppointments(todayAppointments);
+  const filteredUpcoming = filterAppointments(upcomingAppointments);
+  const filteredPast = filterAppointments(pastAppointments);
 
   const handleAppointmentAction = async (appointment: Appointment, action: 'confirm' | 'cancel' | 'complete' | 'no_show') => {
     try {
@@ -394,7 +411,11 @@ export default function AppointmentsScreen() {
     </Card >
   );
 
-  const currentAppointments = selectedTab === 'today' ? todayAppointments : upcomingAppointments;
+  const currentAppointments = selectedTab === 'today'
+    ? filteredToday
+    : selectedTab === 'upcoming'
+      ? filteredUpcoming
+      : filteredPast;
 
   return (
     <TabSafeAreaView style={styles.container}>
@@ -409,6 +430,23 @@ export default function AppointmentsScreen() {
         <ThemedText style={styles.subtitle}>
           Gestiona las citas de tus clientes
         </ThemedText>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <IconSymbol name="magnifyingglass" size={20} color={Colors.light.textSecondary} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre o teléfono..."
+            placeholderTextColor={Colors.light.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <IconSymbol name="xmark.circle.fill" size={20} color={Colors.light.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </ThemedView>
 
       {/* Tabs */}
@@ -418,7 +456,7 @@ export default function AppointmentsScreen() {
           onPress={() => setSelectedTab('today')}
         >
           <ThemedText style={[styles.tabText, selectedTab === 'today' && styles.activeTabText]}>
-            Hoy ({todayAppointments.length})
+            Hoy ({filteredToday.length})
           </ThemedText>
         </TouchableOpacity>
         <TouchableOpacity
@@ -426,7 +464,15 @@ export default function AppointmentsScreen() {
           onPress={() => setSelectedTab('upcoming')}
         >
           <ThemedText style={[styles.tabText, selectedTab === 'upcoming' && styles.activeTabText]}>
-            Próximas ({upcomingAppointments.length})
+            Próximas ({filteredUpcoming.length})
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'history' && styles.activeTab]}
+          onPress={() => setSelectedTab('history')}
+        >
+          <ThemedText style={[styles.tabText, selectedTab === 'history' && styles.activeTabText]}>
+            Historial
           </ThemedText>
         </TouchableOpacity>
       </ThemedView>
@@ -485,6 +531,25 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 20 : 12,
     paddingBottom: 8,
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.surfaceVariant,
+    paddingHorizontal: DesignTokens.spacing.md,
+    paddingVertical: DesignTokens.spacing.sm,
+    borderRadius: DesignTokens.radius.md,
+    marginTop: DesignTokens.spacing.sm,
+  },
+  searchIcon: {
+    marginRight: DesignTokens.spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: DesignTokens.typography.fontSizes.md,
+    color: Colors.light.text,
+    paddingVertical: 4, // Better touch target
+    outlineStyle: 'none', // Remove web outline
+  } as any, // Cast for web specific style
   title: {
     fontSize: 28,
     fontWeight: 'bold',
