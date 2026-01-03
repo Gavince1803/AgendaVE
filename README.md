@@ -51,9 +51,32 @@ AgendaVE is a cross-platform React Native (Expo) application designed to help se
     ```
 
 4.  Start the development server:
-    ```bash
     npx expo start
     ```
+
+## 🧪 Testing
+
+To run the app on a simulator or physical device:
+
+### Android
+```bash
+# Run on Android Emulator or connected device
+npx expo run:android
+```
+
+### iOS
+```bash
+# Run on iOS Simulator (Mac only)
+npx expo run:ios
+```
+
+## 🚀 Deployment
+
+### Android (Google Play)
+Please refer to the internal workflow `/android-deployment` for detailed instructions on deploying to the Google Play Console.
+
+### Web (Vercel)
+The web version is optimized for Vercel. Ensure your environment variables are correctly set in the Vercel dashboard.
 
 ## 📱 Project Structure
 

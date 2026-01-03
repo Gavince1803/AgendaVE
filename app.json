@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gavince1803.AgendaVE",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -24,12 +24,15 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gavince1803.AgendaVE",
-      "versionCode": 2,
+      "versionCode": 5,
       "usesCleartextTraffic": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "runtimeVersion": {
         "policy": "appVersion"
