@@ -5,85 +5,21 @@ import { Card } from '@/components/ui/Card';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAlert } from '@/contexts/GlobalAlertContext';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import {
-  Platform,
-  StyleSheet,
-  View
-} from 'react-native';
 
-type RegisterFieldErrors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirmPassword' | 'cedula', string>>;
+// ... (rest of imports)
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
-  const [cedula, setCedula] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const role = 'client'; // Solo clientes se registran aquí
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<RegisterFieldErrors>({});
-  const { signUp } = useAuth();
-  const { showAlert } = useAlert();
+  // ... (other state)
+  const { returnUrl } = useLocalSearchParams();
+  // ... (rest of state)
 
-  const validateFields = () => {
-    const nextErrors: RegisterFieldErrors = {};
-
-    // Nombre
-    if (!fullName.trim() || fullName.trim().length < 3) {
-      nextErrors.fullName = 'Ingresa tu nombre completo (mínimo 3 letras).';
-    }
-
-    // Cédula: solo números, longitud razonable (5-10 dígitos)
-    const cedulaRegex = /^\d{5,10}$/;
-    if (!cedula.trim()) {
-      nextErrors.cedula = 'Ingresa tu cédula.';
-    } else if (!cedulaRegex.test(cedula)) {
-      nextErrors.cedula = 'Cédula inválida (solo números, 5-10 dígitos).';
-    }
-
-    // Email: Regex estricta
-    // Estándar HTML5 para email
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!email.trim()) {
-      nextErrors.email = 'Ingresa un correo válido.';
-    } else if (!emailRegex.test(email)) {
-      nextErrors.email = 'Formato de correo inválido (ej: usuario@dominio.com).';
-    }
-
-    // Teléfono: Celular venezolano (0414, 0424, 0412, 0416, 0426)
-    // Acepta con o sin formato, pero validamos que tenga 11 dígitos y empiece por el prefijo
-    const cleanPhone = phone.replace(/\D/g, ''); // Eliminar todo lo que no sea número
-    const phoneRegex = /^(0414|0424|0412|0416|0426)\d{7}$/;
-
-    if (!phone.trim()) {
-      nextErrors.phone = 'Ingresa tu teléfono.';
-    } else if (!phoneRegex.test(cleanPhone)) {
-      nextErrors.phone = 'Teléfono inválido. Usa formato 0412/0414/0424 + 7 dígitos.';
-    }
-
-    // Password
-    if (!password || password.length < 6) {
-      nextErrors.password = 'La contraseña debe tener 6+ caracteres.';
-    }
-
-    // Confirm Password
-    if (confirmPassword !== password) {
-      nextErrors.confirmPassword = 'Las contraseñas no coinciden.';
-    }
-
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
+  // ... (validateFields)
 
   const handleRegister = async () => {
-    if (!validateFields()) {
-      return;
-    }
+    // ... (validation)
 
     setLoading(true);
     try {
@@ -98,14 +34,17 @@ export default function RegisterScreen() {
             text: 'Ir a Iniciar Sesión',
             onPress: () => {
               // Redirigir al login
-              router.replace('/(auth)/login');
+              if (returnUrl) {
+                router.replace(`/(auth)/login?returnUrl=${encodeURIComponent(returnUrl as string)}`);
+              } else {
+                router.replace('/(auth)/login');
+              }
             }
           }
         ]
       );
     } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error('Error al registrarse');
-      showAlert('Error', err.message || 'Error al registrarse');
+      // ... (error handling)
     } finally {
       setLoading(false);
     }

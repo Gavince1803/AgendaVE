@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="MiCita - Sistema de citas online para negocios venezolanos. Permite a tus clientes reservar 24/7, automatiza tu agenda y haz crecer tu negocio.">
+    <meta name="keywords"
+        content="mi cita venezuela, reservar citas online, sistema citas barberia, app citas negocio venezuela">
+    <meta name="author" content="MiCita">
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="MiCita - Tu Agenda de Citas Inteligente">
+    <meta property="og:description"
+        content="El sistema de reservas hecho por venezolanos, para venezolanos. Automatiza tu negocio hoy.">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_VE">
+
+    <title>MiCita - Sistema de Citas para Negocios en Venezuela</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">
+                <img src="logo.png" alt="MiCita" class="logo-img">
+                <span class="logo-text">Mi<span class="logo-accent">Cita</span></span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Funciones</a>
+                <a href="#benefits">Beneficios</a>
+                <a href="#pricing">Precios</a>
+                <a href="#contact" class="btn btn-primary btn-nav">Empezar Gratis</a>
+            </div>
+            <button class="mobile-menu-btn" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="container hero-container">
+            <div class="hero-content">
+                <div class="badge">
+                    <span class="badge-icon">🇻🇪</span>
+                    Hecho en Venezuela, para venezolanos
+                </div>
+                <h1 class="hero-title">
+                    Tu negocio recibe citas
+                    <span class="gradient-text">mientras tú descansas</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Permite que tus clientes reserven citas 24/7 desde su celular.
+                    Sin llamadas, sin WhatsApp, sin confusiones. Automatiza tu agenda y enfócate en lo que importa.
+                </p>
+                <div class="hero-cta">
+                    <a href="#contact" class="btn btn-primary btn-large">
+                        <span>Comenzar Gratis</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                    <a href="#demo" class="btn btn-secondary btn-large">
+                        Ver Demo
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-icon">⚡</span>
+                        <span class="stat-text">Configura en 5 min</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-icon">💳</span>
+                        <span class="stat-text">Sin tarjeta requerida</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-icon">🎁</span>
+                        <span class="stat-text">100% Gratis</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <div class="phone-mockup">
+                    <div class="phone-screen light-theme">
+                        <div class="app-search-bar">
+                            <span class="search-icon">🔍</span>
+                            <span>Buscar servicios</span>
+                            <button class="location-btn">📍 Cerca de mí</button>
+                        </div>
+                        <div class="app-categories">
+                            <h4>Categorías Populares</h4>
+                            <div class="category-pills">
+                                <div class="category-pill">
+                                    <span class="cat-icon" style="background: #ff6b35;">✂️</span>
+                                    <span>Peluquería</span>
+                                </div>
+                                <div class="category-pill">
+                                    <span class="cat-icon" style="background: #9b5eff;">⭐</span>
+                                    <span>Estética</span>
+                                </div>
+                                <div class="category-pill">
+                                    <span class="cat-icon" style="background: #14b8a6;">🏥</span>
+                                    <span>Salud</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="app-providers">
+                            <h4>Proveedores Destacados</h4>
+                            <div class="provider-card">
+                                <div class="provider-img"></div>
+                                <div class="provider-info">
+                                    <div class="provider-name">PedroBarbershop</div>
+                                    <div class="provider-type">Barbería • <span class="open">● Abierto</span></div>
+                                    <div class="provider-rating">★ 5.0</div>
+                                </div>
+                                <button class="reserve-btn">Reservar</button>
+                            </div>
+                        </div>
+                        <div class="app-nav">
+                            <div class="nav-item active">🏠 Inicio</div>
+                            <div class="nav-item">🔍 Explorar</div>
+                            <div class="nav-item">📅 Mis Citas</div>
+                            <div class="nav-item">❤️ Favoritos</div>
+                            <div class="nav-item">👤 Perfil</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem-section">
+        <div class="container">
+            <h2 class="section-title">¿Te suena familiar?</h2>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">📱</div>
+                    <h3>WhatsApp sin parar</h3>
+                    <p>Respondiendo mensajes de clientes todo el día preguntando "¿Tienes cupo para mañana?"</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">📝</div>
+                    <h3>Agenda de papel</h3>
+                    <p>Anotando citas en libretas que se pierden o se mojan, y luego no entiendes tu letra</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">😤</div>
+                    <h3>Clientes que no llegan</h3>
+                    <p>Perdiendo tiempo y dinero por citas olvidadas o cancelaciones de último minuto</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">🌙</div>
+                    <h3>Sin descanso</h3>
+                    <p>Recibiendo llamadas y mensajes fuera de horario porque no tienes sistema de reservas</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="solution-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">La solución</span>
+                <h2 class="section-title">Todo lo que necesitas para<br><span class="gradient-text">organizar tu
+                        negocio</span></h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                    </div>
+                    <h3>Reservas 24/7</h3>
+                    <p>Tus clientes reservan cuando quieran, desde su celular. Sin llamarte, sin escribirte.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0" />
+                        </svg>
+                    </div>
+                    <h3>Recordatorios Automáticos</h3>
+                    <p>El sistema le recuerda a tus clientes su cita. Reduce las ausencias hasta un 70%.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                    </div>
+                    <h3>Gestión de Empleados</h3>
+                    <p>Cada empleado tiene su propia agenda. Asigna servicios y horarios individuales.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                            <path d="M2 17l10 5 10-5" />
+                            <path d="M2 12l10 5 10-5" />
+                        </svg>
+                    </div>
+                    <h3>Múltiples Servicios</h3>
+                    <p>Configura todos tus servicios con precios y duraciones. El cliente elige lo que necesita.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                            <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                        </svg>
+                    </div>
+                    <h3>Estadísticas</h3>
+                    <p>Ve cuántas citas tienes, quién es tu mejor cliente, cuáles servicios son más populares.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                            <line x1="8" y1="21" x2="16" y2="21" />
+                            <line x1="12" y1="17" x2="12" y2="21" />
+                        </svg>
+                    </div>
+                    <h3>Funciona Offline</h3>
+                    <p>Sin internet estable? No hay problema. La app funciona sin conexión y sincroniza después.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits-section" id="benefits">
+        <div class="container">
+            <div class="benefits-content">
+                <div class="benefits-text">
+                    <span class="section-badge">Beneficios</span>
+                    <h2 class="section-title">Diseñado para el<br><span class="gradient-text">emprendedor
+                            venezolano</span></h2>
+                    <ul class="benefits-list">
+                        <li>
+                            <span class="benefit-check">✓</span>
+                            <div>
+                                <strong>Funciona con internet lento</strong>
+                                <p>Optimizado para conexiones de Venezuela. Carga rápido incluso con datos móviles.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="benefit-check">✓</span>
+                            <div>
+                                <strong>Soporte en Español</strong>
+                                <p>No más apps en inglés. Todo el sistema está 100% en español.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="benefit-check">✓</span>
+                            <div>
+                                <strong>Precio accesible</strong>
+                                <p>Pensado para la realidad económica venezolana. No pagas en dólares caros.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="benefit-check">✓</span>
+                            <div>
+                                <strong>Fácil de usar</strong>
+                                <p>No necesitas ser experto en tecnología. Si usas WhatsApp, puedes usar MiCita.</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                <div class="benefits-image">
+                    <div class="benefit-card-visual">
+                        <div class="visual-stat">
+                            <div class="visual-stat-number">24/7</div>
+                            <div class="visual-stat-label">Disponible para reservas</div>
+                        </div>
+                        <div class="visual-stat">
+                            <div class="visual-stat-number">5 min</div>
+                            <div class="visual-stat-label">Para configurar</div>
+                        </div>
+                        <div class="visual-stat">
+                            <div class="visual-stat-number">∞</div>
+                            <div class="visual-stat-label">Citas ilimitadas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Who is it for Section -->
+    <section class="audience-section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">¿Para quién es?</span>
+                <h2 class="section-title">Perfecto para tu tipo de negocio</h2>
+            </div>
+            <div class="audience-grid">
+                <div class="audience-card">
+                    <span class="audience-emoji">💇‍♂️</span>
+                    <h3>Barberías</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">💅</span>
+                    <h3>Salones de Uñas</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">💆‍♀️</span>
+                    <h3>Spas y Masajes</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">🏥</span>
+                    <h3>Consultorios</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">🎨</span>
+                    <h3>Tatuadores</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">📸</span>
+                    <h3>Fotógrafos</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">🏋️</span>
+                    <h3>Entrenadores</h3>
+                </div>
+                <div class="audience-card">
+                    <span class="audience-emoji">🐕</span>
+                    <h3>Pet Groomers</h3>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing-section" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Precios</span>
+                <h2 class="section-title">Simple y transparente</h2>
+                <p class="section-subtitle">Sin sorpresas, sin costos ocultos</p>
+            </div>
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Emprendedor</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-amount">0</span>
+                            <span class="price-period">/mes</span>
+                        </div>
+                        <p class="pricing-description">Perfecto para comenzar</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><span class="check">✓</span> Hasta 50 citas/mes</li>
+                        <li><span class="check">✓</span> 1 empleado</li>
+                        <li><span class="check">✓</span> Recordatorios básicos</li>
+                        <li><span class="check">✓</span> Página de reservas</li>
+                        <li class="disabled"><span class="x">✗</span> Estadísticas avanzadas</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-secondary btn-block">Comenzar Gratis</a>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Más Popular</div>
+                    <div class="pricing-header">
+                        <h3>Profesional</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-amount">5</span>
+                            <span class="price-period">/mes</span>
+                        </div>
+                        <p class="pricing-description">Para negocios en crecimiento</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><span class="check">✓</span> Citas ilimitadas</li>
+                        <li><span class="check">✓</span> Hasta 5 empleados</li>
+                        <li><span class="check">✓</span> Recordatorios automáticos</li>
+                        <li><span class="check">✓</span> Estadísticas completas</li>
+                        <li><span class="check">✓</span> Soporte prioritario</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-primary btn-block">Comenzar Gratis →</a>
+                </div>
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Empresarial</h3>
+                        <div class="pricing-price">
+                            <span class="price-currency">$</span>
+                            <span class="price-amount">15</span>
+                            <span class="price-period">/mes</span>
+                        </div>
+                        <p class="pricing-description">Para negocios establecidos</p>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><span class="check">✓</span> Todo lo del Profesional</li>
+                        <li><span class="check">✓</span> Empleados ilimitados</li>
+                        <li><span class="check">✓</span> Múltiples sucursales</li>
+                        <li><span class="check">✓</span> API personalizada</li>
+                        <li><span class="check">✓</span> Onboarding dedicado</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-secondary btn-block">Contactar Ventas</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <div class="cta-content">
+                <h2>¿Listo para automatizar tu negocio?</h2>
+                <p>Únete a los negocios venezolanos que ya están usando MiCita. Configura tu cuenta en menos de 5
+                    minutos.</p>
+                <div class="cta-buttons">
+                    <a href="https://apps.apple.com" class="btn btn-white btn-large" target="_blank">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                        </svg>
+                        <span>App Store</span>
+                    </a>
+                    <a href="https://play.google.com" class="btn btn-white btn-large" target="_blank">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 0 1 0 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z" />
+                        </svg>
+                        <span>Google Play</span>
+                    </a>
+                </div>
+                <p class="cta-note">O escríbenos a <a href="mailto:hola@micita.app">hola@micita.app</a></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <a href="#" class="logo">
+                        <img src="logo.png" alt="MiCita" class="logo-img">
+                        <span class="logo-text">Mi<span class="logo-accent">Cita</span></span>
+                    </a>
+                    <p>Sistema de citas hecho en Venezuela 🇻🇪</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Producto</h4>
+                        <a href="#features">Funciones</a>
+                        <a href="#pricing">Precios</a>
+                        <a href="#demo">Demo</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Legal</h4>
+                        <a href="/privacy">Privacidad</a>
+                        <a href="/terms">Términos</a>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Contacto</h4>
+                        <a href="mailto:hola@micita.app">hola@micita.app</a>
+                        <a href="https://instagram.com/micita.app" target="_blank">Instagram</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2025 MiCita. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

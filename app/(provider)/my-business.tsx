@@ -1,6 +1,3 @@
-// Mi Negocio - Pantalla de configuración del negocio para proveedores
-// Permite al proveedor configurar los datos de su negocio, servicios y horarios
-
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
@@ -12,16 +9,18 @@ import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
 import { Colors, DesignTokens } from '@/constants/Colors';
+import { Config } from '@/constants/Config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/GlobalAlertContext';
 import { Availability, BookingService, Provider, Service } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Share as NativeShare, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MyBusinessScreen() {
@@ -91,8 +90,6 @@ export default function MyBusinessScreen() {
 
       // Cargar TODOS los servicios (activos e inactivos) para gestión
       const allServicesData = await BookingService.getAllProviderServices(providerData.id);
-      console.log('🔴 [MY BUSINESS] All services loaded:', allServicesData);
-      console.log('🔴 [MY BUSINESS] All services summary:', allServicesData.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
 
       // Store all services
       setAllServices(allServicesData);
@@ -102,7 +99,6 @@ export default function MyBusinessScreen() {
         ? allServicesData // Show all services
         : allServicesData.filter(s => s.is_active === true); // Show only active
 
-      console.log('🔴 [MY BUSINESS] Filtered services:', filteredServices.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
       setServices(filteredServices);
 
       // Cargar disponibilidad del proveedor
@@ -120,13 +116,6 @@ export default function MyBusinessScreen() {
       } catch (metricsError) {
         console.warn('🔴 [MY BUSINESS] Error loading metrics:', metricsError);
       }
-
-      log.info(LogCategory.SERVICE, 'Business data loaded successfully', {
-        providerId: user.id,
-        servicesCount: allServicesData.length,
-        activeServicesCount: allServicesData.filter(s => s.is_active === true).length,
-        availabilityCount: availabilityData.length
-      });
     } catch (error) {
       log.error(LogCategory.SERVICE, 'Error loading business data', { error: error instanceof Error ? error.message : String(error) });
       showAlert('Error', 'No se pudieron cargar los datos del negocio');
@@ -155,13 +144,7 @@ export default function MyBusinessScreen() {
   }, []);
 
   const handleSaveBusiness = async () => {
-    console.log('🔴 [MY BUSINESS] handleSaveBusiness llamado');
-    console.log('🔴 [MY BUSINESS] user:', user);
-    console.log('🔴 [MY BUSINESS] provider:', provider);
-    console.log('🔴 [MY BUSINESS] businessData:', businessData);
-
     if (!user || !provider) {
-      console.log('🔴 [MY BUSINESS] Error: user o provider es null');
       return;
     }
 
@@ -169,12 +152,8 @@ export default function MyBusinessScreen() {
       setSaving(true);
       log.userAction('Save business data', { providerId: user.id, data: businessData });
 
-      console.log('🔴 [MY BUSINESS] Guardando datos:', businessData);
-
       // Actualizar el proveedor con los nuevos datos
       const updatedProvider = await BookingService.updateProvider(user.id, businessData);
-
-      console.log('🔴 [MY BUSINESS] Proveedor actualizado:', updatedProvider);
 
       showAlert(
         '✅ Datos Guardados',
@@ -191,7 +170,6 @@ export default function MyBusinessScreen() {
         ]
       );
     } catch (error) {
-      console.error('🔴 [MY BUSINESS] Error guardando:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       log.error(LogCategory.SERVICE, 'Error saving business data', { error: errorMessage });
       showAlert('Error', `No se pudieron guardar los datos: ${errorMessage}`);
@@ -231,6 +209,29 @@ export default function MyBusinessScreen() {
   const handleManageAvailability = () => {
     log.userAction('Manage availability', { providerId: user?.id });
     router.push('/(provider)/availability');
+  };
+
+  const handleCopyLink = async () => {
+    if (!user?.id) return;
+    const url = `${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user.id}`;
+    await Clipboard.setStringAsync(url);
+    showAlert('Enlace Copiado', 'El enlace de tu perfil ha sido copiado al portapapeles.');
+    log.userAction('Copy profile link', { providerId: user.id });
+  };
+
+  const handleShareLink = async () => {
+    if (!user?.id || !provider) return;
+    const url = `${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user.id}`;
+    try {
+      await NativeShare.share({
+        message: `¡Reserva tu cita en ${provider.business_name || 'mi negocio'}! ${url}`,
+        url: url,
+        title: `Reserva en ${provider.business_name || 'AgendaVE'}`,
+      });
+      log.userAction('Share profile link', { providerId: user.id });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
   };
 
   if (loading) {
@@ -279,6 +280,43 @@ export default function MyBusinessScreen() {
             </ThemedText>
             <NotificationBell />
           </ThemedView>
+
+          {/* Compartir Perfil */}
+          <Card variant="elevated" style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Compartir Perfil
+              </ThemedText>
+            </View>
+            <ThemedText style={styles.sectionDescription}>
+              Comparte este enlace en tus redes sociales para que tus clientes puedan reservar directamente.
+            </ThemedText>
+
+            <View style={styles.linkContainer}>
+              <ThemedText style={styles.linkText} numberOfLines={1}>
+                {`${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user?.id || '...'}`}
+              </ThemedText>
+            </View>
+
+            <View style={styles.shareButtonsRow}>
+              <Button
+                title="Copiar Link"
+                variant="outline"
+                size="small"
+                onPress={handleCopyLink}
+                leftIcon={<IconSymbol name="copy" size={16} color={Colors.light.primary} />}
+                style={styles.shareButton}
+              />
+              <Button
+                title="Compartir"
+                variant="primary"
+                size="small"
+                onPress={handleShareLink}
+                leftIcon={<IconSymbol name="share" size={16} color="#fff" />}
+                style={styles.shareButton}
+              />
+            </View>
+          </Card>
 
           {/* Acciones Rápidas */}
           <Card variant="elevated" style={styles.section}>
@@ -909,9 +947,9 @@ export default function MyBusinessScreen() {
 
           {/* Espacio adicional */}
           <View style={styles.bottomSpacing} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </TabSafeAreaView>
+        </ScrollView >
+      </KeyboardAvoidingView >
+    </TabSafeAreaView >
   );
 }
 
@@ -1294,5 +1332,30 @@ const styles = StyleSheet.create({
   },
   toggleButtonTextActive: {
     color: Colors.light.surface,
+  },
+  sectionDescription: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+    marginBottom: DesignTokens.spacing.md,
+  },
+  linkContainer: {
+    backgroundColor: Colors.light.surfaceVariant,
+    padding: DesignTokens.spacing.md,
+    borderRadius: DesignTokens.radius.md,
+    marginBottom: DesignTokens.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  linkText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.medium as any,
+  },
+  shareButtonsRow: {
+    flexDirection: 'row',
+    gap: DesignTokens.spacing.md,
+  },
+  shareButton: {
+    flex: 1,
   },
 });
