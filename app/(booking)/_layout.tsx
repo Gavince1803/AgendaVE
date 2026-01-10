@@ -21,6 +21,7 @@ export default function BookingLayout() {
           title: 'Detalles del Proveedor',
           headerBackTitle: 'Atrás',
         }}
+        getId={({ params }) => params?.providerId}
       />
       <Stack.Screen
         name="book-service"
