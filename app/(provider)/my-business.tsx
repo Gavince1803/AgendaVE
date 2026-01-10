@@ -213,7 +213,7 @@ export default function MyBusinessScreen() {
 
   const handleCopyLink = async () => {
     if (!user?.id) return;
-    const url = `${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user.id}`;
+    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${user.id}`;
     await Clipboard.setStringAsync(url);
     showAlert('Enlace Copiado', 'El enlace de tu perfil ha sido copiado al portapapeles.');
     log.userAction('Copy profile link', { providerId: user.id });
@@ -221,7 +221,7 @@ export default function MyBusinessScreen() {
 
   const handleShareLink = async () => {
     if (!user?.id || !provider) return;
-    const url = `${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user.id}`;
+    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${user.id}`;
     try {
       await NativeShare.share({
         message: `¡Reserva tu cita en ${provider.business_name || 'mi negocio'}! ${url}`,
@@ -294,7 +294,7 @@ export default function MyBusinessScreen() {
 
             <View style={styles.linkContainer}>
               <ThemedText style={styles.linkText} numberOfLines={1}>
-                {`${Config.WEB_APP_URL}/booking/provider-detail?providerId=${user?.id || '...'}`}
+                {`${Config.WEB_APP_URL}/provider-detail?providerId=${user?.id || '...'}`}
               </ThemedText>
             </View>
 

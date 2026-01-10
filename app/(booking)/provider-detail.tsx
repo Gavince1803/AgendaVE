@@ -197,7 +197,7 @@ export default function ProviderDetailScreen() {
 
     if (!user) {
       // If user is not logged in, redirect to login with returnUrl
-      const currentPath = `/booking/provider-detail?providerId=${providerId}`;
+      const currentPath = `/provider-detail?providerId=${providerId}`;
       router.push(`/(auth)/login?returnUrl=${encodeURIComponent(currentPath)}`);
       return;
     }
