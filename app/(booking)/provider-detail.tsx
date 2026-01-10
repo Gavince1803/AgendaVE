@@ -77,6 +77,7 @@ export default function ProviderDetailScreen() {
     if (!providerId) return;
 
     try {
+      console.log('🔍 [PROVIDER DETAIL] loadProviderData called with providerId:', providerId);
       setLoading(true);
       logRef.current.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
 
