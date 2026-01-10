@@ -77,17 +77,38 @@ export default function ProviderDetailScreen() {
     if (!providerId) return;
 
     try {
-      console.log('🔍 [PROVIDER DETAIL] loadProviderData called with providerId:', providerId);
       setLoading(true);
       logRef.current.info(LogCategory.DATABASE, 'Loading provider data', { providerId });
 
-      // Cargar datos en paralelo
+      // 1. Fetch Provider Details First (with Fallback)
+      let providerData: any;
+      try {
+        // Try as Provider ID
+        providerData = await BookingService.getProviderDetails(providerId as string);
+      } catch (err) {
+        console.log('⚠️ [PROVIDER DETAIL] lookup by ID failed, trying as User ID...');
+        // Fallback: Try as User ID
+        try {
+          providerData = await BookingService.getProviderById(providerId as string);
+        } catch (fallbackErr) {
+          // Ignore fallback error, will throw original error if both fail
+        }
+
+        if (!providerData) {
+          console.error('❌ [PROVIDER DETAIL] Provider not found with ID or UserID:', providerId);
+          throw err; // Throw original error
+        }
+      }
+
+      const realProviderId = providerData.id;
+      console.log('✅ [PROVIDER DETAIL] Found provider:', realProviderId);
+
+      // 2. Fetch Related Data using the CORRECT Provider ID
       const loyaltyPromise = isClient
-        ? BookingService.getProviderLoyaltySummary(providerId)
+        ? BookingService.getProviderLoyaltySummary(realProviderId)
         : Promise.resolve(null);
 
       const [
-        providerData,
         servicesData,
         availabilityData,
         reviewsData,
@@ -96,16 +117,16 @@ export default function ProviderDetailScreen() {
         highlightsData,
         loyaltyData
       ] = await Promise.all([
-        BookingService.getProviderDetails(providerId),
-        BookingService.getProviderServices(providerId),
-        BookingService.getProviderAvailability(providerId),
-        BookingService.getProviderReviews(providerId),
-        BookingService.getProviderMedia(providerId),
-        BookingService.getProviderTeam(providerId),
-        BookingService.getProviderHighlights(providerId),
+        BookingService.getProviderServices(realProviderId),
+        BookingService.getProviderAvailability(realProviderId),
+        BookingService.getProviderReviews(realProviderId),
+        BookingService.getProviderMedia(realProviderId),
+        BookingService.getProviderTeam(realProviderId),
+        BookingService.getProviderHighlights(realProviderId),
         loyaltyPromise
       ]);
 
+      // 3. Set State
       setProvider(providerData);
       setServices(servicesData);
       setAvailability(availabilityData);
@@ -120,14 +141,7 @@ export default function ProviderDetailScreen() {
 
       logRef.current.info(LogCategory.DATABASE, 'Provider data loaded successfully', {
         provider: providerData?.business_name,
-        servicesCount: servicesData.length,
-        availabilityCount: availabilityData.length,
-        reviewsCount: reviewsData.length,
-        mediaCount: mediaData.length,
-        teamCount: teamData.length,
-        highlightsCount: highlightsData.length,
-        providerRating: providerData?.rating,
-        totalReviews: providerData?.total_reviews
+        servicesCount: servicesData.length
       });
     } catch (error) {
       logRef.current.error(LogCategory.SERVICE, 'Error loading provider data', error);

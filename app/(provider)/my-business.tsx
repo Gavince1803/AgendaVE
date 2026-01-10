@@ -212,23 +212,23 @@ export default function MyBusinessScreen() {
   };
 
   const handleCopyLink = async () => {
-    if (!user?.id) return;
-    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${user.id}`;
+    if (!provider?.id) return;
+    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${provider.id}`;
     await Clipboard.setStringAsync(url);
     showAlert('Enlace Copiado', 'El enlace de tu perfil ha sido copiado al portapapeles.');
-    log.userAction('Copy profile link', { providerId: user.id });
+    log.userAction('Copy profile link', { providerId: provider.id });
   };
 
   const handleShareLink = async () => {
-    if (!user?.id || !provider) return;
-    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${user.id}`;
+    if (!provider?.id) return;
+    const url = `${Config.WEB_APP_URL}/provider-detail?providerId=${provider.id}`;
     try {
       await NativeShare.share({
         message: `¡Reserva tu cita en ${provider.business_name || 'mi negocio'}! ${url}`,
         url: url,
         title: `Reserva en ${provider.business_name || 'AgendaVE'}`,
       });
-      log.userAction('Share profile link', { providerId: user.id });
+      log.userAction('Share profile link', { providerId: provider.id });
     } catch (error) {
       console.error('Error sharing:', error);
     }
@@ -294,7 +294,7 @@ export default function MyBusinessScreen() {
 
             <View style={styles.linkContainer}>
               <ThemedText style={styles.linkText} numberOfLines={1}>
-                {`${Config.WEB_APP_URL}/provider-detail?providerId=${user?.id || '...'}`}
+                {`${Config.WEB_APP_URL}/provider-detail?providerId=${provider?.id || '...'}`}
               </ThemedText>
             </View>
 
