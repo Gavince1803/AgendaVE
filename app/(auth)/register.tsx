@@ -91,23 +91,14 @@ export default function RegisterScreen() {
       await signUp(email, password, fullName, role, phone, undefined, cedula);
 
       // Mostrar mensaje de éxito con información sobre confirmación de email
-      showAlert(
-        '¡Cuenta creada exitosamente! 🎉',
-        'Tu cuenta ha sido registrada correctamente. Ahora puedes iniciar sesión.',
-        [
-          {
-            text: 'Ir a Iniciar Sesión',
-            onPress: () => {
-              // Redirigir al login
-              if (returnUrl) {
-                router.replace(`/(auth)/login?returnUrl=${encodeURIComponent(returnUrl as string)}`);
-              } else {
-                router.replace('/(auth)/login');
-              }
-            }
-          }
-        ]
-      );
+      // Redireccionar inmediatamente
+      if (returnUrl) {
+        router.replace(`/(auth)/login?returnUrl=${encodeURIComponent(returnUrl as string)}`);
+      } else {
+        // El AuthLayout o el AuthContext se encargarán de redirigir a (tabs)
+        // Pero por seguridad podemos forzarlo si no hay redirección automática
+        router.replace('/(tabs)');
+      }
     } catch (error: unknown) {
       // ... (error handling)
     } finally {
