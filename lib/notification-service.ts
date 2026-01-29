@@ -277,13 +277,33 @@ export class NotificationService {
   }
 
   /**
+   * Helper to format time to 12h format (e.g. 09:15:00 -> 9:15 am)
+   */
+  private static formatTime12h(time: string): string {
+    if (!time) return '';
+    try {
+      const [hours, minutes] = time.split(':');
+      let h = parseInt(hours, 10);
+      const m = minutes;
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12;
+      h = h ? h : 12; // the hour '0' should be '12'
+      return `${h}:${m} ${ampm}`;
+    } catch (e) {
+      return time; // fallback
+    }
+  }
+
+  /**
    * Notificar nueva reserva al proveedor
    */
   static async notifyNewAppointment(providerId: string, appointmentData: any): Promise<void> {
     try {
+      const formattedTime = this.formatTime12h(appointmentData.appointment_time);
+
       const notification: NotificationData = {
         title: 'Nueva Reserva 📅',
-        body: `Tienes una nueva cita con ${appointmentData.client_name} para ${appointmentData.service_name}${appointmentData.employee_name ? ` con ${appointmentData.employee_name}` : ''}`,
+        body: `Tienes una nueva cita con ${appointmentData.client_name} para ${appointmentData.service_name}${appointmentData.employee_name ? ` con ${appointmentData.employee_name}` : ''} a las ${formattedTime}`,
         data: {
           type: 'new_appointment',
           appointment_id: appointmentData.id,
@@ -303,7 +323,7 @@ export class NotificationService {
   ): Promise<void> {
     try {
       const timeLabel = appointmentData.appointment_time
-        ? ` a las ${appointmentData.appointment_time}`
+        ? ` a las ${this.formatTime12h(appointmentData.appointment_time)}`
         : '';
 
       const notification: NotificationData = {
@@ -329,7 +349,7 @@ export class NotificationService {
   ): Promise<void> {
     try {
       const timeLabel = appointmentData.appointment_time
-        ? ` a las ${appointmentData.appointment_time}`
+        ? ` a las ${this.formatTime12h(appointmentData.appointment_time)}`
         : '';
 
       const notification: NotificationData = {
@@ -354,9 +374,10 @@ export class NotificationService {
     appointmentData: any
   ): Promise<void> {
     try {
+      const formattedTime = this.formatTime12h(appointmentData.appointment_time);
       const notification: NotificationData = {
         title: 'Cita Reprogramada 🔄',
-        body: `La cita con ${appointmentData.client_name} ha sido reprogramada para el ${appointmentData.appointment_date} a las ${appointmentData.appointment_time}`,
+        body: `La cita con ${appointmentData.client_name} ha sido reprogramada para el ${appointmentData.appointment_date} a las ${formattedTime}`,
         data: {
           type: 'appointment_reschedule',
           appointment_id: appointmentData.id,
@@ -379,7 +400,7 @@ export class NotificationService {
   ): Promise<void> {
     try {
       const timeLabel = appointmentData.appointment_time
-        ? ` a las ${appointmentData.appointment_time}`
+        ? ` a las ${this.formatTime12h(appointmentData.appointment_time)}`
         : '';
       const notification: NotificationData = {
         title: 'Cita Confirmada ✅',

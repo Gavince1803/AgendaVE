@@ -54,6 +54,18 @@ export interface Service {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  input_type?: 'fixed' | 'range' | 'starting_at';
+  price_max?: number;
+}
+
+export interface ServiceEmployeePricing {
+  id: string;
+  service_id: string;
+  employee_id: string;
+  price: number;
+  price_max?: number;
+  duration_minutes?: number;
+  is_active: boolean;
 }
 
 export interface Availability {
@@ -144,6 +156,7 @@ export interface Appointment {
   source?: 'app' | 'whatsapp' | 'instagram' | 'phone' | 'walk_in' | 'other';
   // Computed Fields
   no_show_count?: number;
+  price_amount?: number;
 }
 
 export interface Review {
@@ -182,6 +195,7 @@ export interface ProviderMedia {
 export interface ProviderTeamMember {
   id: string;
   provider_id: string;
+  profile_id?: string | null;
   full_name: string;
   role?: string | null;
   bio?: string | null;
@@ -577,6 +591,88 @@ export class BookingService {
     } catch (error) {
       console.error('Error in getServiceById:', error);
       return null;
+    }
+  }
+
+  // 💰 Obtener precios personalizados por empleado para un servicio
+  static async getServiceEmployeePrices(serviceId: string): Promise<ServiceEmployeePricing[]> {
+    try {
+      const { data, error } = await supabase
+        .from('service_employee_pricing')
+        .select('*')
+        .eq('service_id', serviceId)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching service employee prices:', error);
+      return [];
+    }
+  }
+
+  // 💰 Obtener precios personalizados para múltiples servicios
+  static async getEmployeePricesForServices(serviceIds: string[]): Promise<ServiceEmployeePricing[]> {
+    try {
+      if (serviceIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('service_employee_pricing')
+        .select('*')
+        .in('service_id', serviceIds)
+        .eq('is_active', true);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching employee prices for services:', error);
+      return [];
+    }
+  }
+
+  // 💰 Actualizar precio personalizado para un empleado
+  static async upsertServiceEmployeePrice(
+    serviceId: string,
+    employeeId: string,
+    price: number,
+    priceMax?: number,
+    duration?: number
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('service_employee_pricing')
+        .upsert({
+          service_id: serviceId,
+          employee_id: employeeId,
+          price,
+          price_max: priceMax,
+          duration_minutes: duration,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'service_id,employee_id'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating service employee price:', error);
+      throw error;
+    }
+  }
+
+  // 🗑️ Eliminar precio personalizado (volver al default)
+  static async removeServiceEmployeePrice(serviceId: string, employeeId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('service_employee_pricing')
+        .delete()
+        .eq('service_id', serviceId)
+        .eq('employee_id', employeeId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error removing service employee price:', error);
+      throw error;
     }
   }
 
@@ -2463,9 +2559,10 @@ export class BookingService {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
       // Obtener citas completadas de este mes con el servicio asociado
+      // Updated to fetch 'price_amount' explicitly from appointments
       const { data: appointments, error } = await supabase
         .from('appointments')
-        .select(`appointment_date, status, services(price_amount, price_currency)`)
+        .select(`appointment_date, status, price_amount, services(price_amount, price_currency)`)
         .eq('provider_id', provider.id)
         .gte('appointment_date', startOfMonth)
         .lte('appointment_date', endOfMonth)
@@ -2476,7 +2573,12 @@ export class BookingService {
       let total = 0;
       let currency = 'USD';
       (appointments || []).forEach((apt: any) => {
-        const price = apt?.services?.price_amount || 0;
+        // Use the recorded price in appointment if available (supports custom prices)
+        // Fallback to service base price for older records
+        const price = apt.price_amount !== null && apt.price_amount !== undefined
+          ? Number(apt.price_amount)
+          : (apt?.services?.price_amount || 0);
+
         total += price;
         currency = apt?.services?.price_currency || currency;
       });
@@ -3843,6 +3945,8 @@ export class BookingService {
       price_currency?: string;
       duration_minutes: number;
       is_active?: boolean;
+      input_type?: 'fixed' | 'range' | 'starting_at';
+      price_max?: number;
     }
   ): Promise<Service> {
     try {
@@ -3889,6 +3993,8 @@ export class BookingService {
           price_currency: serviceData.price_currency || 'USD',
           duration_minutes: serviceData.duration_minutes,
           is_active: serviceData.is_active ?? true,
+          input_type: serviceData.input_type || 'fixed',
+          price_max: serviceData.price_max || null,
         })
         .select()
         .single();
@@ -3916,6 +4022,8 @@ export class BookingService {
       price_currency?: string;
       duration_minutes?: number;
       is_active?: boolean;
+      input_type?: 'fixed' | 'range' | 'starting_at';
+      price_max?: number;
     }
   ): Promise<Service> {
     try {

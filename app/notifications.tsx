@@ -1,7 +1,8 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     FlatList,
+    Platform,
     RefreshControl,
     StyleSheet,
     TouchableOpacity,
@@ -120,7 +121,15 @@ export default function NotificationsScreen() {
 
     return (
         <TabSafeAreaView style={styles.container}>
-            <Stack.Screen options={{ title: 'Notificaciones', headerShown: true }} />
+            <Stack.Screen options={{ headerShown: false }} />
+
+            <View style={styles.customHeader}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <IconSymbol name="chevron.left" size={24} color={Colors.light.text} />
+                </TouchableOpacity>
+                <ThemedText type="title" style={styles.headerTitle}>Notificaciones</ThemedText>
+                <View style={styles.headerRight} />
+            </View>
 
             <FlatList
                 data={notifications}
@@ -206,5 +215,29 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         color: Colors.light.textSecondary,
+    },
+    customHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === 'ios' ? 8 : 12,
+        paddingBottom: 12,
+        backgroundColor: Colors.light.background,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.light.border,
+    },
+    backButton: {
+        padding: 8,
+        marginLeft: -8,
+        borderRadius: 20,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Colors.light.text,
+    },
+    headerRight: {
+        width: 40,
     },
 });

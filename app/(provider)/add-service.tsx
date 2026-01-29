@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { BookingSafeAreaView } from '@/components/ui/SafeAreaView';
+import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { ScrollableInputView } from '@/components/ui/ScrollableInputView';
 import { SimpleInput } from '@/components/ui/SimpleInput';
 import { Colors, DesignTokens } from '@/constants/Colors';
@@ -23,11 +23,20 @@ export default function AddServiceScreen() {
   const { showAlert } = useAlert();
   const [saving, setSaving] = useState(false);
 
-  const [serviceData, setServiceData] = useState({
+  const [serviceData, setServiceData] = useState<{
+    name: string;
+    description: string;
+    price_amount: string;
+    duration_minutes: string;
+    input_type: 'fixed' | 'range' | 'starting_at';
+    price_max: string;
+  }>({
     name: '',
     description: '',
     price_amount: '',
     duration_minutes: '',
+    input_type: 'fixed',
+    price_max: '',
   });
 
   const handleSave = async () => {
@@ -62,6 +71,14 @@ export default function AddServiceScreen() {
       return;
     }
 
+    if (serviceData.input_type === 'range') {
+      const priceMax = parseFloat(serviceData.price_max || '0');
+      if (isNaN(priceMax) || priceMax <= price) {
+        showAlert('Error', 'El precio máximo debe ser mayor al precio base');
+        return;
+      }
+    }
+
     if (isNaN(duration) || duration <= 0) {
       showAlert('Error', 'La duración debe ser un número válido mayor a 0');
       return;
@@ -70,7 +87,7 @@ export default function AddServiceScreen() {
     // Confirmation dialog
     showAlert(
       'Confirmar Creación de Servicio',
-      `¿Estás seguro de que quieres crear el servicio "${serviceData.name.trim()}" por $${price} USD (${duration} min)?`,
+      `¿Estás seguro de que quieres crear el servicio "${serviceData.name.trim()}"?`,
       [
         {
           text: 'Cancelar',
@@ -108,7 +125,9 @@ export default function AddServiceScreen() {
         price_amount: price,
         price_currency: 'USD',
         duration_minutes: duration,
-        is_active: true
+        is_active: true,
+        input_type: serviceData.input_type,
+        price_max: serviceData.price_max ? parseFloat(serviceData.price_max) : undefined,
       });
 
       showAlert(
@@ -125,6 +144,8 @@ export default function AddServiceScreen() {
                 description: '',
                 price_amount: '',
                 duration_minutes: '',
+                input_type: 'fixed',
+                price_max: '',
               });
             }
           },
@@ -136,6 +157,7 @@ export default function AddServiceScreen() {
         ]
       );
     } catch (error) {
+      console.error(error);
       log.error(LogCategory.SERVICE, 'Error creating service', { error: error instanceof Error ? error.message : String(error) });
       showAlert('Error', 'No se pudo crear el servicio');
     } finally {
@@ -144,7 +166,7 @@ export default function AddServiceScreen() {
   };
 
   return (
-    <BookingSafeAreaView>
+    <TabSafeAreaView style={{ flex: 1 }}>
       <ScrollableInputView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <ThemedView style={styles.header}>
@@ -181,10 +203,34 @@ export default function AddServiceScreen() {
             returnKeyType="default"
           />
 
+          {/* Price Type Selector */}
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.label}>Tipo de Precio</ThemedText>
+            <View style={styles.segmentControl}>
+              {(['fixed', 'range', 'starting_at'] as const).map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.segmentButton,
+                    serviceData.input_type === type && styles.segmentButtonActive
+                  ]}
+                  onPress={() => setServiceData({ ...serviceData, input_type: type })}
+                >
+                  <ThemedText style={[
+                    styles.segmentText,
+                    serviceData.input_type === type && styles.segmentTextActive
+                  ]}>
+                    {type === 'fixed' ? 'Fijo' : type === 'range' ? 'Rango' : 'Desde'}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           <View style={styles.row}>
             <View style={styles.halfWidth}>
               <SimpleInput
-                label="Precio ($) *"
+                label={serviceData.input_type === 'range' ? "Precio Mínimo *" : serviceData.input_type === 'starting_at' ? "Precio Inicial *" : "Precio ($) *"}
                 value={serviceData.price_amount}
                 onChangeText={(text) => setServiceData({ ...serviceData, price_amount: text })}
                 placeholder="0.00"
@@ -192,17 +238,29 @@ export default function AddServiceScreen() {
                 returnKeyType="next"
               />
             </View>
-            <View style={styles.halfWidth}>
-              <SimpleInput
-                label="Duración (min) *"
-                value={serviceData.duration_minutes}
-                onChangeText={(text) => setServiceData({ ...serviceData, duration_minutes: text })}
-                placeholder="30"
-                keyboardType="numeric"
-                returnKeyType="done"
-              />
-            </View>
+
+            {serviceData.input_type === 'range' && (
+              <View style={styles.halfWidth}>
+                <SimpleInput
+                  label="Precio Máximo *"
+                  value={serviceData.price_max}
+                  onChangeText={(text) => setServiceData({ ...serviceData, price_max: text })}
+                  placeholder="0.00"
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                />
+              </View>
+            )}
           </View>
+
+          <SimpleInput
+            label="Duración (min) *"
+            value={serviceData.duration_minutes}
+            onChangeText={(text) => setServiceData({ ...serviceData, duration_minutes: text })}
+            placeholder="30"
+            keyboardType="numeric"
+            returnKeyType="done"
+          />
 
           {/* Información adicional */}
           <ThemedView style={styles.infoCard}>
@@ -239,7 +297,7 @@ export default function AddServiceScreen() {
         {/* Espacio adicional */}
         <View style={styles.bottomSpacing} />
       </ScrollableInputView>
-    </BookingSafeAreaView>
+    </TabSafeAreaView>
   );
 }
 
@@ -317,5 +375,42 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: DesignTokens.spacing.xl,
+  },
+  inputGroup: {
+    marginBottom: DesignTokens.spacing.md,
+  },
+  label: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    marginBottom: DesignTokens.spacing.xs,
+    color: Colors.light.textSecondary,
+    marginLeft: 4,
+  },
+  segmentControl: {
+    flexDirection: 'row',
+    backgroundColor: Colors.light.surfaceVariant,
+    borderRadius: DesignTokens.radius.md,
+    padding: 2,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: DesignTokens.spacing.sm,
+    alignItems: 'center',
+    borderRadius: DesignTokens.radius.sm,
+  },
+  segmentButtonActive: {
+    backgroundColor: Colors.light.background,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: DesignTokens.typography.fontSizes.sm,
+    color: Colors.light.textSecondary,
+  },
+  segmentTextActive: {
+    color: Colors.light.primary,
+    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
   },
 });

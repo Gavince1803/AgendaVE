@@ -570,7 +570,14 @@ export default function ProviderDetailScreen() {
                             <IconSymbol name="clock" size={12} color={Colors.light.primary} />
                             <ThemedText style={styles.serviceMetaText}>{formatDuration(service.duration_minutes)}</ThemedText>
                           </View>
-                          <ThemedText style={styles.servicePrice}>{formatPrice(service.price_amount)}</ThemedText>
+                          <ThemedText style={styles.servicePrice}>
+                            {service.input_type === 'range' && service.price_max
+                              ? `$${service.price_amount} - $${service.price_max}`
+                              : service.input_type === 'starting_at'
+                                ? `Desde $${service.price_amount}`
+                                : formatPrice(service.price_amount)
+                            }
+                          </ThemedText>
                         </View>
                       </View>
                       <Button
@@ -619,7 +626,8 @@ export default function ProviderDetailScreen() {
           </MotionFadeIn>
         )}
 
-        {teamMembers.length > 0 && (
+        {/* FEATURE FLAGGED: Team section hidden for now as per user request */}
+        {false && teamMembers.length > 0 && (
           <MotionFadeIn delay={120}>
             <ThemedView style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Conoce al equipo</ThemedText>
@@ -628,7 +636,7 @@ export default function ProviderDetailScreen() {
                   <Card key={member.id} variant="outlined" style={styles.teamCard}>
                     <View style={styles.teamHeader}>
                       <OptimizedImage
-                        source={member.avatar_url || provider.logo_url || undefined}
+                        source={member.avatar_url || provider?.logo_url || undefined}
                         style={styles.teamAvatar}
                         contentFit="cover"
                       />

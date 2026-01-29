@@ -231,7 +231,7 @@ export function CalendarView({
                     { color: dayCell.isSelected ? '#fff' : getStatusColor(apt.status) }
                   ]}
                 >
-                  {apt.appointment_time.slice(0, 5)} {apt.profiles?.display_name || apt.client_name || 'Cliente'}
+                  {formatTime12h(apt.appointment_time)} {apt.profiles?.display_name || apt.client_name || 'Cliente'}
                 </ThemedText>
               </View>
             ))}
@@ -341,7 +341,7 @@ export function CalendarView({
                     <View style={styles.appointmentTime}>
                       <IconSymbol name="clock" size={16} color={Colors.light.primary} />
                       <ThemedText style={styles.appointmentTimeText}>
-                        {appointment.appointment_time}
+                        {formatTime12h(appointment.appointment_time)}
                       </ThemedText>
                     </View>
                     <ThemedText style={styles.appointmentService} numberOfLines={1}>
@@ -467,7 +467,7 @@ export function CalendarView({
                     <View style={styles.appointmentTime}>
                       <IconSymbol name="clock" size={16} color={Colors.light.primary} />
                       <ThemedText style={styles.appointmentTimeText}>
-                        {appointment.appointment_time}
+                        {formatTime12h(appointment.appointment_time)}
                       </ThemedText>
                     </View>
                     <ThemedText style={styles.appointmentService} numberOfLines={1}>
@@ -582,6 +582,17 @@ function getStatusLabel(status: string): string {
   }
 }
 
+
+function formatTime12h(time: string): string {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':');
+  let h = parseInt(hours, 10);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12;
+  h = h ? h : 12;
+  return `${h}:${minutes} ${ampm}`;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -672,10 +683,13 @@ const styles = StyleSheet.create({
   dayCell: {
     width: `${100 / 7}%`,
     aspectRatio: 1,
-    padding: DesignTokens.spacing.xs,
+    paddingHorizontal: 2,
+    paddingTop: 6, // Push number down slightly for better look
+    paddingBottom: 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start', // Align to top
     borderRadius: DesignTokens.radius.md,
+    overflow: 'hidden', // Prevent shape distortion
   },
   dayCellInactive: {
     opacity: 0.3,
@@ -704,8 +718,8 @@ const styles = StyleSheet.create({
   appointmentIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: DesignTokens.spacing.xs,
-    marginTop: DesignTokens.spacing.xs,
+    gap: 1, // Minimize gap
+    marginTop: 0, // Ensure it sits tight under the number
   },
   appointmentDot: {
     width: 6,

@@ -2,7 +2,7 @@
   "expo": {
     "name": "MiCita",
     "slug": "AgendaVE",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon-final.png",
     "scheme": "agendave",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gavince1803.AgendaVE",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -24,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gavince1803.AgendaVE",
-      "versionCode": 8,
+      "versionCode": 9,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",

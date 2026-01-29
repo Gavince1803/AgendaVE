@@ -283,7 +283,11 @@ export default function AppointmentsScreen() {
         <View style={styles.detailItem}>
           <IconSymbol name="dollarsign.circle" size={16} color={Colors.light.textSecondary} />
           <ThemedText style={styles.detailText}>
-            {(appointment.service?.price_amount || appointment.services?.price_amount) ? `$${appointment.service?.price_amount || appointment.services?.price_amount} ${appointment.service?.price_currency || appointment.services?.price_currency}` : 'N/A'}
+            {(appointment.price_amount !== null && appointment.price_amount !== undefined)
+              ? `$${appointment.price_amount} ${appointment.service?.price_currency || appointment.services?.price_currency || 'USD'}`
+              : (appointment.service?.price_amount || appointment.services?.price_amount)
+                ? `$${appointment.service?.price_amount || appointment.services?.price_amount} ${appointment.service?.price_currency || appointment.services?.price_currency}`
+                : 'N/A'}
           </ThemedText>
         </View>
       </View>

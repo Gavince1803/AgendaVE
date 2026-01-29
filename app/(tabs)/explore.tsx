@@ -11,6 +11,7 @@ import {
   ProviderListSkeleton,
   ScreenLoading
 } from '@/components/ui/LoadingStates';
+import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { BookingService, DiscoverySection, Provider } from '@/lib/booking-service';
 import { LogCategory, useLogger } from '@/lib/logger';
@@ -57,10 +58,7 @@ export default function ExploreScreen() {
 
   const categories = [
     { id: 'all', name: 'Todos', icon: 'grid' },
-    { id: 'hair', name: 'Peluquería', icon: 'scissors', keywords: ['peluqueria', 'peluquero', 'barberia', 'barbero', 'corte', 'peinado'] },
-    { id: 'beauty', name: 'Estética', icon: 'sparkles', keywords: ['estetica', 'belleza', 'facial', 'manicure', 'pedicure'] },
-    { id: 'health', name: 'Salud', icon: 'cross.case', keywords: ['salud', 'medico', 'doctor', 'clinica', 'dental'] },
-    { id: 'wellness', name: 'Bienestar', icon: 'leaf', keywords: ['bienestar', 'spa', 'masaje', 'relajacion', 'yoga'] },
+    ...BUSINESS_CATEGORIES
   ];
 
   useEffect(() => {
@@ -107,15 +105,8 @@ export default function ExploreScreen() {
             return true;
           }
 
-          // Búsqueda por palabras clave de categorías
-          const selectedCat = categories.find(cat => cat.id === selectedCategory);
-          if (selectedCat && selectedCat.keywords) {
-            return selectedCat.keywords.some(keyword =>
-              businessName.includes(keyword) || category.includes(keyword)
-            );
-          }
-
           return false;
+
         });
       }
 

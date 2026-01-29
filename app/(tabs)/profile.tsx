@@ -167,30 +167,30 @@ export default function ProfileScreen() {
         );
       },
     },
-    {
-      id: 'payment-methods',
-      title: 'Métodos de Pago',
-      icon: 'creditcard',
-      onPress: () => {
-        // Show payment methods management
-        showAlert(
-          'Métodos de Pago',
-          'Gestiona tus métodos de pago y facturación',
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Agregar Tarjeta',
-              onPress: () => {
-                showAlert('Información', 'La gestión de métodos de pago estará disponible próximamente');
-              }
-            }
-          ]
-        );
-      },
-    },
+    // {
+    //   id: 'payment-methods',
+    //   title: 'Métodos de Pago',
+    //   icon: 'creditcard',
+    //   onPress: () => {
+    //     // Show payment methods management
+    //     showAlert(
+    //       'Métodos de Pago',
+    //       'Gestiona tus métodos de pago y facturación',
+    //       [
+    //         {
+    //           text: 'Cancelar',
+    //           style: 'cancel'
+    //         },
+    //         {
+    //           text: 'Agregar Tarjeta',
+    //           onPress: () => {
+    //             showAlert('Información', 'La gestión de métodos de pago estará disponible próximamente');
+    //           }
+    //         }
+    //       ]
+    //     );
+    //   },
+    // },
     {
       id: 'help',
       title: 'Ayuda y Soporte',
@@ -282,6 +282,14 @@ export default function ProfileScreen() {
       },
     ] : []),
     ...(isEmployee ? [
+      {
+        id: 'employee-services',
+        title: 'Mis Servicios',
+        icon: 'wrench.and.screwdriver',
+        onPress: () => {
+          router.push('/(employee)/services');
+        },
+      },
       {
         id: 'employee-schedule',
         title: 'Mi Horario',

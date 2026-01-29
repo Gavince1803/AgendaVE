@@ -94,19 +94,8 @@ export default function RegisterOwnerScreen() {
       }, cedula);
 
       // Mostrar mensaje de éxito
-      showAlert(
-        '¡Negocio registrado exitosamente! 🎉',
-        'Tu cuenta de negocio ha sido creada correctamente. Bienvenido.',
-        [
-          {
-            text: 'Continuar',
-            onPress: () => {
-              // Redirigir al inicio, el auth context manejará la navegación
-              router.replace('/');
-            }
-          }
-        ]
-      );
+      // Redirigir al inicio inmediatamente
+      router.replace('/');
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error('Error al registrarse');
       showAlert('Error', err.message || 'Error al registrarse');

@@ -6,6 +6,7 @@ import { HomeDashboardSkeleton } from '@/components/ui/LoadingStates';
 import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
 import { Colors, DesignTokens } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/GlobalAlertContext';
@@ -181,12 +182,22 @@ function ClientHomeScreen() {
     log.info(LogCategory.UI, 'Dashboard refresh completed', { screen: 'ClientHome' });
   };
 
-  const categories = [
-    { name: 'Peluquería', icon: 'scissors', color: Colors.light.primary },
-    { name: 'Estética', icon: 'star', color: Colors.light.secondary },
-    { name: 'Salud', icon: 'cross.case', color: Colors.light.success },
-    { name: 'Bienestar', icon: 'heart', color: Colors.light.accent },
+  const categoryColors = [
+    Colors.light.primary,
+    Colors.light.secondary,
+    Colors.light.success,
+    Colors.light.accent,
+    '#FF9F43', // Orange
+    '#A3CB38', // Light Green
+    '#1289A7', // Blue
+    '#D980FA', // Lavender
+    '#B53471', // Berry
   ];
+
+  const categories = BUSINESS_CATEGORIES.map((cat, index) => ({
+    ...cat,
+    color: categoryColors[index % categoryColors.length]
+  }));
 
 
   // Show skeleton while loading
@@ -455,7 +466,7 @@ function ProviderHomeScreen() {
   const [appointments, setAppointments] = React.useState<Appointment[]>([]);
   const [metrics, setMetrics] = React.useState<ProviderDashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = React.useState(true);
-  const [exchangeRate, setExchangeRate] = React.useState<number | null>(null);
+  const [exchangeRate, setExchangeRate] = React.useState<any | null>(null);
   const { user, employeeProfile } = useAuth();
   const [expiredCount, setExpiredCount] = React.useState(0);
   const [provider, setProvider] = React.useState<Provider | null>(null);
@@ -471,7 +482,7 @@ function ProviderHomeScreen() {
   const loadExchangeRate = async () => {
     const rate = await CurrencyService.getExchangeRate();
     if (rate) {
-      setExchangeRate(rate.usd);
+      setExchangeRate(rate);
     }
   };
 
@@ -626,9 +637,24 @@ function ProviderHomeScreen() {
         {/* Header */}
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.welcomeText}>
-            Dashboard 📊
-          </ThemedText>
+          <View>
+            <ThemedText type="title" style={styles.welcomeText}>
+              Dashboard 📊
+            </ThemedText>
+            {exchangeRate && (
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 4, alignItems: 'center' }}>
+                <ThemedText style={{ fontSize: 11, fontWeight: '600', color: Colors.light.textSecondary }}>
+                  $ {exchangeRate.usd?.toFixed(2)} BCV
+                </ThemedText>
+                <ThemedText style={{ fontSize: 11, fontWeight: '600', color: Colors.light.textSecondary }}>
+                  $ {(exchangeRate.parallel || 0).toFixed(2)} PAR
+                </ThemedText>
+                <ThemedText style={{ fontSize: 11, fontWeight: '600', color: Colors.light.textSecondary }}>
+                  € {(exchangeRate.eur || 0).toFixed(2)} EUR
+                </ThemedText>
+              </View>
+            )}
+          </View>
 
           <View style={styles.headerControls}>
             <Button
@@ -674,22 +700,7 @@ function ProviderHomeScreen() {
           </View>
         )}
 
-        {/* Tasa del Día */}
-        {exchangeRate && (
-          <View style={styles.exchangeRateContainer}>
-            <Card variant="outlined" shadow="none" style={styles.exchangeRateCard}>
-              <View style={styles.exchangeRateIconContainer}>
-                <Text style={styles.exchangeRateFlag}>🇻🇪</Text>
-              </View>
-              <View>
-                <Text style={styles.exchangeRateLabel}>Tasa BCV del Día</Text>
-                <Text style={styles.exchangeRateValue}>
-                  {exchangeRate.toFixed(4)} Bs
-                </Text>
-              </View>
-            </Card>
-          </View>
-        )}
+
 
         {/* Indicadores clave */}
         <View style={styles.section}>
@@ -954,6 +965,30 @@ function EmployeeHomeScreen() {
           </View>
         </View>
 
+        {/* Acciones Rápidas */}
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Acciones Rápidas
+          </ThemedText>
+          <View style={styles.quickActionsGrid}>
+            <Card
+              variant="outlined"
+              shadow="none"
+              style={styles.quickActionCard}
+              onPress={() => {
+                log.userAction('Navigate to profile', { screen: 'EmployeeHome' });
+                router.push('/(tabs)/profile');
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: Colors.light.secondary + '20' }]}>
+                <IconSymbol name="person" size={24} color={Colors.light.secondary} />
+              </View>
+              <ThemedText style={styles.quickActionTitle}>Mi Perfil</ThemedText>
+              <ThemedText style={styles.quickActionSubtitle}>Ver información</ThemedText>
+            </Card>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Próximas citas
@@ -1085,10 +1120,11 @@ const styles = StyleSheet.create({
     gap: DesignTokens.spacing.md,
   },
   categoryCard: {
-    width: 100,
+    width: 85,
+    height: 110,
     alignItems: 'center',
-    paddingVertical: DesignTokens.spacing.lg,
-    paddingHorizontal: DesignTokens.spacing.sm,
+    paddingVertical: DesignTokens.spacing.md,
+    paddingHorizontal: DesignTokens.spacing.xs,
     marginRight: DesignTokens.spacing.md,
   },
   categoryIcon: {

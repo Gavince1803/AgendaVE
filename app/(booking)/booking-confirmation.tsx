@@ -329,7 +329,7 @@ export default function BookingConfirmationScreen() {
               <View style={styles.termsContent}>
                 <View style={styles.termItem}>
                   <IconSymbol name="clock.arrow.circlepath" size={16} color={Colors.light.textSecondary} />
-                  <Text style={styles.termText}>Cancelación gratuita hasta 2 horas antes</Text>
+                  <Text style={styles.termText}>Si no cancelas con 2 horas de antelación se le aplicará una penalización de no show a su cuenta</Text>
                 </View>
                 <View style={styles.termItem}>
                   <IconSymbol name="figure.walk" size={16} color={Colors.light.textSecondary} />
@@ -338,13 +338,6 @@ export default function BookingConfirmationScreen() {
                 <View style={styles.termItem}>
                   <IconSymbol name="creditcard" size={16} color={Colors.light.textSecondary} />
                   <Text style={styles.termText}>Pago al finalizar el servicio</Text>
-                </View>
-
-                <View style={[styles.termItem, { marginTop: 8 }]}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={16} color={Colors.light.warning} />
-                  <Text style={[styles.termText, { color: Colors.light.warning }]}>
-                    Cancelación tardía: 50% de recargo
-                  </Text>
                 </View>
               </View>
             </View>

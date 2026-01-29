@@ -4,7 +4,7 @@ import { EmployeeSelector } from '@/components/ui/EmployeeSelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ServiceListSkeleton } from '@/components/ui/LoadingStates';
 import { Colors, DesignTokens } from '@/constants/Colors';
-import { BookingService, Employee, Service } from '@/lib/booking-service';
+import { BookingService, Employee, Service, ServiceEmployeePricing } from '@/lib/booking-service';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -27,9 +27,12 @@ export default function ServiceSelectionScreen() {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [services, setServices] = useState<ExtendedService[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [employeesLoading, setEmployeesLoading] = useState(true);
+
+  // Map: ServiceID -> EmployeeID -> Pricing
+  const [customPriceMap, setCustomPriceMap] = useState<Record<string, Record<string, ServiceEmployeePricing>>>({});
 
   // Smooth auto-scroll handling
   const scrollRef = useRef<ScrollView | null>(null);
@@ -41,6 +44,20 @@ export default function ServiceSelectionScreen() {
     try {
       const providerServices = await BookingService.getProviderServices(providerId as string);
       setServices(providerServices as ExtendedService[]);
+
+      // Fetch custom prices for these services
+      const ids = providerServices.map(s => s.id);
+      if (ids.length > 0) {
+        const prices = await BookingService.getEmployeePricesForServices(ids);
+        const map: Record<string, Record<string, ServiceEmployeePricing>> = {};
+
+        prices.forEach(p => {
+          if (!map[p.service_id]) map[p.service_id] = {};
+          map[p.service_id][p.employee_id] = p;
+        });
+        setCustomPriceMap(map);
+        console.log('🔴 [SERVICE SELECTION] Custom prices loaded:', prices.length);
+      }
     } catch (error) {
       console.error('Error loading services:', error);
       setServices([]);
@@ -49,18 +66,46 @@ export default function ServiceSelectionScreen() {
     }
   }, [providerId]);
 
+  type ExtendedEmployee = Employee & {
+    teamMemberId?: string;
+  };
+
+  const [employees, setEmployees] = useState<ExtendedEmployee[]>([]);
+  // ...
+
   const loadEmployees = useCallback(async () => {
     setEmployeesLoading(true);
     console.log('🔴 [SERVICE SELECTION] Loading employees for provider:', providerId);
     try {
-      const providerEmployees = await BookingService.getProviderEmployees(providerId as string);
-      console.log('🔴 [SERVICE SELECTION] Loaded employees:', providerEmployees);
-      setEmployees(providerEmployees);
+      // Parallel fetch: Employees (for booking/avail) AND Team (for pricing/public profile)
+      const [providerEmployees, teamMembers] = await Promise.all([
+        BookingService.getProviderEmployees(providerId as string),
+        BookingService.getProviderTeam(providerId as string)
+      ]);
+
+      console.log('🔴 [SERVICE SELECTION] Loaded:', {
+        employees: providerEmployees.length,
+        teamMembers: teamMembers.length
+      });
+
+      // Merge: Attach teamMemberId to Employee based on profile_id match
+      const mergedEmployees: ExtendedEmployee[] = providerEmployees.map(emp => {
+        // Find matching team member by profile_id
+        const tm = teamMembers.find(t => t.profile_id === emp.profile_id);
+        // If found, use its ID. If not, log warning (pricing might fail)
+        if (!tm) console.warn('⚠️ Employee has no TeamMember link:', emp.name);
+        return {
+          ...emp,
+          teamMemberId: tm?.id
+        };
+      });
+
+      setEmployees(mergedEmployees);
 
       // Auto-select the first employee (usually the owner)
-      if (providerEmployees.length > 0) {
-        setSelectedEmployee(providerEmployees[0]);
-        console.log('🔴 [SERVICE SELECTION] Auto-selected employee:', providerEmployees[0]);
+      if (mergedEmployees.length > 0) {
+        setSelectedEmployee(mergedEmployees[0]);
+        console.log('🔴 [SERVICE SELECTION] Auto-selected employee:', mergedEmployees[0].name);
       } else {
         console.log('🔴 [SERVICE SELECTION] No employees found for provider');
       }
@@ -108,6 +153,25 @@ export default function ServiceSelectionScreen() {
       return;
     }
 
+    // Helper to get final price/duration based on selected employee
+    const getFinalServiceDetails = (service: Service) => {
+      let price = service.price_amount;
+      let duration = service.duration_minutes;
+
+      const currentEmp = selectedEmployee as ExtendedEmployee | null;
+      if (currentEmp) {
+        // Use teamMemberId if available (for precise pricing), otherwise fallback to employee id (legacy)
+        const targetId = currentEmp.teamMemberId || currentEmp.id;
+        const custom = customPriceMap[service.id]?.[targetId];
+        if (custom) {
+          console.log(`💰 Using custom price for ${currentEmp.name}: $${custom.price}`);
+          price = custom.price;
+          if (custom.duration_minutes) duration = custom.duration_minutes;
+        }
+      }
+      return { price, duration };
+    };
+
     console.log('🔴 [SERVICE SELECTION] handleContinue called', {
       selectedService,
       preselectedServiceId,
@@ -115,75 +179,89 @@ export default function ServiceSelectionScreen() {
       servicesCount: services.length
     });
 
-    // If service is preselected AND we have all details
-    if (preselectedServiceId && preselectedServiceName && preselectedServicePrice) {
-      console.log('🔴 [SERVICE SELECTION] Using preselected service params');
+    const currentEmp = selectedEmployee as ExtendedEmployee | null;
+    const baseParams: any = {
+      providerId,
+      providerName,
+      serviceId: '',
+      serviceName: '',
+      servicePrice: '0',
+      serviceDuration: '0',
+      employeeId: currentEmp?.id || '',
+      teamMemberId: currentEmp?.teamMemberId || '', // Pass Team Member ID!
+      employeeName: currentEmp?.name || '',
+    };
+
+    // Internal helper to push router
+    const pushRouter = (s: ExtendedService) => {
+      const { price, duration } = getFinalServiceDetails(s);
       router.push({
         pathname: '/(booking)/time-selection',
         params: {
-          providerId,
-          providerName,
+          ...baseParams,
+          serviceId: s.id,
+          serviceName: s.name,
+          servicePrice: price.toString(),
+          serviceDuration: duration.toString(),
+        }
+      });
+    };
+
+    // If service is preselected AND we have all details
+    if (preselectedServiceId && preselectedServiceName && preselectedServicePrice) {
+      console.log('🔴 [SERVICE SELECTION] Using preselected service params');
+      // Even if preselected, we should look for overrides if employee is selected?
+      // But typically preselection implies user already made choices.
+      // We'll stick to basic router push for preselection but add employee details.
+      router.push({
+        pathname: '/(booking)/time-selection',
+        params: {
+          ...baseParams,
           serviceId: preselectedServiceId as string,
           serviceName: preselectedServiceName as string,
           servicePrice: preselectedServicePrice as string,
           serviceDuration: preselectedServiceDuration as string,
-          employeeId: selectedEmployee?.id || '',
-          employeeName: selectedEmployee?.name || '',
         },
       });
     } else if (preselectedServiceId && services.length > 0) {
-      // Fallback: Service ID is preselected but details missing (e.g. from back nav)
-      // Find it in the loaded list
+      // Fallback: Service ID is preselected but details missing
       const service = services.find(s => s.id === preselectedServiceId);
-      if (service) {
-        console.log('🔴 [SERVICE SELECTION] Found preselected service in list fallback');
-        const servicePriceValue = service.price_amount ?? 0;
-        const serviceDurationValue = service.duration_minutes ?? 30;
-        router.push({
-          pathname: '/(booking)/time-selection',
-          params: {
-            providerId,
-            providerName,
-            serviceId: service.id,
-            serviceName: service.name,
-            servicePrice: servicePriceValue.toString(),
-            serviceDuration: serviceDurationValue.toString(),
-            employeeId: selectedEmployee?.id || '',
-            employeeName: selectedEmployee?.name || '',
-          },
-        });
-      } else {
-        console.error('🔴 [SERVICE SELECTION] Preselected service ID not found in list');
-      }
+      if (service) pushRouter(service);
+      else console.error('🔴 [SERVICE SELECTION] Preselected service ID not found in list');
     } else {
       // Otherwise, find the service from the loaded services array
       const service = services.find(s => s.id === selectedService);
-      if (service) {
-        console.log('🔴 [SERVICE SELECTION] Using selected service from list');
-        const servicePriceValue = service.price_amount ?? 0;
-        const serviceDurationValue = service.duration_minutes ?? 30;
-        router.push({
-          pathname: '/(booking)/time-selection',
-          params: {
-            providerId,
-            providerName,
-            serviceId: service.id,
-            serviceName: service.name,
-            servicePrice: servicePriceValue.toString(),
-            serviceDuration: serviceDurationValue.toString(),
-            employeeId: selectedEmployee?.id || '',
-            employeeName: selectedEmployee?.name || '',
-          },
-        });
-      } else {
-        console.log('🔴 [SERVICE SELECTION] Service not found in services array');
-      }
+      if (service) pushRouter(service);
+      else console.log('🔴 [SERVICE SELECTION] Service not found in services array');
     }
   };
 
   const selectedServiceData = selectedService
     ? services.find((s) => s.id === selectedService)
     : null;
+
+  const getDisplayPrice = (service: ExtendedService) => {
+    let price = service.price_amount ?? 0;
+    let priceMax = service.price_max;
+    let duration = service.duration_minutes ?? 0;
+
+    const currentEmp = selectedEmployee as ExtendedEmployee | null;
+    if (currentEmp) {
+      const targetId = currentEmp.teamMemberId || currentEmp.id;
+      const custom = customPriceMap[service.id]?.[targetId];
+      if (custom) {
+        price = custom.price;
+        priceMax = custom.price_max; // Use custom max if available (undefined otherwise)
+        if (custom.duration_minutes) duration = custom.duration_minutes;
+      }
+    }
+    return { price, priceMax, duration };
+  };
+
+  const selectedServiceDisplay = selectedServiceData ? {
+    name: selectedServiceData.name,
+    ...getDisplayPrice(selectedServiceData)
+  } : null;
 
   return (
     <View style={styles.container}>
@@ -242,15 +320,7 @@ export default function ServiceSelectionScreen() {
             }
           }}
           loading={employeesLoading}
-          selectedService={
-            selectedServiceData
-              ? {
-                name: selectedServiceData.name,
-                price: selectedServiceData.price_amount ?? 0,
-                duration: selectedServiceData.duration_minutes ?? 0,
-              }
-              : null
-          }
+          selectedService={selectedServiceDisplay}
         />
 
         {/* Lista de servicios - only show if no service is preselected */}
@@ -266,46 +336,63 @@ export default function ServiceSelectionScreen() {
               <ServiceListSkeleton />
             ) : (
               <View style={styles.servicesList}>
-                {services.map((service) => (
-                  <Card
-                    key={service.id}
-                    variant={selectedService === service.id ? "premium" : "soft"}
-                    padding="large"
-                    style={[
-                      styles.serviceCard,
-                      selectedService === service.id ? styles.selectedServiceCard : styles.unselectedServiceCard
-                    ]}
-                    shadow={selectedService === service.id ? "lg" : "sm"}
-                    onPress={() => handleServiceSelect(service.id)}
-                  >
-                    <View style={styles.serviceHeader}>
-                      <View style={styles.serviceInfo}>
-                        <View style={styles.serviceTitleRow}>
-                          <Text style={styles.serviceName}>{service.name}</Text>
-                          {service.isPopular && (
-                            <View style={styles.popularBadge}>
-                              <Text style={styles.popularText}>Popular</Text>
-                            </View>
+                {services.map((service) => {
+                  const { price, priceMax, duration } = getDisplayPrice(service);
+                  const isCustomized = !!(selectedEmployee && customPriceMap[service.id]?.[(selectedEmployee as ExtendedEmployee).teamMemberId || selectedEmployee.id]);
+
+                  return (
+                    <Card
+                      key={service.id}
+                      variant={selectedService === service.id ? "premium" : "soft"}
+                      padding="large"
+                      style={[
+                        styles.serviceCard,
+                        selectedService === service.id ? styles.selectedServiceCard : styles.unselectedServiceCard
+                      ]}
+                      shadow={selectedService === service.id ? "lg" : "sm"}
+                      onPress={() => handleServiceSelect(service.id)}
+                    >
+                      <View style={styles.serviceHeader}>
+                        <View style={styles.serviceInfo}>
+                          <View style={styles.serviceTitleRow}>
+                            <Text style={styles.serviceName}>{service.name}</Text>
+                            {service.isPopular && (
+                              <View style={styles.popularBadge}>
+                                <Text style={styles.popularText}>Popular</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.serviceDescription}>{service.description}</Text>
+                          <Text style={styles.serviceCategory}>{service.category_label || 'Servicio'}</Text>
+                        </View>
+
+                        <View style={styles.servicePricing}>
+                          <Text style={styles.servicePrice}>
+                            {service.input_type === 'range' && priceMax
+                              ? `$${price} - $${priceMax}`
+                              : service.input_type === 'starting_at'
+                                ? `Desde $${price}`
+                                : `$${price}`
+                            }
+                          </Text>
+                          <Text style={styles.serviceDuration}>{duration} min</Text>
+                          {isCustomized && (
+                            <Text style={{ fontSize: 10, color: Colors.light.primary, marginTop: 2 }}>
+                              Por {selectedEmployee?.name?.split(' ')[0]}
+                            </Text>
                           )}
                         </View>
-                        <Text style={styles.serviceDescription}>{service.description}</Text>
-                        <Text style={styles.serviceCategory}>{service.category_label || 'Servicio'}</Text>
                       </View>
 
-                      <View style={styles.servicePricing}>
-                        <Text style={styles.servicePrice}>${service.price_amount ?? 0}</Text>
-                        <Text style={styles.serviceDuration}>{service.duration_minutes ?? 0} min</Text>
-                      </View>
-                    </View>
-
-                    {selectedService === service.id && (
-                      <View style={styles.selectedIndicator}>
-                        <IconSymbol name="checkmark.circle" size={20} color={Colors.light.success} />
-                        <Text style={styles.selectedText}>Seleccionado</Text>
-                      </View>
-                    )}
-                  </Card>
-                ))}
+                      {selectedService === service.id && (
+                        <View style={styles.selectedIndicator}>
+                          <IconSymbol name="checkmark.circle" size={20} color={Colors.light.success} />
+                          <Text style={styles.selectedText}>Seleccionado</Text>
+                        </View>
+                      )}
+                    </Card>
+                  );
+                })}
               </View>
             )}
           </View>

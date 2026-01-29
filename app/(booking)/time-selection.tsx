@@ -31,7 +31,8 @@ export default function TimeSelectionScreen() {
     servicePrice,
     serviceDuration,
     employeeId,
-    employeeName
+    employeeName,
+    teamMemberId
   } = useLocalSearchParams();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +73,29 @@ export default function TimeSelectionScreen() {
         );
       }
 
+      // Filter out past times if date is today
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+
+      if (date === todayStr) {
+        console.log('🕒 [TIME SELECTION] Filtering past times for today. Current time:', today.getHours() + ':' + today.getMinutes(), 'Original slots:', slots.length);
+        slots = slots.filter(time => {
+          const [hStr, mStr] = time.split(':');
+          const h = parseInt(hStr, 10);
+          const m = parseInt(mStr, 10);
+          const nowH = today.getHours();
+          const nowM = today.getMinutes();
+
+          if (h > nowH) return true;
+          if (h === nowH && m > nowM) return true;
+          return false;
+        });
+        console.log('🕒 [TIME SELECTION] Slots after filtering:', slots.length);
+      }
+
       setAvailableTimes(slots);
       return slots;
     } catch (error) {
@@ -107,6 +131,45 @@ export default function TimeSelectionScreen() {
       setAvailableTimes([]);
     }
   }, [selectedDate, providerId, loadAvailableTimes]);
+
+  const [finalPrice, setFinalPrice] = useState(servicePrice);
+
+  // Check for employee-specific price override
+  useEffect(() => {
+    const checkEmployeePrice = async () => {
+      // Use teamMemberId if available (it matches pricing table), otherwise employeeId
+      const targetId = (teamMemberId as string) || (employeeId as string);
+
+      if (targetId && targetId !== 'any' && serviceId) {
+        try {
+          const prices = await BookingService.getServiceEmployeePrices(serviceId as string);
+
+          // Check match on employee_id (which usually stores TeamMemberID in pricing table)
+          const employeePrice = prices.find(p => p.employee_id === targetId);
+
+          if (employeePrice) {
+            console.log(`💰 [TIME SELECTION] Found custom price for ${targetId}: $${employeePrice.price}`);
+            setFinalPrice(employeePrice.price.toString());
+          } else {
+            // If we passed a specific ID but found no price, revert to base service price
+            console.log('Using base service price');
+            // setFinalPrice(servicePrice); // Don't reset if we are just searching, but maybe we should?
+            // Actually servicePrice param is the base one passed from prev screen.
+          }
+        } catch (e) {
+          console.error('Error fetching employee price:', e);
+        }
+      }
+    };
+
+    checkEmployeePrice();
+  }, [employeeId, teamMemberId, serviceId]);
+
+  // Keep finalPrice in sync if servicePrice prop changes (and no override found yet)
+  useEffect(() => {
+    // Only reset if we haven't fetched a custom price? 
+    // For safety, let's just initialize. The dedicated effect above handles the override.
+  }, [servicePrice]);
 
   useEffect(() => {
     if (selectedDate && !selectedTime && availableTimes.length > 0) {
@@ -210,7 +273,7 @@ export default function TimeSelectionScreen() {
     // Check if user is logged in
     if (!user) {
       // Redirect to login with returnUrl
-      const returnUrl = `/(booking)/booking-confirmation?providerId=${providerId}&providerName=${providerName}&serviceId=${serviceId}&serviceName=${serviceName}&servicePrice=${servicePrice}&serviceDuration=${serviceDuration}&employeeId=${employeeId || 'any'}&employeeName=${employeeName || ''}&selectedDate=${selectedDate}&selectedTime=${selectedTime}`;
+      const returnUrl = `/(booking)/booking-confirmation?providerId=${providerId}&providerName=${providerName}&serviceId=${serviceId}&serviceName=${serviceName}&servicePrice=${finalPrice}&serviceDuration=${serviceDuration}&employeeId=${employeeId || 'any'}&employeeName=${employeeName || ''}&selectedDate=${selectedDate}&selectedTime=${selectedTime}`;
 
       router.push({
         pathname: '/(auth)/login',
@@ -226,7 +289,7 @@ export default function TimeSelectionScreen() {
         providerName,
         serviceId,
         serviceName,
-        servicePrice,
+        servicePrice: finalPrice, // Use final/custom price
         serviceDuration,
         employeeId: employeeId || 'any',
         employeeName: employeeName || '',
@@ -440,7 +503,7 @@ export default function TimeSelectionScreen() {
               </View>
               <View style={[styles.summaryRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Total:</Text>
-                <Text style={styles.totalValue}>${servicePrice}</Text>
+                <Text style={styles.totalValue}>${finalPrice}</Text>
               </View>
             </Card>
           </View>
@@ -455,7 +518,7 @@ export default function TimeSelectionScreen() {
           <View style={styles.footerServiceDetails}>
             <Text style={styles.footerServiceText}>{serviceDuration} min</Text>
             <Text style={styles.footerServiceDot}>•</Text>
-            <Text style={styles.footerServicePrice}>${servicePrice}</Text>
+            <Text style={styles.footerServicePrice}>${finalPrice}</Text>
           </View>
         </View>
 

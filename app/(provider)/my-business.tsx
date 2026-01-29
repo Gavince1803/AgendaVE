@@ -8,7 +8,7 @@ import NotificationBell from '@/components/ui/NotificationBell';
 import { TabSafeAreaView } from '@/components/ui/SafeAreaView';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BUSINESS_CATEGORIES } from '@/constants/BusinessCategories';
-import { Colors, DesignTokens } from '@/constants/Colors';
+import { Colors } from '@/constants/Colors';
 import { Config } from '@/constants/Config';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/GlobalAlertContext';
@@ -20,7 +20,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Share as NativeShare, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Share as NativeShare, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MyBusinessScreen() {
@@ -553,7 +553,6 @@ export default function MyBusinessScreen() {
                     title={saving ? "Guardando..." : "Guardar Cambios"}
                     variant="primary"
                     onPress={() => {
-                      console.log('🔴 [MY BUSINESS] Botón Guardar presionado');
                       handleSaveBusiness();
                     }}
                     loading={saving}
@@ -693,7 +692,13 @@ export default function MyBusinessScreen() {
                         styles.servicePrice,
                         !service.is_active && { color: Colors.light.textSecondary }
                       ]}>
-                        ${service.price_amount} - {service.duration_minutes} min
+                        {service.input_type === 'range' && service.price_max
+                          ? `$${service.price_amount} - $${service.price_max}`
+                          : service.input_type === 'starting_at'
+                            ? `Desde $${service.price_amount}`
+                            : `$${service.price_amount}`
+                        }
+                        {' • '}{service.duration_minutes} min
                       </ThemedText>
                     </View>
                     <View style={styles.serviceActions}>
@@ -713,12 +718,6 @@ export default function MyBusinessScreen() {
                                 text: action.charAt(0).toUpperCase() + action.slice(1),
                                 onPress: async () => {
                                   try {
-                                    console.log('🔴 [MY BUSINESS] Toggling service:', {
-                                      serviceId: service.id,
-                                      currentStatus: service.is_active,
-                                      newStatus
-                                    });
-
                                     await BookingService.updateService(service.id, {
                                       is_active: newStatus
                                     });
@@ -726,7 +725,7 @@ export default function MyBusinessScreen() {
                                     await loadBusinessData(); // Refresh data
                                     showAlert('Éxito', `Servicio ${actionPast} correctamente`);
                                   } catch (error) {
-                                    console.error('🔴 [MY BUSINESS] Error toggling service:', error);
+                                    console.error('Error toggling service:', error);
                                     showAlert('Error', 'No se pudo actualizar el servicio');
                                   }
                                 }
@@ -747,26 +746,13 @@ export default function MyBusinessScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => {
-                          console.log('🔴 [MY BUSINESS] Delete button pressed for service:', {
-                            serviceId: service.id,
-                            serviceName: service.name
-                          });
-                          console.log('🔴 [MY BUSINESS] Current services before delete:', services.map(s => ({ id: s.id, name: s.name, is_active: s.is_active })));
-
                           const deleteHandler = async () => {
-                            console.log('🔴 [MY BUSINESS] Confirmed deletion for service:', service.id);
                             try {
-                              console.log('🔴 [MY BUSINESS] Calling deleteService...');
                               await BookingService.deleteService(service.id);
-
-                              console.log('🔴 [MY BUSINESS] Service deleted, refreshing data...');
                               await loadBusinessData(); // Refresh data
-
-                              console.log('🔴 [MY BUSINESS] ✅ Service deactivation completed successfully');
-
                               showAlert('Éxito', 'Servicio desactivado correctamente');
                             } catch (error) {
-                              console.error('🔴 [MY BUSINESS] ❌ Error deleting service:', error);
+                              console.error('Error deleting service:', error);
                               const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
 
                               showAlert('Error', `No se pudo eliminar el servicio:\n${errorMessage}`);
@@ -780,7 +766,7 @@ export default function MyBusinessScreen() {
                               {
                                 text: 'Cancelar',
                                 style: 'cancel',
-                                onPress: () => console.log('🔴 [MY BUSINESS] Deactivation cancelled by user')
+                                onPress: () => { }
                               },
                               {
                                 text: 'Desactivar',
@@ -790,14 +776,12 @@ export default function MyBusinessScreen() {
                             ]
                           );
                         }}
-                        style={styles.iconButton}
                       >
                         <IconSymbol name="trash" size={16} color={Colors.light.error} />
                       </TouchableOpacity>
                     </View>
                   </View>
                 ))}
-
               </View>
             ) : (
               <View style={styles.emptyContainer}>
@@ -953,409 +937,4 @@ export default function MyBusinessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.light.background,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  scrollContent: {
-    paddingBottom: DesignTokens.spacing['5xl'],
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingTop: DesignTokens.spacing.sm,
-    paddingBottom: DesignTokens.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-  },
-  backButton: {
-    padding: DesignTokens.spacing.sm,
-    marginLeft: -DesignTokens.spacing.sm,
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 24, // Balance the back button spacing visually if needed, though Space Between handles it partially
-  },
-  section: {
-    margin: DesignTokens.spacing.lg,
-    marginBottom: DesignTokens.spacing.md,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionHeaderStack: {
-    flexDirection: 'column',
-    marginBottom: 16,
-    gap: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    marginBottom: 12,
-  },
-  serviceHeaderActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 12,
-  },
-  sectionTitle: {
-    flex: 1,
-  },
-  editForm: {
-    gap: DesignTokens.spacing.lg,
-  },
-  fieldGroup: {
-    marginBottom: DesignTokens.spacing.lg,
-  },
-  fieldLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.sm,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: DesignTokens.radius.lg,
-    paddingHorizontal: DesignTokens.spacing.lg,
-    paddingVertical: DesignTokens.spacing.md,
-    fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.text,
-    backgroundColor: Colors.light.surface,
-  },
-  textArea: {
-    minHeight: 112,
-  },
-  businessInfo: {
-    gap: DesignTokens.spacing.md,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    width: 100,
-    marginRight: DesignTokens.spacing.md,
-  },
-  infoValue: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    flex: 1,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: DesignTokens.spacing.xl,
-  },
-  emptyText: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    color: Colors.light.text,
-    marginTop: DesignTokens.spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    marginTop: DesignTokens.spacing.sm,
-    textAlign: 'center',
-  },
-  servicesList: {
-    gap: DesignTokens.spacing.md,
-  },
-  serviceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.md,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-  },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  serviceDescription: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.sm,
-  },
-  serviceDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  servicePrice: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    color: Colors.light.success,
-  },
-  statusBadge: {
-    paddingHorizontal: DesignTokens.spacing.sm,
-    paddingVertical: DesignTokens.spacing.xs,
-    borderRadius: DesignTokens.radius.sm,
-  },
-  statusText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.surface,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-  },
-  availabilityInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.lg,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-  },
-  availabilityList: {
-    gap: DesignTokens.spacing.sm,
-  },
-  availabilityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: DesignTokens.spacing.md,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-  },
-  dayInfo: {
-    flex: 1,
-  },
-  dayName: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.semibold as any,
-    color: Colors.light.text,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  timeRange: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
-  availabilityBadge: {
-    paddingHorizontal: DesignTokens.spacing.sm,
-    paddingVertical: DesignTokens.spacing.xs,
-    backgroundColor: Colors.light.success,
-    borderRadius: DesignTokens.radius.sm,
-  },
-  availabilityBadgeText: {
-    fontSize: DesignTokens.typography.fontSizes.xs,
-    color: Colors.light.surface,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-  },
-  availabilityText: {
-    marginLeft: DesignTokens.spacing.md,
-    flex: 1,
-  },
-  availabilityTitle: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  availabilitySubtext: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
-  employeeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.lg,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-  },
-  employeeText: {
-    marginLeft: DesignTokens.spacing.md,
-    flex: 1,
-  },
-  employeeTitle: {
-    fontSize: DesignTokens.typography.fontSizes.base,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  employeeSubtext: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: DesignTokens.spacing.lg,
-  },
-  statItem: {
-    flex: 1,
-    minWidth: '45%',
-    alignItems: 'center',
-    padding: DesignTokens.spacing.lg,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-  },
-  statValue: {
-    fontSize: DesignTokens.typography.fontSizes.xl,
-    fontWeight: DesignTokens.typography.fontWeights.bold as any,
-    color: Colors.light.primary,
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  statLabel: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-  },
-  bottomSpacing: {
-    height: DesignTokens.spacing.xl,
-  },
-  servicesLink: {
-    padding: DesignTokens.spacing.lg,
-  },
-  servicesLinkContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  servicesLinkInfo: {
-    flex: 1,
-  },
-  servicesLinkTitle: {
-    marginBottom: DesignTokens.spacing.xs,
-  },
-  servicesLinkSubtext: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: DesignTokens.spacing.md,
-    marginTop: DesignTokens.spacing.lg,
-    paddingTop: DesignTokens.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
-  },
-  cancelButton: {
-    flex: 1,
-  },
-  serviceActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.sm,
-  },
-  iconButton: {
-    padding: DesignTokens.spacing.sm,
-    borderRadius: DesignTokens.radius.sm,
-    backgroundColor: Colors.light.surfaceVariant,
-  },
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: DesignTokens.spacing.md,
-    paddingHorizontal: DesignTokens.spacing.lg,
-    backgroundColor: Colors.light.surfaceVariant,
-    borderRadius: DesignTokens.radius.md,
-    marginTop: DesignTokens.spacing.md,
-  },
-  viewAllText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.primary,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-  },
-  addFirstServiceButton: {
-    marginTop: DesignTokens.spacing.lg,
-  },
-  secondaryButton: {
-    marginTop: DesignTokens.spacing.md,
-  },
-  profileHeaderContainer: {
-    marginBottom: 50, // Space for the overlapping logo
-    position: 'relative',
-    borderRadius: DesignTokens.radius.lg,
-    // overflow: 'hidden', // Removed to allow logo overlap
-    backgroundColor: Colors.light.surfaceVariant,
-  },
-  profileBanner: {
-    width: '100%',
-    height: 120,
-    borderRadius: DesignTokens.radius.lg,
-    backgroundColor: Colors.light.textSecondary + '20',
-  },
-  profileLogoContainer: {
-    position: 'absolute',
-    bottom: -40, // Half of logo height (80/2)
-    left: 16,
-    padding: 3, // White border effect
-    backgroundColor: Colors.light.surface,
-    borderRadius: 43, // (80 + 6) / 2
-  },
-  profileLogo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.light.surfaceVariant,
-  },
-  serviceHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: DesignTokens.spacing.sm,
-  },
-  toggleButton: {
-    paddingHorizontal: DesignTokens.spacing.md,
-    paddingVertical: DesignTokens.spacing.sm,
-    borderRadius: DesignTokens.radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.surface,
-  },
-  toggleButtonActive: {
-    backgroundColor: Colors.light.primary,
-    borderColor: Colors.light.primary,
-  },
-  toggleButtonText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.text,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-  },
-  toggleButtonTextActive: {
-    color: Colors.light.surface,
-  },
-  sectionDescription: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.textSecondary,
-    marginBottom: DesignTokens.spacing.md,
-  },
-  linkContainer: {
-    backgroundColor: Colors.light.surfaceVariant,
-    padding: DesignTokens.spacing.md,
-    borderRadius: DesignTokens.radius.md,
-    marginBottom: DesignTokens.spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  linkText: {
-    fontSize: DesignTokens.typography.fontSizes.sm,
-    color: Colors.light.primary,
-    fontWeight: DesignTokens.typography.fontWeights.medium as any,
-  },
-  shareButtonsRow: {
-    flexDirection: 'row',
-    gap: DesignTokens.spacing.md,
-  },
-  shareButton: {
-    flex: 1,
-  },
-});
+
