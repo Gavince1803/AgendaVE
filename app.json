@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gavince1803.AgendaVE",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -24,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.gavince1803.AgendaVE",
-      "versionCode": 9,
+      "versionCode": 10,
       "usesCleartextTraffic": false,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
